@@ -6,8 +6,7 @@ exclude = ["vendor/portable-pty"]
 [workspace.package]
 version = "0.6.0"
 edition = "2021"
-license = "MIT"
-
+license = "Apache-2.0 AND MIT"
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

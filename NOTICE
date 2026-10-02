@@ -1,4 +1,10 @@
-MonoCode is not affiliated with, endorsed by, or sponsored by the makers of the
+Bonocode
+Copyright (c) 2026 Ripudaman
+
+Bonocode is based on MonoCode, Copyright (c) 2026 Nick, licensed under
+the MIT License. See LICENSE-MONOCODE.
+
+Bonocode is not affiliated with, endorsed by, or sponsored by the makers of the
 agent harnesses it can drive.
 
 Provider marks that appear in the UI (including Claude, Codex, Cursor, GitHub, GitLab, Linear, Grok, OpenCode, Pi, omp, fx, Hermes, and Nous Research) are trademarks of their respective owners and are used only to identify those products.
