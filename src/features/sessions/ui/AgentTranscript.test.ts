@@ -56,9 +56,9 @@ describe("AgentTranscript collapsed work", () => {
     expect(legacy).not.toContain("/monocode");
   });
 
-  it("shows MonoCode CLI actions instead of their long shell commands", () => {
+  it("shows Bonocode CLI actions instead of their long shell commands", () => {
     const command =
-      "/repo/target/debug/MonoCode.app/Contents/MacOS/monocode";
+      "/repo/target/debug/Bonocode.app/Contents/MacOS/bonocode";
     const markup = render(
       [
         { id: "user", role: "user", text: "/monocode list my notes" },
@@ -77,7 +77,7 @@ describe("AgentTranscript collapsed work", () => {
       ],
       true,
     );
-    expect(markup).toContain("Using MonoCode");
+    expect(markup).toContain("Using Bonocode");
     expect(markup).toContain('data-bonocode-tool-call="--help"');
     expect(markup).toContain('data-bonocode-tool-call="notes.list"');
     expect(markup).toContain("monocode app --help");
@@ -85,10 +85,10 @@ describe("AgentTranscript collapsed work", () => {
     expect(markup).toContain("Ran");
     expect(markup).toContain("Running");
     expect(markup).not.toContain("Contents/MacOS/monocode");
-    expect(markup).not.toContain("Show error details for MonoCode");
+    expect(markup).not.toContain("Show error details for Bonocode");
   });
 
-  it("shows the full command before approving a MonoCode CLI call", () => {
+  it("shows the full command before approving a Bonocode CLI call", () => {
     const command = "monocode app sessions.send --json '{\"prompt\":\"private-marker\"}'";
     const markup = renderToStaticMarkup(
       createElement(AgentTranscript, {
@@ -131,7 +131,7 @@ describe("AgentTranscript collapsed work", () => {
     expect(compound).toContain("Allow</button>");
   });
 
-  it("keeps a failed MonoCode call compact until its error is opened", () => {
+  it("keeps a failed Bonocode call compact until its error is opened", () => {
     const markup = render([
       { id: "user", role: "user", text: "/monocode list notes" },
       {
@@ -144,7 +144,7 @@ describe("AgentTranscript collapsed work", () => {
     expect(markup).toContain('data-bonocode-tool-call="notes.list"');
     expect(markup).toContain("Ran");
     expect(markup).toContain("monocode app notes.list");
-    expect(markup).toContain("Show error details for MonoCode: List notes");
+    expect(markup).toContain("Show error details for Bonocode: List notes");
     expect(markup).not.toContain("Connection refused");
   });
 
