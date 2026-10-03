@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Renamed app to Bonocode: product name, bundle identifier (dev.ripudaman.bonocode), window titles, menu labels and icons.
+- Disabled the inherited MonoCode auto-updater endpoints.
+
 ## [0.6.0] - 2026-09-30
 
 ### Added
