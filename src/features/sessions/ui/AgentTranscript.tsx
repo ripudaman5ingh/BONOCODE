@@ -3171,7 +3171,7 @@ function ActivityToolRow({
 }
 
 function MonoCodeMark({ className = "size-4" }: { className?: string }) {
-  return <img src="/monocode.png" alt="" className={`shrink-0 ${className}`} />;
+  return <img src="/bonocode.png" alt="" className={`shrink-0 ${className}`} />;
 }
 
 /** MonoCode commands read like the other activity rows; failures expose their output. */
