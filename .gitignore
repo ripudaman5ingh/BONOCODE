@@ -53,3 +53,4 @@ lerna-debug.log*
 Thumbs.db
 ehthumbs.db
 Desktop.ini
+bench-results/
