@@ -14,7 +14,7 @@ use tauri::AppHandle;
 /// Emitted to every window when the user clicks a notification. Payload is
 /// the session id; the window that owns that session handles it.
 #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
-pub const CLICK_EVENT: &str = "monocode:notification-click";
+pub const CLICK_EVENT: &str = "bonocode:notification-click";
 
 #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
 fn handle_click(app: &AppHandle, identifier: &str) {
@@ -120,8 +120,8 @@ mod platform {
 
     /// Category with a single "Show" button, so the banner offers the jump
     /// explicitly instead of relying on a click on the body.
-    const CATEGORY: &str = "monocode.session";
-    const SHOW_ACTION: &str = "monocode.session.show";
+    const CATEGORY: &str = "bonocode.session";
+    const SHOW_ACTION: &str = "bonocode.session.show";
 
     fn options() -> UNAuthorizationOptions {
         UNAuthorizationOptions::Alert

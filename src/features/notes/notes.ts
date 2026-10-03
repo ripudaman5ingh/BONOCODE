@@ -52,8 +52,8 @@ export function noteCardMeta(card: NoteComposerCard): NoteCardMeta {
   };
 }
 
-export const ADD_NOTE_TO_CHAT_EVENT = "monocode:add-note-to-chat";
-export const NOTES_CHANGED_EVENT = "monocode:notes-changed";
+export const ADD_NOTE_TO_CHAT_EVENT = "bonocode:add-note-to-chat";
+export const NOTES_CHANGED_EVENT = "bonocode:notes-changed";
 
 const MAX_TITLE = 200;
 export const MAX_NOTE_TAGS = 20;

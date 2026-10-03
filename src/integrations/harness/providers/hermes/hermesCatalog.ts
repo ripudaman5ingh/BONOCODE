@@ -13,7 +13,7 @@ import {
 } from "../../core/child";
 import { modelsFromHermesSession } from "./hermesProtocol";
 
-const PROBE_ID = "monocode-hermes-probe";
+const PROBE_ID = "bonocode-hermes-probe";
 const DISCOVERY_TIMEOUT_MS = 30_000;
 const REQUEST_TIMEOUT_MS = 20_000;
 

@@ -8567,7 +8567,7 @@ function Workspace({
   useEffect(() => {
     const onEscape = (event: KeyboardEvent) => {
       const target = event.target instanceof Element ? event.target : null;
-      const inTerminal = Boolean(target?.closest(".monocode-terminal"));
+      const inTerminal = Boolean(target?.closest(".bonocode-terminal"));
       const activeTabId = activeTabIdRef.current;
       const sessionId = focusedBusyAgentSessionId(
         activeTabId,
@@ -9050,7 +9050,7 @@ function Workspace({
       requestId: string;
       action: string;
       input: Record<string, unknown>;
-    }>("monocode-control-request", ({ payload }) => {
+    }>("bonocode-control-request", ({ payload }) => {
       const handle = async () => {
         if (payload.namespace === "control") {
           return orchestrator.handle(
@@ -9851,8 +9851,8 @@ function Workspace({
 
   useEffect(() => {
     const onOpenMcp = () => openSettings("mcp");
-    window.addEventListener("monocode:open-mcp-settings", onOpenMcp);
-    return () => window.removeEventListener("monocode:open-mcp-settings", onOpenMcp);
+    window.addEventListener("bonocode:open-mcp-settings", onOpenMcp);
+    return () => window.removeEventListener("bonocode:open-mcp-settings", onOpenMcp);
   }, [openSettings]);
 
   const onOpenNotificationSettings = useCallback(
@@ -10185,7 +10185,7 @@ function Workspace({
         if (listNavigation) {
           const blockedTarget = Boolean(
             target?.closest(
-              'input, textarea, select, [contenteditable="true"], .cm-editor, .monocode-terminal, [role="dialog"], [data-model-picker], [data-file-picker], [data-branch-picker], [data-skill-picker], [data-mention-picker], [data-app-search]',
+              'input, textarea, select, [contenteditable="true"], .cm-editor, .bonocode-terminal, [role="dialog"], [data-model-picker], [data-file-picker], [data-branch-picker], [data-skill-picker], [data-mention-picker], [data-app-search]',
             ),
           );
           const emptyComposerTarget = Boolean(
@@ -10210,7 +10210,7 @@ function Workspace({
           }
         }
         if (
-          target?.closest(".monocode-terminal") &&
+          target?.closest(".bonocode-terminal") &&
           e.ctrlKey &&
           !e.metaKey &&
           (cmd === "back" ||
@@ -10293,7 +10293,7 @@ function Workspace({
         if (
           shortcut === "App: Search" &&
           e.target instanceof Element &&
-          e.target.closest(".monocode-terminal") &&
+          e.target.closest(".bonocode-terminal") &&
           e.ctrlKey &&
           !e.metaKey
         ) {

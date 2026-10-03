@@ -13,7 +13,7 @@ export {
 } from "./authSupport";
 
 const LOGIN_TIMEOUT_MS = 10 * 60_000;
-const LOGIN_CHILD_PREFIX = "monocode-provider-login-";
+const LOGIN_CHILD_PREFIX = "bonocode-provider-login-";
 
 function loginChildId(harness: HarnessId, accountId?: string): string {
   let windowLabel = "main";

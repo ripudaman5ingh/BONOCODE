@@ -785,7 +785,7 @@ mod tests {
     }
     fn repo() -> Repo {
         let dir =
-            std::env::temp_dir().join(format!("monocode-worktree-test-{}", uuid::Uuid::new_v4()));
+            std::env::temp_dir().join(format!("bonocode-worktree-test-{}", uuid::Uuid::new_v4()));
         let root = dir.join("repo");
         std::fs::create_dir_all(&root).unwrap();
         git_checked(&root, &["init", "-b", "main"]).unwrap();

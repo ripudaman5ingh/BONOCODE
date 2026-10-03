@@ -63,8 +63,8 @@ export type LinearStatus = {
   connected: boolean;
 };
 
-const TEAM_IDS_KEY = "monocode.linearHiddenTeams";
-export const LINEAR_CHANGE_EVENT = "monocode:linear-change";
+const TEAM_IDS_KEY = "bonocode.linearHiddenTeams";
+export const LINEAR_CHANGE_EVENT = "bonocode:linear-change";
 
 const detailsById = new Map<string, LinearIssueDetails>();
 const threadById = new Map<string, LinearIssueThread>();

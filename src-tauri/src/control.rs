@@ -259,7 +259,7 @@ fn serve(mut stream: TcpStream, app: &AppHandle, inner: &Arc<Mutex<Inner>>) {
             action: request.action,
             input: request.input,
         };
-        let delivered = app.emit_to(grant.window.as_str(), "monocode-control-request", event);
+        let delivered = app.emit_to(grant.window.as_str(), "bonocode-control-request", event);
         let result = if delivered.is_err() {
             Err("MonoCode executor is unavailable".into())
         } else {
@@ -383,7 +383,7 @@ pub fn control_attach_worker(
 }
 
 fn create_worker_scratch() -> Result<PathBuf, String> {
-    let path = std::env::temp_dir().join(format!("monocode-worker-{}", uuid::Uuid::new_v4()));
+    let path = std::env::temp_dir().join(format!("bonocode-worker-{}", uuid::Uuid::new_v4()));
     let builder = std::fs::DirBuilder::new();
     #[cfg(unix)]
     let builder = {

@@ -50,21 +50,21 @@ import {
 } from "./settings";
 import { IS_MAC, MOD, SHIFT } from "../../../platform/tauri/platform";
 
-const KEY = "monocode.composerRunner";
-const MODEL_CONTROLS_KEY = "monocode.modelControls";
-const LEGACY_EFFORT_VISIBLE_KEY = "monocode.composerEffortVisible";
-const NOTES_KEY = "monocode.notesEnabled";
-const KEYBINDING_OVERRIDES_KEY = "monocode.keybindingOverrides";
-const QUICK_COMPOSER_SHORTCUT_KEY = "monocode.quickComposerShortcut";
-const LIVE_AGENTS_KEY = "monocode.liveAgentsEnabled";
-const GRID_ARCADE_KEY = "monocode.gridArcadeEnabled";
-const DIFF_VIEWER_KEY = "monocode.diffViewer";
-const FORMAT_ON_SAVE_KEY = "monocode.formatOnSave";
-const AUTOSAVE_KEY = "monocode.autosave";
-const FILE_TAB_MODE_KEY = "monocode.fileTabMode";
-const FOLLOW_UP_BEHAVIOR_KEY = "monocode.followUpBehavior";
-const TAB_ANIMATIONS_KEY = "monocode.tabAnimationsEnabled";
-const COLLAPSED_PROJECT_RAIL_MODE_KEY = "monocode.collapsedProjectRailMode";
+const KEY = "bonocode.composerRunner";
+const MODEL_CONTROLS_KEY = "bonocode.modelControls";
+const LEGACY_EFFORT_VISIBLE_KEY = "bonocode.composerEffortVisible";
+const NOTES_KEY = "bonocode.notesEnabled";
+const KEYBINDING_OVERRIDES_KEY = "bonocode.keybindingOverrides";
+const QUICK_COMPOSER_SHORTCUT_KEY = "bonocode.quickComposerShortcut";
+const LIVE_AGENTS_KEY = "bonocode.liveAgentsEnabled";
+const GRID_ARCADE_KEY = "bonocode.gridArcadeEnabled";
+const DIFF_VIEWER_KEY = "bonocode.diffViewer";
+const FORMAT_ON_SAVE_KEY = "bonocode.formatOnSave";
+const AUTOSAVE_KEY = "bonocode.autosave";
+const FILE_TAB_MODE_KEY = "bonocode.fileTabMode";
+const FOLLOW_UP_BEHAVIOR_KEY = "bonocode.followUpBehavior";
+const TAB_ANIMATIONS_KEY = "bonocode.tabAnimationsEnabled";
+const COLLAPSED_PROJECT_RAIL_MODE_KEY = "bonocode.collapsedProjectRailMode";
 
 describe("follow-up behavior setting", () => {
   beforeEach(mockLocalStorage);

@@ -32,16 +32,16 @@ import {
   NEW_THREAD_BACKGROUND_EFFECT_DEFAULT,
 } from "./appearance";
 
-const KEY = "monocode.transcriptLayout";
-const ACCENT_COLOR_KEY = "monocode.accentColor";
-const SCHEME_KEY = "monocode.colorScheme";
-const ANCHOR_KEY = "monocode.transcriptAnchor";
-const SHOW_EXCLUDED_FILES_KEY = "monocode.showExcludedFiles";
-const CHAT_BACKGROUND_PATH_KEY = "monocode.chatBackgroundPath";
-const CHAT_BACKGROUND_OPACITY_KEY = "monocode.chatBackgroundOpacity";
-const CHAT_BACKGROUND_SCOPE_KEY = "monocode.chatBackgroundScope";
-const NEW_THREAD_BACKGROUND_EFFECT_KEY = "monocode.newThreadBackgroundEffect";
-const THEME_DARK_LIGHTNESS_KEY = "monocode.themeDarkLightness";
+const KEY = "bonocode.transcriptLayout";
+const ACCENT_COLOR_KEY = "bonocode.accentColor";
+const SCHEME_KEY = "bonocode.colorScheme";
+const ANCHOR_KEY = "bonocode.transcriptAnchor";
+const SHOW_EXCLUDED_FILES_KEY = "bonocode.showExcludedFiles";
+const CHAT_BACKGROUND_PATH_KEY = "bonocode.chatBackgroundPath";
+const CHAT_BACKGROUND_OPACITY_KEY = "bonocode.chatBackgroundOpacity";
+const CHAT_BACKGROUND_SCOPE_KEY = "bonocode.chatBackgroundScope";
+const NEW_THREAD_BACKGROUND_EFFECT_KEY = "bonocode.newThreadBackgroundEffect";
+const THEME_DARK_LIGHTNESS_KEY = "bonocode.themeDarkLightness";
 
 function mockLocalStorage() {
   const data = new Map<string, string>();

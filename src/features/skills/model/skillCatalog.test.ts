@@ -352,10 +352,10 @@ describe("file skill visibility preferences", () => {
   });
 
   it("tolerates malformed and mixed stored preferences", (): void => {
-    storage.set("monocode.disabledSkillPaths", "invalid json");
+    storage.set("bonocode.disabledSkillPaths", "invalid json");
     expect(loadDisabledSkillPaths()).toEqual([]);
     storage.set(
-      "monocode.disabledSkillPaths",
+      "bonocode.disabledSkillPaths",
       JSON.stringify([path, null, 42]),
     );
     expect(loadDisabledSkillPaths()).toEqual([path]);

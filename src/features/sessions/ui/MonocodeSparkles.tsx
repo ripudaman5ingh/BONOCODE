@@ -46,11 +46,11 @@ export function MonocodeSparkles({
 
   if (!active) return null;
   return (
-    <span aria-hidden className="monocode-sparkles">
+    <span aria-hidden className="bonocode-sparkles">
       {sparkles.map((sparkle, index) => (
         <span
           key={index}
-          className="monocode-sparkle"
+          className="bonocode-sparkle"
           style={
             {
               "--x": `${sparkle.x}%`,
@@ -63,11 +63,11 @@ export function MonocodeSparkles({
           }
         >
           {sparkle.star ? (
-            <svg viewBox="0 0 24 24" className="monocode-sparkle-glyph">
+            <svg viewBox="0 0 24 24" className="bonocode-sparkle-glyph">
               <path d={STAR_PATH} fill="currentColor" />
             </svg>
           ) : (
-            <span className="monocode-sparkle-glyph monocode-sparkle-ember" />
+            <span className="bonocode-sparkle-glyph monocode-sparkle-ember" />
           )}
         </span>
       ))}

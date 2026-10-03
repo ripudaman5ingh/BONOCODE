@@ -54,7 +54,7 @@ pub const BLUR_MIN: u8 = 1;
 pub const BLUR_MAX: u8 = 64;
 pub const BLUR_DEFAULT: u8 = 24;
 
-const GLASS_BACKING_ID: &str = "monocode.webview-glass-backing";
+const GLASS_BACKING_ID: &str = "bonocode.webview-glass-backing";
 
 const RTLD_DEFAULT: *mut c_void = -2isize as *mut c_void;
 
@@ -531,7 +531,7 @@ pub(crate) fn install_dock_menu(app: &AppHandle) {
 #[cfg(debug_assertions)]
 pub(crate) fn ensure_dev_bundle() {
     if let Err(err) = relaunch_from_dev_bundle() {
-        eprintln!("monocode: macos dev bundle: {err}");
+        eprintln!("bonocode: macos dev bundle: {err}");
     }
 }
 
@@ -619,7 +619,7 @@ fn relaunch_from_dev_bundle() -> Result<(), String> {
         .map(|status| status.success())
         .unwrap_or(false);
     if !signed {
-        eprintln!("monocode: macos dev bundle: codesign failed; notifications stay off");
+        eprintln!("bonocode: macos dev bundle: codesign failed; notifications stay off");
     }
 
     let err = Command::new(&bundled)
@@ -749,7 +749,7 @@ mod tests {
             .unwrap()
             .as_nanos();
         let root = std::env::temp_dir().join(format!(
-            "monocode-macos-tests-{}-{nonce}",
+            "bonocode-macos-tests-{}-{nonce}",
             std::process::id()
         ));
         let app = root.join(app_name);

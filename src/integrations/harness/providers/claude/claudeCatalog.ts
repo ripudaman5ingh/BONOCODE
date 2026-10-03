@@ -203,7 +203,7 @@ export const CLAUDE_MODEL_CATALOG: AgentModel[] = [
   },
 ];
 
-const PROBE_ID = "monocode-claude-probe";
+const PROBE_ID = "bonocode-claude-probe";
 const LIST_MODELS_REQUEST_ID = "monocode_list_models";
 const INIT_REQUEST_ID = "monocode_init";
 const DISCOVERY_TIMEOUT_MS = 15_000;

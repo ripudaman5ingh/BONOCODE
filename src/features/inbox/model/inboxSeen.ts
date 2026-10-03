@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { sameProjectPath } from "../../projects/model/recents";
 
-const KEY = "monocode.inboxSeen";
-const LEGACY_KEY = "monocode.inboxSeenAt";
+const KEY = "bonocode.inboxSeen";
+const LEGACY_KEY = "bonocode.inboxSeenAt";
 
 export type InboxSeenEntry = {
   key: string;

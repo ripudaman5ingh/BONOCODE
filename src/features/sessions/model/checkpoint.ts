@@ -31,7 +31,7 @@ export type CheckpointApplyResult = {
   alreadyApplied: number;
 };
 
-const REVIEW_CHANGED = "monocode-review-changed";
+const REVIEW_CHANGED = "bonocode-review-changed";
 const checkpointQueues = new Map<string, Promise<void>>();
 
 function enqueueCheckpoint<T>(

@@ -88,7 +88,7 @@ fn init_with(
     open: impl FnOnce(PathBuf) -> Result<SessionStore, String>,
     manage: impl FnOnce(SessionStore),
 ) -> Result<(), String> {
-    let store = open(data_dir()?.join("monocode.db"))?;
+    let store = open(data_dir()?.join("bonocode.db"))?;
     manage(store);
     Ok(())
 }
@@ -1986,14 +1986,14 @@ mod tests {
     #[test]
     fn startup_does_not_read_saved_transcripts() {
         let data_dir = std::env::temp_dir().join(format!(
-            "monocode-startup-transcripts-{}-{}",
+            "bonocode-startup-transcripts-{}-{}",
             std::process::id(),
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
                 .as_nanos()
         ));
-        let path = data_dir.join("monocode.db");
+        let path = data_dir.join("bonocode.db");
         {
             let store = SessionStore::open(path.clone()).unwrap();
             let conn = store.lock_conn().unwrap();
@@ -2794,7 +2794,7 @@ mod tests {
     #[test]
     fn upsert_snapshots_git_branch() {
         let dir = std::env::temp_dir().join(format!(
-            "monocode-session-git-{}-{}",
+            "bonocode-session-git-{}-{}",
             std::process::id(),
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)
@@ -2999,7 +2999,7 @@ mod tests {
     #[test]
     fn migrate_creates_workspace_tables_when_versions_already_recorded() {
         let path = std::env::temp_dir().join(format!(
-            "monocode-stale-migrations-{}-{}.db",
+            "bonocode-stale-migrations-{}-{}.db",
             std::process::id(),
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)
@@ -3057,7 +3057,7 @@ mod tests {
     #[test]
     fn migrate_restores_the_covering_index_when_versions_already_recorded() {
         let path = std::env::temp_dir().join(format!(
-            "monocode-stale-index-{}-{}.db",
+            "bonocode-stale-index-{}-{}.db",
             std::process::id(),
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)
@@ -3127,7 +3127,7 @@ mod tests {
     #[test]
     fn session_search_uses_a_query_only_read_connection() {
         let path = std::env::temp_dir().join(format!(
-            "monocode-session-read-conn-{}-{}.db",
+            "bonocode-session-read-conn-{}-{}.db",
             std::process::id(),
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)

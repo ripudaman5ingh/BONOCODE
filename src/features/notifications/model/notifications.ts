@@ -7,15 +7,15 @@ import {
 } from "./notificationPreferences";
 import { knownNotificationProject } from "./notificationProjects";
 
-const KEY = "monocode.notifications";
+const KEY = "bonocode.notifications";
 
 /** Off until the user opts in; enabling asks the OS for permission. */
 export const NOTIFICATIONS_DEFAULT = false;
 
-export const NOTIFICATIONS_CHANGE_EVENT = "monocode:notifications-change";
+export const NOTIFICATIONS_CHANGE_EVENT = "bonocode:notifications-change";
 
 /** Rust emits this with the session id when a notification is clicked. */
-export const NOTIFICATION_CLICK_EVENT = "monocode:notification-click";
+export const NOTIFICATION_CLICK_EVENT = "bonocode:notification-click";
 
 export type NotificationPermission =
   "prompt" | "granted" | "denied" | "unsupported";

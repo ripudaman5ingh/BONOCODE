@@ -111,7 +111,7 @@ describe("OMP native commands", () => {
       },
     ]);
     expect(mocks.spawnChild).toHaveBeenCalledWith(
-      expect.stringMatching(/^monocode-omp-skills-/),
+      expect.stringMatching(/^bonocode-omp-skills-/),
       "/bin/omp",
       ["--mode", "rpc", "--no-session"],
       "/repo-worktree",
@@ -308,7 +308,7 @@ describe("discoverPiSkills", () => {
 
     expect(mocks.acquireHarnessBridge).toHaveBeenCalledOnce();
     const [childId, command, args, cwd] = mocks.spawnChild.mock.calls[0]!;
-    expect(childId).toMatch(/^monocode-pi-skills-/);
+    expect(childId).toMatch(/^bonocode-pi-skills-/);
     expect(command).toBe("/bin/pi");
     expect(args).toEqual(["--mode", "rpc", "--no-session"]);
     expect(cwd).toBe("/repo");

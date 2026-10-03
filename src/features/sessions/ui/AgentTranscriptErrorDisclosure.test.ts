@@ -95,7 +95,7 @@ describe("MonoCode CLI disclosure", () => {
     );
 
     const row = container.querySelector<HTMLElement>(
-      '[data-monocode-tool-call="notes.list"]',
+      '[data-bonocode-tool-call="notes.list"]',
     );
     expect(row?.querySelector("button")).toBeNull();
     expect(row?.querySelector("pre")).toBeNull();

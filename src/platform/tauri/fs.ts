@@ -421,7 +421,7 @@ export function isCheckoutBlockedByChanges(message: string): boolean {
   );
 }
 
-const GIT_CHANGED = "monocode-git-changed";
+const GIT_CHANGED = "bonocode-git-changed";
 
 /** Tell git UIs (diff pane, branch picker) to reload after a local git mutation. */
 export function notifyGitChanged() {

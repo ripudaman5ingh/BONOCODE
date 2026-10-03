@@ -3219,7 +3219,7 @@ function MonoCodeCallRow({
     </>
   );
   return (
-    <div data-monocode-tool-call={call.action} className="min-w-0">
+    <div data-bonocode-tool-call={call.action} className="min-w-0">
       {hasError ? (
         <button
           type="button"

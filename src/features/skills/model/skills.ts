@@ -26,10 +26,10 @@ export {
   type SlashToken,
 } from "./slashCommands";
 
-const DISABLED_SKILL_PATHS_KEY = "monocode.disabledSkillPaths";
+const DISABLED_SKILL_PATHS_KEY = "bonocode.disabledSkillPaths";
 
 /** Fired on `window` when a skill is enabled or disabled in Settings. */
-export const SKILLS_CHANGE_EVENT = "monocode:skills-change";
+export const SKILLS_CHANGE_EVENT = "bonocode:skills-change";
 
 export function loadDisabledSkillPaths(): string[] {
   try {

@@ -13,7 +13,7 @@ import {
   modelsFromSessionNew,
 } from "./antigravityProtocol";
 
-const PROBE_ID = "monocode-antigravity-probe";
+const PROBE_ID = "bonocode-antigravity-probe";
 const REQUEST_TIMEOUT_MS = 12_000;
 let inflight: Promise<void> | null = null;
 

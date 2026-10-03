@@ -2638,7 +2638,7 @@ mod windows_launcher_tests {
 
     #[test]
     fn npm_shell_shim_does_not_hide_windows_launcher() {
-        let dir = std::env::temp_dir().join(format!("monocode-launcher-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("bonocode-launcher-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let bare = dir.join("agent");
         let cmd = dir.join("agent.cmd");
@@ -3273,7 +3273,7 @@ mod tests {
         use std::os::unix::fs::PermissionsExt;
 
         let root =
-            std::env::temp_dir().join(format!("monocode-mcp-binaries-{}", uuid::Uuid::new_v4()));
+            std::env::temp_dir().join(format!("bonocode-mcp-binaries-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&root).unwrap();
         let host = HarnessHost::new();
         let mut paths = HashMap::new();
@@ -3373,7 +3373,7 @@ mod tests {
         use std::os::unix::fs::PermissionsExt;
 
         let dir = std::env::temp_dir().join(format!(
-            "monocode-configured-binaries-{}",
+            "bonocode-configured-binaries-{}",
             std::process::id()
         ));
         let _ = std::fs::remove_dir_all(&dir);
@@ -3482,7 +3482,7 @@ mod tests {
     fn which_in_path_takes_the_first_executable_hit() {
         use std::os::unix::fs::PermissionsExt;
 
-        let dir = std::env::temp_dir().join(format!("monocode-which-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("bonocode-which-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let (empty, unreadable, real) = (dir.join("a"), dir.join("b"), dir.join("c"));
         for sub in [&empty, &unreadable, &real] {
@@ -3549,7 +3549,7 @@ mod tests {
     fn resolve_gui_binary_finds_a_binary_on_the_gui_path() {
         use std::os::unix::fs::PermissionsExt;
 
-        let dir = std::env::temp_dir().join(format!("monocode-gui-bin-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("bonocode-gui-bin-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         let target = dir.join("gh");
@@ -3564,7 +3564,7 @@ mod tests {
 
     #[test]
     fn cursor_agent_accepts_symlink_named_agent() {
-        let dir = std::env::temp_dir().join(format!("monocode-agent-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("bonocode-agent-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(dir.join("cursor-agent-pack")).unwrap();
         let target = dir.join("cursor-agent-pack/cursor-agent");
@@ -3578,7 +3578,7 @@ mod tests {
 
     #[test]
     fn pi_accepts_coding_agent_and_rejects_other_pi() {
-        let dir = std::env::temp_dir().join(format!("monocode-pi-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("bonocode-pi-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
 
@@ -3606,7 +3606,7 @@ mod tests {
 
     #[test]
     fn omp_accepts_rpc_capable_binary_and_rejects_other_names() {
-        let dir = std::env::temp_dir().join(format!("monocode-omp-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("bonocode-omp-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
 
@@ -3637,7 +3637,7 @@ mod tests {
 
     #[test]
     fn fx_accepts_vercel_agent_and_rejects_json_viewer() {
-        let dir = std::env::temp_dir().join(format!("monocode-fx-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("bonocode-fx-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
 
@@ -3662,7 +3662,7 @@ mod tests {
     /// missed them and silently fell back to spawning `fx --help`.
     #[test]
     fn fx_marker_is_found_past_the_first_chunk() {
-        let dir = std::env::temp_dir().join(format!("monocode-fx-deep-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("bonocode-fx-deep-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
 
@@ -3684,7 +3684,7 @@ mod tests {
 
     #[test]
     fn grok_accepts_official_install_path_and_markers() {
-        let dir = std::env::temp_dir().join(format!("monocode-grok-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("bonocode-grok-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let home = dir.join(".grok/bin");
         std::fs::create_dir_all(&home).unwrap();
@@ -3709,7 +3709,7 @@ mod tests {
     #[cfg(unix)]
     fn antigravity_resolver_prefers_executable_wrapper_and_tracks_orphans() {
         use std::os::unix::fs::PermissionsExt;
-        let dir = std::env::temp_dir().join(format!("monocode-agy-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("bonocode-agy-{}", std::process::id()));
         std::fs::create_dir_all(dir.join("bin")).unwrap();
         let wrapper = dir.join("bin/agy_acp_server.par");
         let server = dir.join("agy_acp_server.par");
@@ -3788,7 +3788,7 @@ mod windows_binary_tests {
     #[test]
     fn configured_binary_path_accepts_windows_shim_extension() {
         let dir = std::env::temp_dir().join(format!(
-            "monocode-configured-windows-binary-{}",
+            "bonocode-configured-windows-binary-{}",
             std::process::id()
         ));
         let _ = std::fs::remove_dir_all(&dir);

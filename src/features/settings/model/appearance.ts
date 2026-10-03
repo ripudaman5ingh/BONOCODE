@@ -8,36 +8,36 @@ import {
   clearPreparedNewThreadBackground,
 } from "./newThreadBackgroundEffects";
 
-const ACCENT_COLOR_KEY = "monocode.accentColor";
-const THEME_HUE_KEY = "monocode.themeHue";
-const THEME_SATURATION_KEY = "monocode.themeSaturation";
-const THEME_DARK_LIGHTNESS_KEY = "monocode.themeDarkLightness";
-const OPACITY_KEY = "monocode.sidebarOpacity";
-const BLUR_KEY = "monocode.sidebarBlur";
-const PROJECT_RAIL_OPEN_KEY = "monocode.projectRailOpen";
-const SESSION_SIDEBAR_OPEN_KEY = "monocode.sessionSidebarOpen";
-const BODY_KEY = "monocode.bodyGlass";
-const SCHEME_KEY = "monocode.colorScheme";
-const SIDEBAR_TAB_ORDER_KEY = "monocode.sidebarTabOrder";
-const PROJECT_RAIL_WIDTH_KEY = "monocode.projectRailWidth";
-const TRANSCRIPT_LAYOUT_KEY = "monocode.transcriptLayout";
-const TRANSCRIPT_ANCHOR_KEY = "monocode.transcriptAnchor";
-const CHAT_BACKGROUND_PATH_KEY = "monocode.chatBackgroundPath";
-const CHAT_BACKGROUND_OPACITY_KEY = "monocode.chatBackgroundOpacity";
-const CHAT_BACKGROUND_EMPTY_OPACITY_KEY = "monocode.chatBackgroundEmptyOpacity";
+const ACCENT_COLOR_KEY = "bonocode.accentColor";
+const THEME_HUE_KEY = "bonocode.themeHue";
+const THEME_SATURATION_KEY = "bonocode.themeSaturation";
+const THEME_DARK_LIGHTNESS_KEY = "bonocode.themeDarkLightness";
+const OPACITY_KEY = "bonocode.sidebarOpacity";
+const BLUR_KEY = "bonocode.sidebarBlur";
+const PROJECT_RAIL_OPEN_KEY = "bonocode.projectRailOpen";
+const SESSION_SIDEBAR_OPEN_KEY = "bonocode.sessionSidebarOpen";
+const BODY_KEY = "bonocode.bodyGlass";
+const SCHEME_KEY = "bonocode.colorScheme";
+const SIDEBAR_TAB_ORDER_KEY = "bonocode.sidebarTabOrder";
+const PROJECT_RAIL_WIDTH_KEY = "bonocode.projectRailWidth";
+const TRANSCRIPT_LAYOUT_KEY = "bonocode.transcriptLayout";
+const TRANSCRIPT_ANCHOR_KEY = "bonocode.transcriptAnchor";
+const CHAT_BACKGROUND_PATH_KEY = "bonocode.chatBackgroundPath";
+const CHAT_BACKGROUND_OPACITY_KEY = "bonocode.chatBackgroundOpacity";
+const CHAT_BACKGROUND_EMPTY_OPACITY_KEY = "bonocode.chatBackgroundEmptyOpacity";
 const CHAT_BACKGROUND_SESSION_OPACITY_KEY =
-  "monocode.chatBackgroundSessionOpacity";
-const CHAT_BACKGROUND_SCOPE_KEY = "monocode.chatBackgroundScope";
-const NEW_THREAD_BACKGROUND_EFFECT_KEY = "monocode.newThreadBackgroundEffect";
-const CHANGES_VIEW_KEY = "monocode.changesView";
-const SHOW_EXCLUDED_FILES_KEY = "monocode.showExcludedFiles";
+  "bonocode.chatBackgroundSessionOpacity";
+const CHAT_BACKGROUND_SCOPE_KEY = "bonocode.chatBackgroundScope";
+const NEW_THREAD_BACKGROUND_EFFECT_KEY = "bonocode.newThreadBackgroundEffect";
+const CHANGES_VIEW_KEY = "bonocode.changesView";
+const SHOW_EXCLUDED_FILES_KEY = "bonocode.showExcludedFiles";
 let chatBackgroundRevision = Date.now();
 let nativeGlassReady = false;
 let glassFadeTimer: number | undefined;
 let glassSyncGeneration = 0;
 
 export const CHAT_BACKGROUND_PATH_CHANGE_EVENT =
-  "monocode:chat-background-path-change";
+  "bonocode:chat-background-path-change";
 
 export type ColorScheme = "dark" | "light";
 export type ThemePreference = ColorScheme | "system";
@@ -82,7 +82,7 @@ export const THEME_PREFERENCE_DEFAULT: ThemePreference = "dark";
 export const ACCENT_COLOR_DEFAULT = null;
 
 /** Fired on `window` whenever the color scheme flips (detail: ColorScheme). */
-export const SCHEME_CHANGE_EVENT = "monocode:schemechange";
+export const SCHEME_CHANGE_EVENT = "bonocode:schemechange";
 
 export const TRANSCRIPT_LAYOUT_DEFAULT: TranscriptLayout = "chat";
 
@@ -91,16 +91,16 @@ export const CHANGES_VIEW_DEFAULT: ChangesView = "list";
 export const TRANSCRIPT_ANCHOR_DEFAULT = true;
 
 /** Fired on `window` whenever prompt-to-top anchoring flips (detail: boolean). */
-export const TRANSCRIPT_ANCHOR_CHANGE_EVENT = "monocode:transcriptanchorchange";
+export const TRANSCRIPT_ANCHOR_CHANGE_EVENT = "bonocode:transcriptanchorchange";
 
 /** Fired on `window` whenever the transcript layout flips (detail: TranscriptLayout). */
-export const TRANSCRIPT_LAYOUT_CHANGE_EVENT = "monocode:transcriptlayoutchange";
+export const TRANSCRIPT_LAYOUT_CHANGE_EVENT = "bonocode:transcriptlayoutchange";
 
 export const SHOW_EXCLUDED_FILES_DEFAULT = false;
 
 /** Fired on `window` whenever the explorer excluded-files setting flips (detail: boolean). */
 export const SHOW_EXCLUDED_FILES_CHANGE_EVENT =
-  "monocode:showexcludedfileschange";
+  "bonocode:showexcludedfileschange";
 
 export type SidebarTabId = "files" | "sessions" | "changes" | "inbox";
 

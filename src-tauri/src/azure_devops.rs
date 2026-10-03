@@ -1192,7 +1192,7 @@ fn sniff_content(bytes: &[u8]) -> FileContent {
 /// owner-only permissions, so other local users on a shared machine cannot
 /// guess or read the diff scratch files.
 fn create_secure_tmp_dir() -> Option<PathBuf> {
-    let dir = std::env::temp_dir().join(format!("monocode-ado-diff-{}", uuid::Uuid::new_v4()));
+    let dir = std::env::temp_dir().join(format!("bonocode-ado-diff-{}", uuid::Uuid::new_v4()));
     if fs::create_dir(&dir).is_err() {
         return None;
     }

@@ -15,7 +15,7 @@ import {
 } from "../../quick-composer/model/quickComposerShortcut";
 import { readFlag, writeFlag } from "./storageFlags";
 
-const SECTION_KEY = "monocode.settingsSection";
+const SECTION_KEY = "bonocode.settingsSection";
 
 export type SettingsSectionId =
   | "general"
@@ -529,19 +529,19 @@ export function saveSettingsSection(id: SettingsSectionId) {
   }
 }
 
-const COMPOSER_RUNNER_KEY = "monocode.composerRunner";
+const COMPOSER_RUNNER_KEY = "bonocode.composerRunner";
 
-const FOLLOW_UP_BEHAVIOR_KEY = "monocode.followUpBehavior";
+const FOLLOW_UP_BEHAVIOR_KEY = "bonocode.followUpBehavior";
 
-const COMPOSER_EFFORT_VISIBLE_KEY = "monocode.composerEffortVisible";
+const COMPOSER_EFFORT_VISIBLE_KEY = "bonocode.composerEffortVisible";
 
-const MODEL_CONTROLS_KEY = "monocode.modelControls";
+const MODEL_CONTROLS_KEY = "bonocode.modelControls";
 
-const FILE_TAB_MODE_KEY = "monocode.fileTabMode";
+const FILE_TAB_MODE_KEY = "bonocode.fileTabMode";
 
-const TAB_ANIMATIONS_ENABLED_KEY = "monocode.tabAnimationsEnabled";
+const TAB_ANIMATIONS_ENABLED_KEY = "bonocode.tabAnimationsEnabled";
 
-const COLLAPSED_PROJECT_RAIL_MODE_KEY = "monocode.collapsedProjectRailMode";
+const COLLAPSED_PROJECT_RAIL_MODE_KEY = "bonocode.collapsedProjectRailMode";
 
 export type FollowUpBehavior = "steer" | "queue";
 
@@ -604,7 +604,7 @@ export const COLLAPSED_PROJECT_RAIL_MODE_DEFAULT: CollapsedProjectRailMode =
   "compact";
 
 export const COLLAPSED_PROJECT_RAIL_MODE_CHANGE_EVENT =
-  "monocode:collapsed-project-rail-mode-change";
+  "bonocode:collapsed-project-rail-mode-change";
 
 export function loadCollapsedProjectRailMode(): CollapsedProjectRailMode {
   try {
@@ -650,7 +650,7 @@ export type ModelControls = "menu" | "beside";
 export const MODEL_CONTROLS_DEFAULT: ModelControls = "menu";
 
 /** Fired on `window` when the composer model controls setting flips. */
-export const MODEL_CONTROLS_CHANGE_EVENT = "monocode:model-controls-change";
+export const MODEL_CONTROLS_CHANGE_EVENT = "bonocode:model-controls-change";
 
 export function loadModelControls(): ModelControls {
   try {
@@ -691,7 +691,7 @@ export function subscribeModelControls(onStoreChange: () => void) {
 export const COMPOSER_RUNNER_DEFAULT = true;
 
 /** Fired on `window` when the composer mascot setting flips. */
-export const COMPOSER_RUNNER_CHANGE_EVENT = "monocode:composer-runner-change";
+export const COMPOSER_RUNNER_CHANGE_EVENT = "bonocode:composer-runner-change";
 
 export function loadComposerRunner(): boolean {
   return readFlag(COMPOSER_RUNNER_KEY) ?? COMPOSER_RUNNER_DEFAULT;
@@ -705,12 +705,12 @@ export function saveComposerRunner(value: boolean) {
   );
 }
 
-const NOTES_ENABLED_KEY = "monocode.notesEnabled";
+const NOTES_ENABLED_KEY = "bonocode.notesEnabled";
 
 export const NOTES_ENABLED_DEFAULT = true;
 
 /** Fired on `window` when the Notes UI setting flips. */
-export const NOTES_ENABLED_CHANGE_EVENT = "monocode:notes-enabled-change";
+export const NOTES_ENABLED_CHANGE_EVENT = "bonocode:notes-enabled-change";
 
 export function loadNotesEnabled(): boolean {
   return readFlag(NOTES_ENABLED_KEY) ?? NOTES_ENABLED_DEFAULT;
@@ -731,8 +731,8 @@ export function subscribeNotesEnabled(onStoreChange: () => void) {
     window.removeEventListener(NOTES_ENABLED_CHANGE_EVENT, onStoreChange);
 }
 
-const QUICK_COMPOSER_ENABLED_KEY = "monocode.quickComposerEnabled";
-const QUICK_COMPOSER_SHORTCUT_KEY = "monocode.quickComposerShortcut";
+const QUICK_COMPOSER_ENABLED_KEY = "bonocode.quickComposerEnabled";
+const QUICK_COMPOSER_SHORTCUT_KEY = "bonocode.quickComposerShortcut";
 
 export const QUICK_COMPOSER_ENABLED_DEFAULT = true;
 
@@ -767,13 +767,13 @@ export function saveQuickComposerShortcut(value: string) {
   }
 }
 
-const LIVE_AGENTS_ENABLED_KEY = "monocode.liveAgentsEnabled";
+const LIVE_AGENTS_ENABLED_KEY = "bonocode.liveAgentsEnabled";
 
 export const LIVE_AGENTS_ENABLED_DEFAULT = true;
 
 /** Fired on `window` when the working-agents rail card setting flips. */
 export const LIVE_AGENTS_ENABLED_CHANGE_EVENT =
-  "monocode:live-agents-enabled-change";
+  "bonocode:live-agents-enabled-change";
 
 export function loadLiveAgentsEnabled(): boolean {
   return readFlag(LIVE_AGENTS_ENABLED_KEY) ?? LIVE_AGENTS_ENABLED_DEFAULT;
@@ -796,7 +796,7 @@ export function subscribeLiveAgentsEnabled(onStoreChange: () => void) {
     window.removeEventListener(LIVE_AGENTS_ENABLED_CHANGE_EVENT, onStoreChange);
 }
 
-const CLOSE_TO_TRAY_KEY = "monocode.closeToTray";
+const CLOSE_TO_TRAY_KEY = "bonocode.closeToTray";
 
 export const CLOSE_TO_TRAY_DEFAULT = true;
 
@@ -810,13 +810,13 @@ export function saveCloseToTray(value: boolean) {
   writeFlag(CLOSE_TO_TRAY_KEY, value);
 }
 
-const GRID_ARCADE_ENABLED_KEY = "monocode.gridArcadeEnabled";
+const GRID_ARCADE_ENABLED_KEY = "bonocode.gridArcadeEnabled";
 
 export const GRID_ARCADE_ENABLED_DEFAULT = true;
 
 /** Fired on `window` when the empty-session games setting flips. */
 export const GRID_ARCADE_ENABLED_CHANGE_EVENT =
-  "monocode:grid-arcade-enabled-change";
+  "bonocode:grid-arcade-enabled-change";
 
 export function loadGridArcadeEnabled(): boolean {
   return readFlag(GRID_ARCADE_ENABLED_KEY) ?? GRID_ARCADE_ENABLED_DEFAULT;
@@ -839,14 +839,14 @@ export function subscribeGridArcadeEnabled(onStoreChange: () => void) {
     window.removeEventListener(GRID_ARCADE_ENABLED_CHANGE_EVENT, onStoreChange);
 }
 
-const DIFF_VIEWER_KEY = "monocode.diffViewer";
+const DIFF_VIEWER_KEY = "bonocode.diffViewer";
 
 export type DiffViewer = "editor" | "unified";
 
 export const DIFF_VIEWER_DEFAULT: DiffViewer = "editor";
 
 /** Fired on `window` when the working-tree diff layout flips. */
-export const DIFF_VIEWER_CHANGE_EVENT = "monocode:diff-viewer-change";
+export const DIFF_VIEWER_CHANGE_EVENT = "bonocode:diff-viewer-change";
 
 function isDiffViewer(value: unknown): value is DiffViewer {
   return value === "editor" || value === "unified";
@@ -881,7 +881,7 @@ export function subscribeDiffViewer(onStoreChange: () => void) {
     window.removeEventListener(DIFF_VIEWER_CHANGE_EVENT, onStoreChange);
 }
 
-const FORMAT_ON_SAVE_KEY = "monocode.formatOnSave";
+const FORMAT_ON_SAVE_KEY = "bonocode.formatOnSave";
 
 export const FORMAT_ON_SAVE_DEFAULT = true;
 
@@ -893,8 +893,8 @@ export function saveFormatOnSave(value: boolean) {
   writeFlag(FORMAT_ON_SAVE_KEY, value);
 }
 
-const AUTOSAVE_KEY = "monocode.autosave";
-const AUTOSAVE_CHANGE_EVENT = "monocode:autosave-change";
+const AUTOSAVE_KEY = "bonocode.autosave";
+const AUTOSAVE_CHANGE_EVENT = "bonocode:autosave-change";
 
 export const AUTOSAVE_DEFAULT = false;
 
@@ -924,7 +924,7 @@ export function subscribeAutosave(onStoreChange: () => void) {
   };
 }
 
-const CLAUDE_HOOKS_KEY = "monocode.claudeHooks";
+const CLAUDE_HOOKS_KEY = "bonocode.claudeHooks";
 
 export const CLAUDE_HOOKS_DEFAULT = true;
 
@@ -1050,8 +1050,8 @@ export const KEYBINDINGS: KeybindingRow[] = [
   { command: "Editor: Replace", keys: `${MOD}${ALT}F`, when: "editorFocus" },
 ];
 
-const KEYBINDING_OVERRIDES_KEY = "monocode.keybindingOverrides";
-const KEYBINDINGS_CHANGE_EVENT = "monocode:keybindings-change";
+const KEYBINDING_OVERRIDES_KEY = "bonocode.keybindingOverrides";
+const KEYBINDINGS_CHANGE_EVENT = "bonocode:keybindings-change";
 
 export type KeybindingOverride = {
   disabled?: boolean;

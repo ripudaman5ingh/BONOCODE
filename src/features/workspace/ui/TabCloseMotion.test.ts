@@ -47,7 +47,7 @@ function flushPaint() {
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   mockLocalStorage();
-  localStorage.setItem("monocode.tabAnimationsEnabled", "1");
+  localStorage.setItem("bonocode.tabAnimationsEnabled", "1");
   vi.useFakeTimers();
   document.documentElement.style.setProperty(
     "--motion-tab-close-duration",
@@ -202,7 +202,7 @@ describe.each(["workspace", "file"] as const)("%s tab close motion", (kind) => {
   });
 
   it("skips the collapse when tab animations are disabled", () => {
-    localStorage.setItem("monocode.tabAnimationsEnabled", "0");
+    localStorage.setItem("bonocode.tabAnimationsEnabled", "0");
     closeTab(kind, "second", ["first", "second", "third"]);
     expect(container.querySelector("[data-closing-tab]")).toBeNull();
     expect(container.querySelector('[aria-label="Close second"]')).toBeNull();
@@ -306,7 +306,7 @@ describe.each(["workspace", "file"] as const)("%s tab open motion", (kind) => {
   });
 
   it("skips the expand when tab animations are disabled", () => {
-    localStorage.setItem("monocode.tabAnimationsEnabled", "0");
+    localStorage.setItem("bonocode.tabAnimationsEnabled", "0");
     addThird(kind);
     expect(container.querySelector("[data-opening-tab]")).toBeNull();
     expect(

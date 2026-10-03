@@ -205,7 +205,7 @@ mod tests {
                 .openpty(portable_pty::PtySize::default())
                 .unwrap();
             let pid_file = std::env::temp_dir().join(format!(
-                "monocode-pty-descendant-{}.pid",
+                "bonocode-pty-descendant-{}.pid",
                 std::process::id()
             ));
             let _ = std::fs::remove_file(&pid_file);

@@ -7,7 +7,7 @@ import {
 import { Loader, Star, X } from "../../shared/ui/icons";
 
 const MONOCODE_GITHUB_URL = "https://github.com/hardbeat920/monocode";
-const DISMISSED_STORAGE_KEY = "monocode.githubStarPrompt.dismissed.v1";
+const DISMISSED_STORAGE_KEY = "bonocode.githubStarPrompt.dismissed.v1";
 
 type PromptSnapshot = "loading" | "visible" | "starring" | "hidden";
 

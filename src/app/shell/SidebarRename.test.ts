@@ -686,7 +686,7 @@ describe("sidebar reorder affordances", () => {
       },
     ];
     localStorage.setItem(
-      "monocode.sessionFolders",
+      "bonocode.sessionFolders",
       JSON.stringify({
         "/workspace/project": [
           {
@@ -752,7 +752,7 @@ describe("sidebar pinned sessions", () => {
     expect(group.querySelector('[data-session-card="session-1"]')).toBeNull();
     expect(
       JSON.parse(
-        localStorage.getItem("monocode.pinnedSessionsCollapsed") ?? "{}",
+        localStorage.getItem("bonocode.pinnedSessionsCollapsed") ?? "{}",
       ),
     ).toEqual({ "/workspace/project": true });
   });

@@ -142,7 +142,7 @@ it("stays dismissed across remounts without checking GitHub again", async () => 
       ?.click();
   });
 
-  expect(localStorage.getItem("monocode.githubStarPrompt.dismissed.v1")).toBe(
+  expect(localStorage.getItem("bonocode.githubStarPrompt.dismissed.v1")).toBe(
     "1",
   );
   expect(container.querySelector("[data-github-star-prompt]")).toBeNull();

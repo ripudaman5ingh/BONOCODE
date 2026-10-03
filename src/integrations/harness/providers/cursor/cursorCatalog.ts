@@ -15,7 +15,7 @@ import {
   watchChild,
 } from "../../core/child";
 
-const PROBE_ID = "monocode-cursor-probe";
+const PROBE_ID = "bonocode-cursor-probe";
 const DISCOVERY_TIMEOUT_MS = 15_000;
 const REQUEST_TIMEOUT_MS = 12_000;
 

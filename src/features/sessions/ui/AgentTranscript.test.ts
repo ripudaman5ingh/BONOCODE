@@ -78,8 +78,8 @@ describe("AgentTranscript collapsed work", () => {
       true,
     );
     expect(markup).toContain("Using MonoCode");
-    expect(markup).toContain('data-monocode-tool-call="--help"');
-    expect(markup).toContain('data-monocode-tool-call="notes.list"');
+    expect(markup).toContain('data-bonocode-tool-call="--help"');
+    expect(markup).toContain('data-bonocode-tool-call="notes.list"');
     expect(markup).toContain("monocode app --help");
     expect(markup).toContain("monocode app notes.list");
     expect(markup).toContain("Ran");
@@ -106,7 +106,7 @@ describe("AgentTranscript collapsed work", () => {
         onApproval: () => {},
       }),
     );
-    expect(markup).toContain('data-monocode-tool-call="sessions.send"');
+    expect(markup).toContain('data-bonocode-tool-call="sessions.send"');
     expect(markup).toContain("private-marker");
     expect(markup).toContain("Allow</button>");
 
@@ -126,7 +126,7 @@ describe("AgentTranscript collapsed work", () => {
         onApproval: () => {},
       }),
     );
-    expect(compound).not.toContain("data-monocode-tool-call");
+    expect(compound).not.toContain("data-bonocode-tool-call");
     expect(compound).toContain("echo extra");
     expect(compound).toContain("Allow</button>");
   });
@@ -141,7 +141,7 @@ describe("AgentTranscript collapsed work", () => {
         tool: { kind: "shell", status: "failed", detail: "Connection refused" },
       },
     ]);
-    expect(markup).toContain('data-monocode-tool-call="notes.list"');
+    expect(markup).toContain('data-bonocode-tool-call="notes.list"');
     expect(markup).toContain("Ran");
     expect(markup).toContain("monocode app notes.list");
     expect(markup).toContain("Show error details for MonoCode: List notes");
