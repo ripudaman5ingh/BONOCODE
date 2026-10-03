@@ -148,7 +148,7 @@ describe("AgentMarkdown file link context menu", () => {
     render();
 
     const menu = openMenu(container.querySelector("code")!);
-    expect(menu?.textContent).toContain("Open in MonoCode");
+    expect(menu?.textContent).toContain("Open in Bonocode");
   });
 
   it.each([
@@ -166,7 +166,7 @@ describe("AgentMarkdown file link context menu", () => {
       render();
       const link = container.querySelector(selector)!;
 
-      await pick("Open in MonoCode", link);
+      await pick("Open in Bonocode", link);
       expect(props.onOpenFile).toHaveBeenCalledWith(
         "/repo/src/main.ts",
         navigation,

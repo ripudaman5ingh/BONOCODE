@@ -58,7 +58,7 @@ describe("AgentTranscript collapsed work", () => {
 
   it("shows Bonocode CLI actions instead of their long shell commands", () => {
     const command =
-      "/repo/target/debug/Bonocode.app/Contents/MacOS/bonocode";
+      "/repo/target/debug/Bonocode.app/Contents/MacOS/monocode";
     const markup = render(
       [
         { id: "user", role: "user", text: "/monocode list my notes" },

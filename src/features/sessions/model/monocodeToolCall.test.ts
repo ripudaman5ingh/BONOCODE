@@ -11,20 +11,20 @@ describe("Bonocode CLI tool calls", () => {
     expect(
       monoCodeToolCall(
         shell(
-          "/repo/target/debug/Bonocode.app/Contents/MacOS/bonocode app notes.list --json '{}'",
+          "/repo/target/debug/Bonocode.app/Contents/MacOS/monocode app notes.list --json '{}'",
         ),
       )?.label,
     ).toBe("List notes");
     expect(
       monoCodeToolCall(
         shell(
-          "'/Applications/Bonocode App/bonocode' app folders.move --input -",
+          "'/Applications/Bonocode App/monocode' app folders.move --input -",
         ),
       )?.label,
     ).toBe("Move a session");
     expect(
       monoCodeToolCall(
-        shell('"C:\\Program Files\\Bonocode\\bonocode.exe" app notes.list'),
+        shell('"C:\\Program Files\\Bonocode\\monocode.exe" app notes.list'),
       )?.label,
     ).toBe("List notes");
     expect(monoCodeToolCall(shell("monocode app --help"))?.label).toBe(

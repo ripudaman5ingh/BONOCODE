@@ -76,7 +76,7 @@ describe("tool error disclosure", () => {
 describe("Bonocode CLI disclosure", () => {
   it("shows a compact row without a disclosure for a successful call", () => {
     const command =
-      "/repo/target/debug/Bonocode.app/Contents/MacOS/bonocode app notes.list";
+      "/repo/target/debug/Bonocode.app/Contents/MacOS/monocode app notes.list";
     const blocks: Block[] = [
       { id: "user", role: "user", text: "/monocode list notes" },
       {
