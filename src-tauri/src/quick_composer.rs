@@ -755,7 +755,7 @@ mod tests {
         let request: QuickLaunch = serde_json::from_value(serde_json::json!({
             "prompt": "look", "cwd": "/tmp/project", "harness": "codex", "reveal": false,
             "attachments": [{ "id": "shot", "name": "Screenshot.png", "mimeType": "image/png",
-                "kind": "image", "size": 4, "path": "/missing/monocode-test.png" }]
+                "kind": "image", "size": 4, "path": "/missing/bonocode-test.png" }]
         }))
         .unwrap();
         assert!(validate_attachments(&request.attachments, "codex").is_err());
@@ -779,7 +779,7 @@ mod tests {
         request.workspace_mode = None;
         assert!(validate_workspace(&request).is_err());
         request.worktree_base = None;
-        request.worktree_cwd = Some("/missing/monocode-worktree-test".into());
+        request.worktree_cwd = Some("/missing/bonocode-worktree-test".into());
         assert!(validate_workspace(&request).is_err());
         request.worktree_cwd = Some(std::env::temp_dir().to_string_lossy().into_owned());
         assert!(validate_workspace(&request).is_ok());

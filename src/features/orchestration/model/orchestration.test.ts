@@ -48,7 +48,7 @@ function setup() {
         busy: false,
       });
       return {
-        scratchDir: `/private/var/folders/test/T/monocode-worker-${task.sessionId}`,
+        scratchDir: `/private/var/folders/test/T/bonocode-worker-${task.sessionId}`,
         workspace: {
           id: `checkout:/worktrees/${task.id}`,
           projectCwd: run.cwd,

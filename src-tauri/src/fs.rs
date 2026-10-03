@@ -6042,8 +6042,8 @@ mod tests {
     #[test]
     fn project_location_follows_a_sibling_rename() {
         let parent = tmp("project-location-rename");
-        let original = parent.0.join("monocode");
-        let renamed = parent.0.join("monocode-personal");
+        let original = parent.0.join("bonocode");
+        let renamed = parent.0.join("bonocode-personal");
         std::fs::create_dir(&original).unwrap();
 
         let first = resolve_project_location_sync(&path_to_js(&original), None)

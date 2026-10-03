@@ -48,8 +48,8 @@ beforeEach(mockBrowserStorage);
 
 describe("rebaseProjectData", () => {
   it("moves path-keyed project settings to the renamed folder", () => {
-    const from = "/work/monocode";
-    const to = "/work/monocode-personal";
+    const from = "/work/bonocode";
+    const to = "/work/bonocode-personal";
     const oldKey = projectKey(from);
     const newKey = projectKey(to);
 
