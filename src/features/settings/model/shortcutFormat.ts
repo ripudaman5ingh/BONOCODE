@@ -105,7 +105,7 @@ function codeLabel(code: string): string {
       : (SYMBOLS[code] ?? code);
 }
 
-export function quickComposerShortcutPreview(
+export function shortcutPreview(
   modifiers: Modifiers,
   code?: string,
   key?: string,
@@ -143,7 +143,7 @@ export function shortcutTokens(value: string): string {
     .join("+");
 }
 
-export function quickComposerShortcutLabel(value: string): string {
+export function shortcutLabel(value: string): string {
   const parts = value.split("+");
   const code = parts.pop() ?? "Space";
   const modifiers = IS_MAC

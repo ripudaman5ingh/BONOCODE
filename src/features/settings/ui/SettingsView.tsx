@@ -309,7 +309,6 @@ import {
   saveModelControls,
   saveNotesEnabled,
   saveKeybindingOverride,
-  validateKeybindingShortcut,
   subscribeKeybindings,
   type KeybindingOverride,
   saveTabAnimationsEnabled,
@@ -327,8 +326,8 @@ import {
 } from "../model/settings";
 import { loadSoundsEnabled, playCue, saveSoundsEnabled } from "../model/sounds";
 import {
-  isGlobalShortcut,
   shortcutFromKeyEvent,
+  shortcutPreview,
 } from "../model/shortcutFormat";
 import {
   cachedNotificationPermission,
@@ -2414,7 +2413,7 @@ function ShortcutEditor({
         shiftKey: event.shiftKey || held.current.shiftKey,
       };
       setPreview(
-        quickComposerShortcutPreview(
+        shortcutPreview(
           modifiers,
           modifier ? undefined : event.code,
           event.key,
@@ -2437,7 +2436,7 @@ function ShortcutEditor({
         shiftKey: event.shiftKey || held.current.shiftKey,
       };
       modifiers[modifier] = false;
-      setPreview(quickComposerShortcutPreview(modifiers));
+      setPreview(shortcutPreview(modifiers));
     };
     window.addEventListener("keydown", onKeyDown, true);
     window.addEventListener("keyup", onKeyUp, true);

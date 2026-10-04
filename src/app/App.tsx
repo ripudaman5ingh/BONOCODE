@@ -7,7 +7,9 @@ import {
   handleAgentApp,
   type AppSessionListing,
   type AppSessionPlacement,
+  type QuickLaunch,
 } from "../features/agent-app/model/agentApp";
+import { acceptQuickLaunch } from "./model/quickLaunchSession";
 import { submitWithSettlement } from "./model/managedSubmission";
 import {
   submitAfterProjectSync,
@@ -7211,6 +7213,65 @@ function Workspace({
     },
     [appendTab, focusOpenSession, submitSession],
   );
+
+  const launchQuickSession = useCallback(
+    (launch: QuickLaunch, deliveryId: string, placement?: AppSessionPlacement) =>
+      acceptQuickLaunch(launch, deliveryId, {
+        getSessions: () => sessionsRef.current,
+        updateSessions: (update) => {
+          sessionsRef.current = update(sessionsRef.current);
+          setSessions(update);
+        },
+        appendTab,
+        placeSession: (sessionId, target, cwd) => {
+          const anchor = sessionsRef.current.find(
+            (session) => session.id === target.besideSessionId,
+          );
+          const tab = tabsRef.current.find((entry) =>
+            leafIds(entry.layout).includes(target.besideSessionId),
+          );
+          if (!anchor || !sameProjectPath(anchor.cwd, cwd) || !tab)
+            throw new Error("The target session must be open in this project");
+          const nextTabs = tabsRef.current.map((entry) =>
+            entry.id === tab.id
+              ? {
+                  ...entry,
+                  layout: splitPane(
+                    entry.layout,
+                    target.besideSessionId,
+                    target.direction,
+                    sessionId,
+                  ),
+                  focusedId: launch.reveal ? sessionId : entry.focusedId,
+                  diffFocused: launch.reveal ? false : entry.diffFocused,
+                }
+              : entry,
+          );
+          tabsRef.current = nextTabs;
+          setTabs(nextTabs);
+          return tab.id;
+        },
+        setProjectCwd,
+        setRecents,
+        revealTab: (id, cwd) => {
+          setActiveTabId(id);
+          setComposerFocused(false);
+          setSearchViewOpen(false);
+          setInboxViewOpen(false);
+          setNotesViewOpen(false);
+          setAutomationsViewOpen(false);
+          setSidebarTab("sessions", cwd);
+        },
+        submit: submitSession,
+        saveDraft: (id, prompt, attachments, requestId) =>
+          flushSync(() =>
+            onSaveDraft(id, prompt, attachments, requestId),
+          ),
+      }, placement),
+    [appendTab, submitSession, onSaveDraft],
+  );
+  const launchQuickSessionRef = useRef(launchQuickSession);
+  launchQuickSessionRef.current = launchQuickSession;
 
   const submitSessionRef = useRef(submitSession);
   submitSessionRef.current = submitSession;

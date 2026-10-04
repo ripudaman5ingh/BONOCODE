@@ -7,8 +7,8 @@ import {
 } from "../../../platform/tauri/platform";
 import {
   canonicalShortcut,
-  isGlobalShortcut,
   shortcutFromKeyEvent,
+  shortcutLabel,
   shortcutTokens,
 } from "../model/shortcutFormat";
 import { readFlag, writeFlag } from "./storageFlags";
@@ -1187,7 +1187,7 @@ export function keybindingShortcutLabel(
   const override = loadKeybindingOverrides()[command];
   if (override?.disabled) return null;
   return override?.shortcut
-    ? quickComposerShortcutLabel(override.shortcut)
+    ? shortcutLabel(override.shortcut)
     : fallback;
 }
 
@@ -1224,7 +1224,7 @@ export function currentKeybindings(): KeybindingRow[] {
       keys: override?.disabled
         ? "Disabled"
         : override?.shortcut
-          ? quickComposerShortcutLabel(override.shortcut)
+          ? shortcutLabel(override.shortcut)
           : row.keys,
     };
   });
