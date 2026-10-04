@@ -12,8 +12,11 @@ import {
   RUNTIME_MODE_HINT,
   RUNTIME_MODE_LABEL,
   RUNTIME_MODES,
+  type Attachment,
   type HarnessId,
+  type RuntimeMode,
   type Session,
+  type WorkspaceMode,
 } from "../../sessions/model/session";
 import {
   loadSessionFolders,
@@ -26,7 +29,6 @@ import {
   type Note,
   type NoteUpsert,
 } from "../../notes";
-import type { QuickLaunch } from "../../quick-composer/model/quickComposer";
 import type { Worktree, Worktrees } from "../../source-control/model/worktrees";
 import { pathKey } from "../../../shared/lib/paths";
 import type { SplitDir } from "../../workspace/model/layout";
@@ -45,6 +47,26 @@ export type AppSessionListing = {
 export type AppSessionPlacement = {
   direction: SplitDir;
   besideSessionId: string;
+};
+
+export type QuickLaunch = {
+  prompt: string;
+  /** Create an unsent user draft instead of starting an agent turn. */
+  draft?: boolean;
+  /** Turn mode picked with a leading composer command. */
+  intent?: "plan" | "orchestrate";
+  cwd: string;
+  harness: HarnessId;
+  /** Missing means the harness default, resolved by the workspace. */
+  model?: string;
+  modelSettings?: Record<string, string>;
+  runtimeMode?: RuntimeMode;
+  attachments?: Attachment[];
+  workspaceMode?: WorkspaceMode;
+  worktreeBase?: string;
+  worktreeCwd?: string;
+  /** Bring the new session forward instead of starting it quietly. */
+  reveal: boolean;
 };
 
 export type AgentAppHost = {

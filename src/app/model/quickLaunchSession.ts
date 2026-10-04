@@ -2,8 +2,7 @@ import {
   rememberProject,
   type RecentProject,
 } from "../../features/projects/model/recents";
-import type { QuickLaunch } from "../../features/quick-composer/model/quickComposer";
-import { applyQuickWorkspace } from "../../features/quick-composer/model/quickWorkspace";
+import type { QuickLaunch } from "../../features/agent-app/model/agentApp";
 import { prepareAttachments } from "../../features/sessions/model/attachments";
 import {
   mergeModelSettings,
@@ -20,6 +19,22 @@ import {
   type WorkspaceTab,
 } from "../../features/workspace/model/layout";
 import type { SubmissionAcceptance } from "./submissionAcceptance";
+
+function applyQuickWorkspace(
+  session: Session,
+  launch: QuickLaunch,
+): Session {
+  if (launch.workspaceMode === "worktree") {
+    return {
+      ...session,
+      workspaceMode: "worktree",
+      worktreeBase: launch.worktreeBase || "HEAD",
+    };
+  }
+  return launch.worktreeCwd
+    ? { ...session, worktreeCwd: launch.worktreeCwd }
+    : session;
+}
 
 /** Complete the workspace handoff before the receiver acknowledges the launch. */
 export async function acceptQuickLaunch(
@@ -66,7 +81,6 @@ export async function acceptQuickLaunch(
     return;
   }
   if (
-    existing?.quickLaunchAccepted ||
     existing?.blocks.some((block) => block.role === "user" && !block.draft)
   )
     return;
@@ -122,9 +136,4 @@ export async function acceptQuickLaunch(
   ) {
     throw new Error("The workspace could not accept the queued session yet.");
   }
-  workspace.updateSessions((sessions) =>
-    sessions.map((item) =>
-      item.id === deliveryId ? { ...item, quickLaunchAccepted: true } : item,
-    ),
-  );
 }

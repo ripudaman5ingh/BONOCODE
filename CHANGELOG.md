@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - Terminal arcade games.
+- macOS quick composer (floating composer window and quick git popup).
 
 ## [0.6.0] - 2026-09-30
 

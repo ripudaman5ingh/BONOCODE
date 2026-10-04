@@ -27,7 +27,6 @@ import {
   loadNotesEnabled,
   keybindingPressed,
   matchCustomKeybinding,
-  loadQuickComposerShortcut,
   loadTabAnimationsEnabled,
   NOTES_ENABLED_DEFAULT,
   saveComposerRunner,
@@ -42,7 +41,6 @@ import {
   saveNotesEnabled,
   saveKeybindingOverride,
   type KeybindingOverride,
-  saveQuickComposerShortcut,
   saveTabAnimationsEnabled,
 } from "./settings";
 import { IS_MAC, MOD, SHIFT } from "../../../platform/tauri/platform";
@@ -52,7 +50,6 @@ const MODEL_CONTROLS_KEY = "bonocode.modelControls";
 const LEGACY_EFFORT_VISIBLE_KEY = "bonocode.composerEffortVisible";
 const NOTES_KEY = "bonocode.notesEnabled";
 const KEYBINDING_OVERRIDES_KEY = "bonocode.keybindingOverrides";
-const QUICK_COMPOSER_SHORTCUT_KEY = "bonocode.quickComposerShortcut";
 const LIVE_AGENTS_KEY = "bonocode.liveAgentsEnabled";
 const DIFF_VIEWER_KEY = "bonocode.diffViewer";
 const FORMAT_ON_SAVE_KEY = "bonocode.formatOnSave";
@@ -324,24 +321,6 @@ describe("keybinding overrides", () => {
     });
     localStorage.setItem(KEYBINDING_OVERRIDES_KEY, "not-json");
     expect(loadKeybindingOverrides()).toEqual({});
-  });
-});
-
-describe("quick composer shortcut setting", () => {
-  beforeEach(mockLocalStorage);
-
-  it("defaults to the existing shortcut and persists a custom binding", () => {
-    expect(loadQuickComposerShortcut()).toBe("Command+Shift+Space");
-    saveQuickComposerShortcut("Command+Option+KeyK");
-    expect(localStorage.getItem(QUICK_COMPOSER_SHORTCUT_KEY)).toBe(
-      "Command+Option+KeyK",
-    );
-    expect(loadQuickComposerShortcut()).toBe("Command+Option+KeyK");
-  });
-
-  it("ignores malformed stored bindings", () => {
-    localStorage.setItem(QUICK_COMPOSER_SHORTCUT_KEY, "Shift+Space");
-    expect(loadQuickComposerShortcut()).toBe("Command+Shift+Space");
   });
 });
 

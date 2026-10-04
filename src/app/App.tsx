@@ -1,4 +1,3 @@
-import { acceptQuickLaunch } from "./model/quickLaunchSession";
 import {
   cancelScheduledFlush,
   scheduleHarnessFlush,
@@ -8,7 +7,9 @@ import {
   handleAgentApp,
   type AppSessionListing,
   type AppSessionPlacement,
+  type QuickLaunch,
 } from "../features/agent-app/model/agentApp";
+import { acceptQuickLaunch } from "./model/quickLaunchSession";
 import { submitWithSettlement } from "./model/managedSubmission";
 import {
   submitAfterProjectSync,
@@ -526,8 +527,6 @@ import {
   type Automation,
   type AutomationRun,
 } from "../features/automations/model/automations";
-import { useQuickComposerLaunches } from "../features/quick-composer/hooks/useQuickComposerLaunches";
-import type { QuickLaunch } from "../features/quick-composer/model/quickComposer";
 import { claimInboxAutomationRuns } from "../features/automations/model/automationEvents";
 import {
   SECOND_OPINION_TITLE,
@@ -7221,7 +7220,6 @@ function Workspace({
         getSessions: () => sessionsRef.current,
         updateSessions: (update) => {
           sessionsRef.current = update(sessionsRef.current);
-          // Compose with submission's queued transcript updates.
           setSessions(update);
         },
         appendTab,
@@ -7272,9 +7270,9 @@ function Workspace({
       }, placement),
     [appendTab, submitSession, onSaveDraft],
   );
-  useQuickComposerLaunches(launchQuickSession);
   const launchQuickSessionRef = useRef(launchQuickSession);
   launchQuickSessionRef.current = launchQuickSession;
+
   const submitSessionRef = useRef(submitSession);
   submitSessionRef.current = submitSession;
   const saveDraftRef = useRef(onSaveDraft);

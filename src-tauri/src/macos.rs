@@ -635,7 +635,6 @@ fn write_dev_bundle_icons(app: &Path, app_name: &str) -> Result<(), String> {
     std::fs::write(app.join("Contents/Info.plist"), dev_bundle_plist(app_name))
         .map_err(|e| e.to_string())?;
     std::fs::write(resources.join("AppIcon.icns"), DEV_ICNS).map_err(|e| e.to_string())?;
-    std::fs::write(resources.join("Assets.car"), DEV_ASSETS_CAR).map_err(|e| e.to_string())?;
     let _ = std::process::Command::new("/usr/bin/touch")
         .arg(app)
         .status();
@@ -651,8 +650,6 @@ const DEV_BUNDLE_NAME_ENV: &str = "MONOCODE_DEV_APP_NAME";
 const DEV_BUNDLE_ID: &str = "com.monocode.desktop";
 #[cfg(debug_assertions)]
 const DEV_ICNS: &[u8] = include_bytes!("../icons/icon.icns");
-#[cfg(debug_assertions)]
-const DEV_ASSETS_CAR: &[u8] = include_bytes!("../macos/Assets.car");
 #[cfg(debug_assertions)]
 fn dev_bundle_dir_name(app_name: &str) -> String {
     format!("{app_name}.app")
