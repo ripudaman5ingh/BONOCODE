@@ -74,13 +74,6 @@ describe.each([
     undefined,
   ],
   [
-    "bonocode.gridArcadeEnabled",
-    settings.loadGridArcadeEnabled,
-    settings.saveGridArcadeEnabled,
-    true,
-    "bonocode:grid-arcade-enabled-change",
-  ],
-  [
     "bonocode.claudeHooks",
     settings.loadClaudeHooks,
     settings.saveClaudeHooks,

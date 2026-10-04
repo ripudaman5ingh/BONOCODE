@@ -794,9 +794,6 @@ const LocalSessionPane = memo(function LocalSessionPane({
             ) : (
               <EmptySession
                 cwd={session.cwd}
-                hasChatBackground={Boolean(
-                  projectBackground || globalBackgroundPath,
-                )}
                 composer={
                   dockComposer ? undefined : (
                     <div

@@ -7,26 +7,15 @@ import {
   resolveTabGroupLabel,
   subscribeTabGroupLabels,
 } from "../../workspace/model/tabGroups";
-import {
-  loadGridArcadeEnabled,
-  subscribeGridArcadeEnabled,
-} from "../../settings/model/settings";
 import { useLockOverscroll } from "../../../shared/hooks/useLockOverscroll";
-import { TerminalGridBackground } from "../../terminal/ui/TerminalGridBackground";
 
 type Props = {
   cwd: string;
   composer?: ReactNode;
-  hasChatBackground?: boolean;
 };
 
-export function EmptySession({ cwd, composer, hasChatBackground }: Props) {
+export function EmptySession({ cwd, composer }: Props) {
   const lockOverscroll = useLockOverscroll<HTMLDivElement>();
-  const arcadeEnabled = useSyncExternalStore(
-    subscribeGridArcadeEnabled,
-    loadGridArcadeEnabled,
-    () => true,
-  );
   const getProjectLabel = () =>
     looksLikeProject(cwd)
       ? resolveTabGroupLabel(
@@ -49,7 +38,6 @@ export function EmptySession({ cwd, composer, hasChatBackground }: Props) {
       ref={lockOverscroll}
       className="relative flex h-full min-h-0 overflow-y-auto overscroll-none"
     >
-      {arcadeEnabled && !hasChatBackground ? <TerminalGridBackground /> : null}
       {composer ? (
         // Same box as the docked composer (max-w-4xl, p-1.5), so the input
         // keeps its width when the first message docks it.
