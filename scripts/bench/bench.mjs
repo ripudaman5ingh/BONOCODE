@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const HOME = os.homedir();
+let PIDS_HELPER = null;
 
 function usage() {
   console.log(`Usage: node scripts/bench/bench.mjs --app <path.app> [options]
@@ -20,7 +21,8 @@ function usage() {
   --timeout-ms <ms>   give up on a launch after this long (default 60000)
   --quiet-cpu <pct>   CPU % of one core counted as idle (default 10)
   --out <dir>         results folder (default bench-results)
-  --no-isolate        use your real app data instead of a clean, restored copy`);
+  --no-isolate        use your real app data instead of a clean, restored copy
+  --hold              open the app (isolated data, optional --fixture), wait for Enter, then quit and restore`);
 }
 
 function die(message) {
@@ -46,6 +48,7 @@ function parseArgs(argv) {
     else if (a === "--quiet-cpu") opts.quietCpu = Number(next());
     else if (a === "--out") opts.out = next();
     else if (a === "--no-isolate") opts.isolate = false;
+    else if (a === "--hold") opts.hold = true;
     else if (a === "--help" || a === "-h") {
       usage();
       process.exit(0);
@@ -104,28 +107,21 @@ function alive(pid) {
   }
 }
 
-// The app process, its descendants (agent CLIs etc.), and WebKit helper processes
-// that did not exist before launch (WebKit helpers are owned by launchd, not the app).
-function appGroup(appPid, preexistingWebkit) {
+// The app process plus everything macOS holds it responsible for: its WebKit helpers
+// and child processes (scripts/bench/app-pids.swift, the attribution Activity Monitor
+// uses). Other apps' WebKit processes are not counted. The second argument is unused.
+function appGroup(appPid, _unused) {
+  let owned = [];
+  try {
+    owned = sh(PIDS_HELPER, [String(appPid)]).split("\n").filter(Boolean).map(Number);
+  } catch {
+    owned = [];
+  }
+  const ids = new Set(owned);
   const all = procs();
-  const byParent = new Map();
-  for (const p of all) {
-    if (!byParent.has(p.ppid)) byParent.set(p.ppid, []);
-    byParent.get(p.ppid).push(p);
-  }
   const main = all.find((p) => p.pid === appPid);
-  const children = [];
-  const stack = [appPid];
-  while (stack.length) {
-    const pid = stack.pop();
-    for (const c of byParent.get(pid) ?? []) {
-      children.push(c);
-      stack.push(c.pid);
-    }
-  }
-  const childPids = new Set(children.map((c) => c.pid));
-  const webview = all.filter((p) => isWebKit(p) && !preexistingWebkit.has(p.pid) && !childPids.has(p.pid));
-  return { main, children, webview };
+  const others = all.filter((p) => ids.has(p.pid) && p.pid !== appPid);
+  return { main, webview: others.filter(isWebKit), children: others.filter((p) => !isWebKit(p)) };
 }
 
 function cpuTotal(g) {
@@ -155,11 +151,11 @@ function medianMem(samples) {
   return out;
 }
 
-function windowHelper() {
-  const src = path.join(HERE, "first-window.swift");
-  const bin = path.join(os.tmpdir(), "bonocode-bench-first-window");
+function compileHelper(name) {
+  const src = path.join(HERE, `${name}.swift`);
+  const bin = path.join(os.tmpdir(), `bonocode-bench-${name}`);
   if (!fs.existsSync(bin) || fs.statSync(bin).mtimeMs < fs.statSync(src).mtimeMs) {
-    console.log("Compiling window helper (one time)...");
+    console.log(`Compiling ${name} helper (one time)...`);
     sh("swiftc", ["-O", src, "-o", bin]);
   }
   return bin;
@@ -204,6 +200,38 @@ function restoreData(ctx) {
   }
 }
 
+const isAppProc = (ctx, p) => p.comm === ctx.exe || path.basename(p.comm) === path.basename(ctx.exe);
+
+// Launches through LaunchServices (like Finder), so macOS makes the app responsible for
+// its own WebKit helpers. Spawning the binary directly would make the terminal
+// responsible and hide them. Returns the new app pid and the launch start time.
+async function launch(ctx) {
+  const before = new Set(procs().filter((p) => isAppProc(ctx, p)).map((p) => p.pid));
+  const t0 = Date.now();
+  sh("open", ["-n", ctx.opts.app]);
+  for (let i = 0; i < 400; i++) {
+    const found = procs().find((p) => isAppProc(ctx, p) && !before.has(p.pid));
+    if (found) return { pid: found.pid, t0 };
+    await sleep(25);
+  }
+  throw new Error("the app process did not start");
+}
+
+// Kills app processes left over from earlier launches (an instance that survived
+// quit, or one the app relaunched itself), so they never leak into the next run.
+async function killStragglers(ctx) {
+  const left = procs().filter((p) => isAppProc(ctx, p));
+  for (const p of left) {
+    try {
+      process.kill(p.pid, "SIGKILL");
+    } catch {}
+  }
+  if (left.length) {
+    console.log(`\n  killed ${left.length} leftover app process(es)`);
+    await sleep(3000);
+  }
+}
+
 async function quit(ctx, pid, preWebkit) {
   const tree = appGroup(pid, preWebkit).children.map((p) => p.pid);
   try {
@@ -222,10 +250,11 @@ async function quit(ctx, pid, preWebkit) {
     } catch {}
   }
   for (let w = 0; w < 50; w++) {
-    if (!procs().some((p) => isWebKit(p) && !preWebkit.has(p.pid))) break;
+    if (appGroup(pid, preWebkit).webview.length === 0) break;
     await sleep(100);
   }
   ctx.pid = null;
+  await killStragglers(ctx);
   await sleep(2000);
 }
 
@@ -251,11 +280,9 @@ async function waitForSettle(pid, preWebkit, t0, timeoutMs, quietCpuPct) {
 }
 
 async function runOnce(ctx, name) {
+  await killStragglers(ctx);
   const preWebkit = new Set(procs().filter(isWebKit).map((p) => p.pid));
-  const t0 = Date.now();
-  const app = spawn(ctx.exe, [], { cwd: "/", detached: true, stdio: "ignore" });
-  app.unref();
-  const pid = app.pid;
+  const { pid, t0 } = await launch(ctx);
   ctx.pid = pid;
   const helper = spawn(ctx.helper, [String(pid), String(ctx.opts.timeoutMs / 1000)], {
     stdio: ["ignore", "pipe", "inherit"],
@@ -280,8 +307,38 @@ async function runOnce(ctx, name) {
   const idleCpuPct =
     ((cpuTotal(appGroup(pid, preWebkit)) - cpuStart) / ((Date.now() - sampleStart) / 1000)) * 100;
   const mem = medianMem(samples);
+  if (!mem.webview) console.log(`\n  warning: ${name}: no WebKit processes were attributed to the app`);
   await quit(ctx, pid, preWebkit);
+  if (!mem.main) throw new Error(`${name}: the app process exited during the run`);
   return { window_ms: windowMs, settle_ms: settleMs, idle_cpu_pct: round(idleCpuPct), mem_mb: mem };
+}
+
+async function runWithRetry(ctx, name) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await runOnce(ctx, name);
+    } catch (e) {
+      if (attempt >= 3) throw e;
+      console.log(`\n  ${e.message}; retrying (${attempt}/2)`);
+    }
+  }
+}
+
+// Opens the app with the prepared data and leaves it open for manual testing.
+async function hold(ctx, name) {
+  await killStragglers(ctx);
+  const { pid } = await launch(ctx);
+  ctx.pid = pid;
+  console.log(`\n${name} is open${ctx.opts.fixture ? " with the fixture" : ""}.`);
+  console.log("Press Enter here when you are done. It will quit the app and restore your data.");
+  await new Promise((resolve) => {
+    process.stdin.resume();
+    process.stdin.once("data", () => {
+      process.stdin.pause();
+      resolve();
+    });
+  });
+  await quit(ctx, ctx.pid, new Set());
 }
 
 function bundleInfo(app, exe) {
@@ -322,7 +379,13 @@ async function main() {
   }
 
   const label = (opts.label ?? `${name}-${version}`).toLowerCase().replace(/[^a-z0-9.]+/g, "-");
-  const ctx = { opts, id, exe, dirs: dataDirs(id), helper: windowHelper(), pid: null };
+  PIDS_HELPER = compileHelper("app-pids");
+  try {
+    sh(PIDS_HELPER, [String(process.pid)]);
+  } catch (e) {
+    die(`app-pids helper failed: ${e.message}`);
+  }
+  const ctx = { opts, id, exe, dirs: dataDirs(id), helper: compileHelper("first-window"), pid: null };
   process.on("SIGINT", () => {
     if (ctx.pid) {
       try {
@@ -337,14 +400,22 @@ async function main() {
     backupData(ctx);
     resetData(ctx);
   }
+  if (opts.hold) {
+    try {
+      await hold(ctx, name);
+    } finally {
+      restoreData(ctx);
+    }
+    return;
+  }
   const runs = [];
   try {
     process.stdout.write("Warm-up launch (not recorded)... ");
-    await runOnce(ctx, "warm-up");
+    await runWithRetry(ctx, "warm-up");
     console.log("done");
     for (let i = 1; i <= opts.runs; i++) {
       process.stdout.write(`Run ${i}/${opts.runs}... `);
-      const r = await runOnce(ctx, `run ${i}`);
+      const r = await runWithRetry(ctx, `run ${i}`);
       runs.push(r);
       console.log(`window ${r.window_ms} ms, settled ${r.settle_ms ?? "n/a"} ms, idle ${round(r.mem_mb.total)} MB, idle CPU ${r.idle_cpu_pct}%`);
     }

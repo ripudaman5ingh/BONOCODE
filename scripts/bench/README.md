@@ -5,8 +5,10 @@ Measures a built app: time to first window, time until it goes idle, idle memory
 
     npm run bench -- --app /Applications/Bonocode.app --runs 5
 
-- Quit the app (and any `npm run tauri dev`) first. Close Safari and Mail too:
-  their WebKit processes could be counted as the app's.
+- Quit the app (and any `npm run tauri dev`) first. Memory is attributed with the
+  macOS responsibility API (what Activity Monitor uses), so other apps' WebKit
+  processes are not counted. Leftover app processes are killed between runs, and a
+  run where the app process disappears is retried (up to 2 times).
 - Your real app data is moved to `~/.bonocode-bench-backup/<timestamp>` and restored
   at the end, even on Ctrl+C. If the script is force-killed, move it back by hand to
   `~/Library/Application Support/<bundle id>` (and Caches, WebKit, Saved Application State).
@@ -29,3 +31,10 @@ Builds `bench-fixtures/three-chats/` (gitignored) with the app's own code: a 500
 chat (text, file reads, diffs, test output) and two small chats, restored as three tabs
 in `~/bonocode-bench-project`. It contains `bonocode.db` and a `monocode.db` copy, so the
 same fixture works for MonoCode v0.6.0. Rebuild it after any session schema change.
+
+## Manual session
+
+    npm run bench -- --app <path.app> --fixture bench-fixtures/three-chats --hold
+
+Opens the app with isolated data (and the fixture), waits for Enter, then quits and
+restores your data. Used for the typing latency test in docs/baseline.md.
