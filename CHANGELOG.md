@@ -1253,5 +1253,3 @@ First public release. macOS (Apple Silicon) only.
 [0.1.0]: https://github.com/hardbeat920/monocode/releases/tag/v0.1.0
 
 
-### Removed
-- Terminal arcade games.
