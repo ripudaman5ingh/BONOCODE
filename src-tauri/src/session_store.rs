@@ -1980,7 +1980,7 @@ pub(crate) fn now_millis() -> i64 {
 mod tests {
     use super::*;
     use rusqlite::hooks::{AuthAction, Authorization};
-    use serde_json::json;
+    use serde_json::{json, Value};
     use std::sync::atomic::AtomicUsize;
 
     #[test]
@@ -3526,5 +3526,36 @@ mod tests {
         .unwrap();
         assert!(result.hits.is_empty());
         assert!(!result.truncated);
+    }
+
+    #[test]
+    #[ignore = "writes a benchmark fixture; run scripts/bench/make-fixture.mjs"]
+    fn write_bench_fixture() {
+        let (Ok(spec_path), Ok(out_dir)) = (
+            std::env::var("BENCH_FIXTURE_SPEC"),
+            std::env::var("BENCH_FIXTURE_OUT"),
+        ) else {
+            eprintln!("BENCH_FIXTURE_SPEC and BENCH_FIXTURE_OUT must be set");
+            return;
+        };
+        let spec: Value =
+            serde_json::from_str(&std::fs::read_to_string(&spec_path).unwrap()).unwrap();
+        let db = PathBuf::from(&out_dir).join("bonocode.db");
+        for suffix in ["", "-wal", "-shm"] {
+            let _ = std::fs::remove_file(format!("{}{suffix}", db.display()));
+        }
+        let store = SessionStore::open(db.clone()).unwrap();
+        {
+            let conn = store.lock_conn().unwrap();
+            for raw in spec["sessions"].as_array().expect("sessions array") {
+                let session: SessionUpsert = serde_json::from_value(raw.clone()).unwrap();
+                upsert_session(&conn, &session).unwrap();
+            }
+            set_workspace_snapshot(&conn, &spec["workspace"].to_string()).unwrap();
+        }
+        drop(store);
+        // One self-contained file, so it can be copied and renamed (monocode.db).
+        let conn = Connection::open(&db).unwrap();
+        conn.execute_batch("PRAGMA journal_mode = DELETE;").unwrap();
     }
 }

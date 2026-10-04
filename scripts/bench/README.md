@@ -19,3 +19,13 @@ Measures a built app: time to first window, time until it goes idle, idle memory
   average CPU use while memory is sampled; high values mean something keeps
   running (animations, polling).
 - Plug in the laptop and keep other heavy apps closed for stable numbers.
+
+## Fixture: 3 chats, one with 500 messages
+
+    npm run bench:fixture
+    npm run bench -- --app /Applications/Bonocode.app --fixture bench-fixtures/three-chats
+
+Builds `bench-fixtures/three-chats/` (gitignored) with the app's own code: a 500-message
+chat (text, file reads, diffs, test output) and two small chats, restored as three tabs
+in `~/bonocode-bench-project`. It contains `bonocode.db` and a `monocode.db` copy, so the
+same fixture works for MonoCode v0.6.0. Rebuild it after any session schema change.
