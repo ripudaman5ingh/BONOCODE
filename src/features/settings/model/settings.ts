@@ -353,12 +353,6 @@ export const SETTINGS_INDEX: SettingsEntry[] = [
     keywords: "unified editor review changes working tree",
   },
   {
-    id: "empty-session-games",
-    section: "chat",
-    label: "Empty session games",
-    keywords: "pacman snake arcade grid fun",
-  },
-  {
     id: "agent-clis",
     section: "providers",
     label: "Agent CLIs",
@@ -808,35 +802,6 @@ export function loadCloseToTray(): boolean {
 
 export function saveCloseToTray(value: boolean) {
   writeFlag(CLOSE_TO_TRAY_KEY, value);
-}
-
-const GRID_ARCADE_ENABLED_KEY = "bonocode.gridArcadeEnabled";
-
-export const GRID_ARCADE_ENABLED_DEFAULT = true;
-
-/** Fired on `window` when the empty-session games setting flips. */
-export const GRID_ARCADE_ENABLED_CHANGE_EVENT =
-  "bonocode:grid-arcade-enabled-change";
-
-export function loadGridArcadeEnabled(): boolean {
-  return readFlag(GRID_ARCADE_ENABLED_KEY) ?? GRID_ARCADE_ENABLED_DEFAULT;
-}
-
-export function saveGridArcadeEnabled(value: boolean) {
-  writeFlag(GRID_ARCADE_ENABLED_KEY, value);
-  if (typeof window === "undefined") return;
-  window.dispatchEvent(
-    new CustomEvent<boolean>(GRID_ARCADE_ENABLED_CHANGE_EVENT, {
-      detail: value,
-    }),
-  );
-}
-
-export function subscribeGridArcadeEnabled(onStoreChange: () => void) {
-  if (typeof window === "undefined") return () => {};
-  window.addEventListener(GRID_ARCADE_ENABLED_CHANGE_EVENT, onStoreChange);
-  return () =>
-    window.removeEventListener(GRID_ARCADE_ENABLED_CHANGE_EVENT, onStoreChange);
 }
 
 const DIFF_VIEWER_KEY = "bonocode.diffViewer";

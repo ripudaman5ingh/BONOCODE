@@ -292,7 +292,6 @@ import {
   loadFileTabMode,
   loadFollowUpBehavior,
   loadFormatOnSave,
-  loadGridArcadeEnabled,
   loadLiveAgentsEnabled,
   loadModelControls,
   loadNotesEnabled,
@@ -308,7 +307,6 @@ import {
   saveFileTabMode,
   saveFollowUpBehavior,
   saveFormatOnSave,
-  saveGridArcadeEnabled,
   saveLiveAgentsEnabled,
   saveModelControls,
   saveNotesEnabled,
@@ -937,9 +935,6 @@ function ChatPage() {
   const [diffViewer, setDiffViewer] = useState<DiffViewer>(loadDiffViewer);
   const [formatOnSave, setFormatOnSave] = useState(loadFormatOnSave);
   const [composerRunner, setComposerRunner] = useState(loadComposerRunner);
-  const [gridArcadeEnabled, setGridArcadeEnabled] = useState(
-    loadGridArcadeEnabled,
-  );
 
   useEffect(() => {
     const onAnchor = (event: Event) => {
@@ -984,11 +979,6 @@ function ChatPage() {
   const onComposerRunner = (next: boolean) => {
     saveComposerRunner(next);
     setComposerRunner(next);
-  };
-
-  const onGridArcadeEnabled = (next: boolean) => {
-    saveGridArcadeEnabled(next);
-    setGridArcadeEnabled(next);
   };
 
   return (
@@ -1112,17 +1102,6 @@ function ChatPage() {
             label="Composer mascot"
             on={composerRunner}
             onChange={onComposerRunner}
-          />
-        </Row>
-        <Row
-          id="empty-session-games"
-          label="Empty session games"
-          description="Pac-man and snake idle on the empty-session grid. Hover the band to take control of whichever is on screen. Turn this off to keep the pane still."
-        >
-          <Toggle
-            label="Empty session games"
-            on={gridArcadeEnabled}
-            onChange={onGridArcadeEnabled}
           />
         </Row>
       </Group>

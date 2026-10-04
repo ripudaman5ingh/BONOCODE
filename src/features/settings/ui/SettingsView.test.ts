@@ -774,17 +774,6 @@ describe("settings search", () => {
     );
   }
 
-  it("finds a setting that lives on another page", async () => {
-    await render("general");
-    await type("pacman");
-    expect(options().map((item) => item.textContent)).toEqual([
-      "Empty session gamesChat",
-    ]);
-
-    await act(async () => options()[0]!.click());
-    expect(onSelectSection).toHaveBeenCalledWith("chat");
-  });
-
   it("finds and reveals project notifications separately from global notifications", async () => {
     await render("general");
     await type("project notifications");

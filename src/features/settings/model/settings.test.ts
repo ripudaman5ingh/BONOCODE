@@ -11,7 +11,6 @@ import {
   FORMAT_ON_SAVE_DEFAULT,
   FILE_TAB_MODE_DEFAULT,
   FOLLOW_UP_BEHAVIOR_DEFAULT,
-  GRID_ARCADE_ENABLED_DEFAULT,
   KEYBINDINGS,
   LIVE_AGENTS_ENABLED_DEFAULT,
   TAB_ANIMATIONS_ENABLED_DEFAULT,
@@ -24,7 +23,6 @@ import {
   loadFormatOnSave,
   loadFileTabMode,
   loadFollowUpBehavior,
-  loadGridArcadeEnabled,
   loadLiveAgentsEnabled,
   loadNotesEnabled,
   keybindingPressed,
@@ -40,7 +38,6 @@ import {
   saveFormatOnSave,
   saveFileTabMode,
   saveFollowUpBehavior,
-  saveGridArcadeEnabled,
   saveLiveAgentsEnabled,
   saveNotesEnabled,
   saveKeybindingOverride,
@@ -57,7 +54,6 @@ const NOTES_KEY = "bonocode.notesEnabled";
 const KEYBINDING_OVERRIDES_KEY = "bonocode.keybindingOverrides";
 const QUICK_COMPOSER_SHORTCUT_KEY = "bonocode.quickComposerShortcut";
 const LIVE_AGENTS_KEY = "bonocode.liveAgentsEnabled";
-const GRID_ARCADE_KEY = "bonocode.gridArcadeEnabled";
 const DIFF_VIEWER_KEY = "bonocode.diffViewer";
 const FORMAT_ON_SAVE_KEY = "bonocode.formatOnSave";
 const AUTOSAVE_KEY = "bonocode.autosave";
@@ -366,26 +362,6 @@ describe("live agents enabled setting", () => {
     expect(loadLiveAgentsEnabled()).toBe(false);
     saveLiveAgentsEnabled(true);
     expect(loadLiveAgentsEnabled()).toBe(true);
-  });
-});
-
-describe("grid arcade enabled setting", () => {
-  beforeEach(mockLocalStorage);
-  afterEach(() => {
-    localStorage.removeItem(GRID_ARCADE_KEY);
-  });
-
-  it("defaults to on", () => {
-    expect(GRID_ARCADE_ENABLED_DEFAULT).toBe(true);
-    expect(loadGridArcadeEnabled()).toBe(true);
-  });
-
-  it("persists an off switch", () => {
-    saveGridArcadeEnabled(false);
-    expect(localStorage.getItem(GRID_ARCADE_KEY)).toBe("0");
-    expect(loadGridArcadeEnabled()).toBe(false);
-    saveGridArcadeEnabled(true);
-    expect(loadGridArcadeEnabled()).toBe(true);
   });
 });
 

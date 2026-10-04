@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Renamed internal storage: database is now bonocode.db, settings keys use the bonocode. prefix, app events use the bonocode: prefix. MonoCode data is not migrated.
 - Replaced remaining MonoCode text in the UI with Bonocode and updated the macOS app icon.
 
+### Removed
+
+- Terminal arcade games.
+
 ## [0.6.0] - 2026-09-30
 
 ### Added
