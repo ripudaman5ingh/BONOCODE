@@ -13,11 +13,6 @@ use tauri::{AppHandle, Emitter, EventTarget, Manager, WebviewWindow, WebviewWind
 
 static WINDOW_COUNTER: AtomicU32 = AtomicU32::new(1);
 
-/// The floating quick composer. It is a webview window but not a workspace:
-/// it has no sessions, takes no part in quitting, and is never shown by the
-/// paths that bring workspace windows back.
-pub const QUICK_COMPOSER_LABEL: &str = "quick-composer";
-pub const QUICK_COMPOSER_GIT_LABEL: &str = "quick-composer-git";
 static ALLOW_EXIT: AtomicBool = AtomicBool::new(false);
 
 const QUIT_POLL: &str = "quit_poll";
@@ -192,8 +187,8 @@ pub fn destroy_window(window: WebviewWindow) -> Result<(), String> {
     window.destroy().map_err(|err| err.to_string())
 }
 
-pub fn is_workspace_window(label: &str) -> bool {
-    label != QUICK_COMPOSER_LABEL && label != QUICK_COMPOSER_GIT_LABEL
+pub fn is_workspace_window(_label: &str) -> bool {
+    true
 }
 
 /// Every workspace window, sorted by label.
