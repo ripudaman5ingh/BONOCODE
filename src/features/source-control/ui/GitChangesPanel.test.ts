@@ -102,6 +102,8 @@ beforeEach(() => {
   vi.mocked(gitDiffIndex).mockReset();
   vi.mocked(gitPull).mockReset();
   vi.mocked(generateCommitMessage).mockReset();
+  vi.mocked(gitPrStatus).mockResolvedValue(null);
+  vi.mocked(invoke).mockImplementation(async () => null);
   invalidateWatchedFiles.mockReset();
   container = document.createElement("div");
   document.body.append(container);
