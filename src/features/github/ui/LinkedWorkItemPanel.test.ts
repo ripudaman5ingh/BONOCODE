@@ -3,7 +3,7 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { invoke } from "@tauri-apps/api/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { clearInboxCache, type GithubWorkItem } from "../model/githubTasks";
+import { clearGithubWorkItemCache, type GithubWorkItem } from "../model/githubTasks";
 import type { LinkedWorkItem } from "../../sessions/model/session";
 import { LinkedWorkItemPanel } from "./WorkItemDetail";
 
@@ -32,7 +32,7 @@ let root: Root;
 
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-  clearInboxCache();
+  clearGithubWorkItemCache();
   vi.mocked(invoke).mockReset();
   vi.mocked(invoke).mockImplementation(async (command) => {
     if (command === "git_github_work_item") return item;
@@ -59,7 +59,7 @@ beforeEach(() => {
 afterEach(async () => {
   await act(async () => root.unmount());
   container.remove();
-  clearInboxCache();
+  clearGithubWorkItemCache();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });

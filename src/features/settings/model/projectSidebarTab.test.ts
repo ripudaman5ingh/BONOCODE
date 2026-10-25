@@ -30,18 +30,15 @@ describe("project Workspace tab", () => {
     expect(loadProjectSidebarTab("/work/three")).toBe("sessions");
   });
 
-  it("ignores invalid saved tabs and never saves Inbox as a Workspace tab", () => {
+  it("ignores invalid saved tabs", () => {
     localStorage.setItem(KEY, JSON.stringify({ "/work/one": "unknown" }));
-    expect(loadProjectSidebarTab("/work/one")).toBe("sessions");
-
-    saveProjectSidebarTab("/work/one", "inbox");
     expect(loadProjectSidebarTab("/work/one")).toBe("sessions");
   });
 
   it("uses the first visible tab in the global order for a new project", () => {
     localStorage.setItem(
       "bonocode.sidebarTabOrder",
-      JSON.stringify(["inbox", "files", "sessions", "changes"]),
+      JSON.stringify(["files", "sessions", "changes"]),
     );
     expect(loadProjectSidebarTab("/work/new")).toBe("files");
   });

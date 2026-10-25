@@ -18,7 +18,6 @@ export const SOUNDS_CHANGE_EVENT = "bonocode:sounds-change";
 
 export type SoundCue =
   | "turnFinished"
-  | "inboxUnseen"
   | "linkedActivity"
   | "updateAvailable"
   | "switch"
@@ -26,7 +25,6 @@ export type SoundCue =
 
 const CUES: Record<SoundCue, SoundName> = {
   turnFinished: "success",
-  inboxUnseen: "bloom",
   linkedActivity: "chime",
   updateAvailable: "arrival",
   switch: "toggle",
@@ -68,7 +66,7 @@ export function initSounds() {
   applySoundEngine();
 }
 
-type ProjectSoundCue = "turnFinished" | "inboxUnseen" | "linkedActivity";
+type ProjectSoundCue = "turnFinished" | "linkedActivity";
 
 /** Project cues require their subject so new sources cannot bypass project policy. */
 export function playCue(cue: Exclude<SoundCue, ProjectSoundCue>): boolean;

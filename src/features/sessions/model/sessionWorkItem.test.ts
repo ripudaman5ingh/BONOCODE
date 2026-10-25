@@ -1,26 +1,22 @@
 import { invoke } from "@tauri-apps/api/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  clearInboxCache,
+  clearGithubWorkItemCache,
   githubPrAction,
   githubWorkItem,
-  inboxItemKey,
   type GithubWorkItem,
   type InboxItem,
 } from "../../github/model/githubTasks";
 import {
-  inboxItemMatchesLinkedWorkItem,
-  linkedWorkItemInboxKey,
   linkedWorkItemFromInboxItem,
   parseGithubWorkItemUrl,
-  relatedSessionsForInboxItem,
   resolveLinkedWorkItem,
 } from "./sessionWorkItem";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 
 beforeEach(() => {
-  clearInboxCache();
+  clearGithubWorkItemCache();
   vi.mocked(invoke).mockReset();
 });
 
@@ -38,7 +34,7 @@ describe("session work items", () => {
     });
   });
 
-  it("creates a stable link from a GitHub Inbox item", () => {
+  it("creates a stable link from a GitHub item", () => {
     const item = {
       provider: "github",
       kind: "issue",
@@ -53,8 +49,6 @@ describe("session work items", () => {
       number: 12,
       url: "https://github.com/openai/codex/issues/12",
     });
-    expect(inboxItemMatchesLinkedWorkItem(item, linked!)).toBe(true);
-    expect(linkedWorkItemInboxKey(linked!)).toBe(inboxItemKey(item));
   });
 
   it("resolves an explicit PR number against the session repository", async () => {
@@ -144,40 +138,5 @@ describe("session work items", () => {
       number: 42,
       action: "squash",
     });
-  });
-
-  it("finds sessions related to the same GitHub Inbox item", () => {
-    const item = {
-      provider: "github",
-      kind: "pr",
-      repo: "Acme/App",
-      number: 42,
-    } as InboxItem;
-    const matching = {
-      id: "matching",
-      linkedWorkItem: {
-        kind: "pr" as const,
-        repo: "acme/app",
-        number: 42,
-        url: "https://github.com/acme/app/pull/42",
-      },
-    };
-    const sessions = [
-      matching,
-      {
-        id: "other-number",
-        linkedWorkItem: { ...matching.linkedWorkItem, number: 43 },
-      },
-      {
-        id: "other-kind",
-        linkedWorkItem: {
-          ...matching.linkedWorkItem,
-          kind: "issue" as const,
-        },
-      },
-      { id: "unlinked" },
-    ];
-
-    expect(relatedSessionsForInboxItem(item, sessions)).toEqual([matching]);
   });
 });

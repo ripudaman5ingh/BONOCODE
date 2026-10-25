@@ -121,7 +121,7 @@ export function ProjectNotificationSettings({
           <p className="mt-1 text-[12px] leading-relaxed text-content/45">
             Choose sounds, banners and sidebar indicators by category. Mute
             pauses them without changing your choices. Unread items stay marked
-            in Inbox.
+            in the sidebar.
           </p>
         </div>
         {projects.length ? (
@@ -154,7 +154,7 @@ export function ProjectNotificationSettings({
             role="status"
             className="px-4 py-3.5 text-[12px] leading-relaxed text-content/45"
           >
-            Open a project or connect an Inbox provider to configure its notifications.
+            Open a project or connect GitHub to configure its notifications.
           </p>
         ) : null}
         {projects.length ? (

@@ -1,8 +1,6 @@
 import { dropContextWindow, type ContextUsage } from "./contextUsage";
 import type { UserQuestionPrompt } from "./userQuestion";
 import type { HandoffComposerCard } from "./handoff";
-import type { InboxComposerCard } from "../../github/model/githubTasks";
-import type { InboxAskContext } from "../../inbox/model/inboxAsk";
 import type { OrchestrationProposal } from "../../orchestration/model/orchestrationPlan";
 import type { LinkedWorkItemUpdateCard } from "../../github/model/linkedWorkItemActivity";
 import {
@@ -391,8 +389,6 @@ export type WorkspaceMode = "current" | "worktree";
 export type Session = {
   /** Internal worker: displayed in its lead's panel rather than a workspace tab. */
   orchestrationLeadId?: string;
-  /** Temporary Inbox conversation: shares the runtime, never saved as a session. */
-  inboxAsk?: InboxAskContext;
   id: string;
   harness: HarnessId;
   model: string;
@@ -440,10 +436,8 @@ export type Session = {
   worktreePreparing?: boolean;
   /** Select a working copy before continuing after the previous one was deleted. */
   worktreeRemoved?: boolean;
-  /** One-shot composer text when opening a session from Inbox. */
+  /** One-shot composer text when opening a session, such as Add to chat. */
   composerSeed?: string;
-  /** Inbox issue/PR chip shown above the composer. In-memory, one-shot. */
-  inboxCard?: InboxComposerCard;
   /** GitHub issue or pull request shown on the persisted session card. */
   linkedWorkItem?: LinkedWorkItem;
   /** New linked-item activity shown above the composer. In-memory, one-shot. */

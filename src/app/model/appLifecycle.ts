@@ -146,8 +146,7 @@ export async function reportQuitPoll(id: number): Promise<void> {
   let inFlight = 0;
   if (liveWorkspace) {
     liveWorkspace.flush();
-    // Every running turn, not just the resumable ones `inFlightRefs` keeps:
-    // an Inbox Ask still counts as work nobody agreed to throw away.
+    // Every running turn, not just the resumable ones `inFlightRefs` keeps.
     inFlight = liveWorkspace.sessions().filter(isInFlightSession).length;
   }
   await invoke("quit_poll_reply", { id, inFlight }).catch(() => undefined);

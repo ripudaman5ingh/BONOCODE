@@ -80,8 +80,6 @@ describe("sounds", () => {
     playCue("turnFinished", { projectId: "work", category: "agentFinished" });
     expect(setVolume).toHaveBeenCalledWith(SOUNDS_VOLUME);
     expect(play).toHaveBeenCalledWith("success");
-    playCue("inboxUnseen", { projectId: "work", category: "issues" });
-    expect(play).toHaveBeenCalledWith("bloom");
     playCue("linkedActivity", { projectId: "work", category: "pullRequests" });
     expect(play).toHaveBeenCalledWith("chime");
     playCue("updateAvailable");
@@ -106,9 +104,9 @@ describe("sounds", () => {
       category: "agentFinished",
     });
     expect(play).not.toHaveBeenCalled();
-    playCue("inboxUnseen", { projectId: "work", category: "pullRequests" });
+    playCue("linkedActivity", { projectId: "work", category: "pullRequests" });
     playCue("updateAvailable");
-    expect(play.mock.calls).toEqual([["bloom"], ["arrival"]]);
+    expect(play.mock.calls).toEqual([["chime"], ["arrival"]]);
   });
 
   it("does not catch up on project activity from before global sounds were re-enabled", () => {
@@ -118,18 +116,18 @@ describe("sounds", () => {
       saveSoundsEnabled(false);
       vi.setSystemTime(2000);
       saveSoundsEnabled(true);
-      playCue("inboxUnseen", {
+      playCue("linkedActivity", {
         projectId: "work",
         category: "issues",
         occurredAt: 1500,
       });
       expect(play).not.toHaveBeenCalled();
-      playCue("inboxUnseen", {
+      playCue("linkedActivity", {
         projectId: "work",
         category: "issues",
         occurredAt: 2050,
       });
-      expect(play).toHaveBeenCalledExactlyOnceWith("bloom");
+      expect(play).toHaveBeenCalledExactlyOnceWith("chime");
     } finally {
       vi.useRealTimers();
     }

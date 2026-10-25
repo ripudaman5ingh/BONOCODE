@@ -328,7 +328,7 @@ import type { Session } from "../../sessions/model/session";
 
 /**
  * The `data-setting-id` Settings should reveal when it opens: one of the ids in
- * `SETTINGS_INDEX`. Inbox integrations pass their provider id.
+ * `SETTINGS_INDEX`. Notification and GitHub settings pass their anchor id.
  */
 export type SettingsAnchor = string;
 
@@ -746,7 +746,7 @@ function GeneralPage({
         <Row
           id="sounds"
           label="Sounds"
-          description="Short cues for project activity, finished turns, and available updates. Choose project notification categories in Inbox settings. Switches and Copy on a finished turn also play."
+          description="Short cues for project activity, finished turns, and available updates. Choose project notification categories in GitHub & notifications settings. Switches and Copy on a finished turn also play."
         >
           <Toggle
             label="Sounds"
@@ -1097,7 +1097,7 @@ function GithubSettings() {
   }, [checkStatus]);
 
   const description = status?.connected
-    ? "GitHub CLI is installed and authenticated. Bonocode uses it for GitHub inbox items."
+    ? "GitHub CLI is installed and authenticated. Bonocode uses it for linked GitHub issues and pull requests."
     : status?.installed
       ? "Run gh auth login in a terminal, complete the sign-in flow, then check again."
       : "Install GitHub CLI from cli.github.com, run gh auth login in a terminal, then check again.";

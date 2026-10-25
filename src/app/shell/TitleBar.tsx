@@ -3,7 +3,6 @@ import {
   ChevronLeft,
   ChevronRight,
   DashboardSquare,
-  Inbox,
   PanelLeft,
   Plus,
   Search,
@@ -95,7 +94,6 @@ type Props = {
   onNew: () => void;
   onNewTerminal?: () => void;
   onOpenSettings?: () => void;
-  onOpenInbox?: () => void;
   onClose: (id: string) => void;
   onCloseMany: (ids: string[], fallbackId: string) => void;
   onArchiveTab?: (id: string) => void;
@@ -613,7 +611,6 @@ function TitleBarComponent({
   onNew,
   onNewTerminal,
   onOpenSettings,
-  onOpenInbox,
   onClose,
   onCloseMany,
   onArchiveTab,
@@ -846,20 +843,13 @@ function TitleBarComponent({
   const showProjectButton =
     railClosed && Boolean(onSelectProject) && !showCurrentProject;
   const showTrailingActions =
-    (projectless &&
-      railClosed &&
-      Boolean(onOpenInbox || onOpenSettings)) ||
+    (projectless && railClosed && Boolean(onOpenSettings)) ||
     (railClosed && !projectless);
   const trailingControls =
     showTrailingActions || !IS_MAC ? (
       <div className="flex h-full shrink-0 items-stretch">
         {showTrailingActions ? (
           <div className="flex items-center gap-0.5 px-2">
-            {projectless && railClosed && onOpenInbox ? (
-              <IconButton label="Inbox" onClick={onOpenInbox}>
-                <Inbox className="size-3.5" strokeWidth={1.75} />
-              </IconButton>
-            ) : null}
             {railClosed && !projectless ? (
               <>
                 <IconButton label={`Go to File (${MOD}P)`} onClick={onGoToFile}>

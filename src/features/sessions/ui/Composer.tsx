@@ -65,10 +65,6 @@ import {
   type MentionToken,
 } from "../../files/model/fileMentions";
 import type { ProjectFile } from "../../../platform/tauri/fs";
-import {
-  composeInboxMessage,
-  type InboxComposerCard,
-} from "../../github/model/githubTasks";
 import type { HandoffComposerCard } from "../model/handoff";
 import {
   looksLikeProject,
@@ -99,7 +95,6 @@ import {
   createBlankSkill,
   rankSkills,
   hasNativeCommands,
-  isNativeCommandPrompt,
   replaceSlashToken,
   skillTextParts,
   slashTokenAt,
@@ -122,7 +117,6 @@ import { CwdPicker } from "../../projects/ui/CwdPicker";
 import { FileMentionPicker } from "./FileMentionPicker";
 import { McpServerPicker } from "./McpServerPicker";
 import { FileTypeIcon } from "../../files/ui/FileTypeIcon";
-import { InboxMiniCard } from "../../github/ui/InboxMiniCard";
 import { HandoffMiniCard } from "./HandoffMiniCard";
 import { ModelControlPills, ModelPicker } from "./ModelPicker";
 import { QuestionForm } from "./QuestionForm";
@@ -226,7 +220,6 @@ type Props = {
   quoteRequest?: QuoteRequest;
   initialDraft?: string;
   draftResetToken?: number;
-  inboxCard?: InboxComposerCard;
   handoffCard?: HandoffComposerCard;
   question?: UserQuestionPrompt;
   busy?: boolean;
@@ -254,7 +247,6 @@ type Props = {
   onModelSettingsChange?: (settings: Record<string, string>) => void;
   onRuntimeModeChange: (mode: RuntimeMode) => void;
   onQuoteRequestConsumed?: (id: number) => void;
-  onInboxCardDismiss?: () => void;
   onHandoffCardDismiss?: () => void;
   onQuestionReply?: (requestId: number, reply: UserQuestionReply) => void;
   onQuestionInteraction?: (requestId: number) => void;
@@ -515,7 +507,6 @@ export function Composer({
   quoteRequest,
   initialDraft,
   draftResetToken,
-  inboxCard,
   handoffCard,
   question,
   busy = false,
@@ -541,7 +532,6 @@ export function Composer({
   onModelSettingsChange,
   onRuntimeModeChange,
   onQuoteRequestConsumed,
-  onInboxCardDismiss,
   onBtwCommand,
   onHandoffCardDismiss,
   onQuestionReply,
@@ -611,7 +601,7 @@ export function Composer({
   ]);
   const [hasValue, setHasValue] = useState(
     () =>
-      (initialDraft ?? "").trim().length > 0 || !!inboxCard || !!handoffCard,
+      (initialDraft ?? "").trim().length > 0 || !!handoffCard,
   );
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [pasteError, setPasteError] = useState<string | null>(null);
@@ -667,10 +657,7 @@ export function Composer({
 
   const mentionOpen = !remote && mention !== null && looksLikeProject(cwd);
   const navigationEmpty =
-    draft.length === 0 &&
-    attachments.length === 0 &&
-    !inboxCard &&
-    !handoffCard;
+    draft.length === 0 && attachments.length === 0 && !handoffCard;
   const skillPickerOpen = creatingSkill || slash !== null;
   const pickerOpen = skillPickerOpen || sessionFolderOpen || mcpPickerOpen;
   const skillCatalog = useComposerSkills({
@@ -750,13 +737,10 @@ export function Composer({
   const syncHasValue = useCallback(
     (text: string, files: Attachment[]) => {
       setHasValue(
-        text.trim().length > 0 ||
-          files.length > 0 ||
-          !!inboxCard ||
-          !!handoffCard,
+        text.trim().length > 0 || files.length > 0 || !!handoffCard,
       );
     },
-    [inboxCard, handoffCard],
+    [handoffCard],
   );
 
   // A leading mode command in the text shows the same pill as picking the mode.
@@ -821,7 +805,7 @@ export function Composer({
 
   useEffect(() => {
     syncHasValue(ref.current?.value ?? "", attachmentsRef.current);
-  }, [inboxCard, handoffCard, syncHasValue]);
+  }, [handoffCard, syncHasValue]);
 
   const addAttachments = useCallback(
     (incoming: Attachment[]) => {
@@ -1067,7 +1051,7 @@ export function Composer({
   // text after it over as the unsent side question.
   const enterBtwFromPrefix = useCallback(
     (el: HTMLTextAreaElement) => {
-      if (!onBtwCommand || inboxCard || handoffCard) return false;
+      if (!onBtwCommand || handoffCard) return false;
       if (attachmentsRef.current.length > 0) return false;
       const rest = consumeBtwPrefix(el.value);
       if (rest == null || onBtwCommand(rest, { draft: true }) === false) {
@@ -1083,7 +1067,7 @@ export function Composer({
       setMention(null);
       return true;
     },
-    [handoffCard, inboxCard, onBtwCommand, onDraftChange, syncHasValue],
+    [handoffCard, onBtwCommand, onDraftChange, syncHasValue],
   );
 
   const pickSkill = useCallback(
@@ -1515,7 +1499,6 @@ export function Composer({
       btwCommand.matched &&
       onBtwCommand &&
       attachmentsRef.current.length === 0 &&
-      !inboxCard &&
       !handoffCard
     ) {
       const accepted = onBtwCommand(btwCommand.text);
@@ -1566,9 +1549,7 @@ export function Composer({
       !remote && !hideTopBar && !command.planning
         ? consumeOrchestratorCommand(command.text)
         : { text: command.text, matched: false };
-    const text = isNativeCommandPrompt(orchestratorCommand.text, harness)
-      ? orchestratorCommand.text
-      : composeInboxMessage(inboxCard, orchestratorCommand.text);
+    const text = orchestratorCommand.text;
     const submittedText =
       operatorSelected && !consumeOperatorCommand(text).matched
         ? `/operator ${text}`
@@ -2202,10 +2183,6 @@ export function Composer({
             </p>
           ) : null}
 
-          {inboxCard ? (
-            <InboxMiniCard card={inboxCard} onDismiss={onInboxCardDismiss} />
-          ) : null}
-
           {handoffCard ? (
             <HandoffMiniCard
               card={handoffCard}
@@ -2240,9 +2217,7 @@ export function Composer({
               placeholder={
                 worktreeRemoved
                   ? "Select a branch or worktree to continue…"
-                  : inboxCard
-                    ? "Add a note, or send to start…"
-                    : handoffCard
+                  : handoffCard
                       ? "Add context, or send to continue…"
                       : (placeholder ??
                         (shell

@@ -124,7 +124,6 @@ export function pendingInputNotifications(
 ): Map<string, PendingInputNotification> {
   const pending = new Map<string, PendingInputNotification>();
   for (const session of sessions) {
-    if (session.inboxAsk) continue;
     for (const block of session.blocks) {
       if (block.approval && !block.approval.decided) {
         pending.set(
@@ -229,7 +228,6 @@ export async function notifySession(
   event: NotificationEvent,
   sessionVisible: boolean,
 ): Promise<boolean> {
-  if (session.inboxAsk) return false;
   const occurredAt = Date.now();
   const project = knownNotificationProject(session.cwd);
   if (!project) return false;
@@ -245,7 +243,6 @@ export async function announceSessionFinished(
   session: Session,
   sessionVisible: boolean,
 ): Promise<void> {
-  if (session.inboxAsk) return;
   const occurredAt = Date.now();
   const project = knownNotificationProject(session.cwd);
   if (!project) return;

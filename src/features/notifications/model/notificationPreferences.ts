@@ -1,5 +1,5 @@
 export const NOTIFICATION_CATEGORIES = [
-  { id: "pullRequests", label: "Pull requests / Merge requests" },
+  { id: "pullRequests", label: "Pull requests" },
   { id: "issues", label: "Issues" },
   { id: "agentFinished", label: "Agent finished" },
   { id: "agentInput", label: "Agent approvals and questions" },

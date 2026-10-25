@@ -112,7 +112,6 @@ type SessionUpsertPayload = {
 /** Only real chats belong in project history — blank tabs stay ephemeral. */
 export function shouldPersistSession(session: Session): boolean {
   return (
-    !session.inboxAsk &&
     !isRemoteProjectPath(session.cwd) &&
     session.cwd !== "~" &&
     session.blocks.some((block) => block.role === "user")
@@ -299,11 +298,6 @@ export function rebaseProjectSessions(
     fromCwd: normalizeProjectPath(fromCwd),
     toCwd: normalizeProjectPath(toCwd),
   });
-}
-
-export async function listLinkedSessions(): Promise<SessionSummary[]> {
-  const rows = await invoke<SessionSummary[]>("session_list_linked");
-  return rows.map(normalizeSummary);
 }
 
 export type SessionSearchHit = {

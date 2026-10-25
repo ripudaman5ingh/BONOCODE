@@ -168,7 +168,7 @@ export function lastTurnRecall(session: Session): LastTurnRecall | null {
 }
 
 export function canEditLastTurn(session: Session): boolean {
-  if (session.inboxAsk || session.busy || session.pendingQuestion) return false;
+  if (session.busy || session.pendingQuestion) return false;
   if (session.editingQueuedMessageId) return false;
   if ((session.queuedMessages?.length ?? 0) > 0) return false;
   if (!harnessSupportsEditLastTurn(session.harness)) return false;

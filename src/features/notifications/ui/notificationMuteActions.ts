@@ -14,7 +14,7 @@ export function notificationMuteStatus(
     : `Muted until ${new Date(preference.mutedUntil!).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}`;
 }
 
-/** The same preset IDs and durations are used by project and Inbox menus. */
+/** The same preset IDs and durations are used by every project mute menu. */
 const mutePresets = [
   ...NOTIFICATION_MUTE_HOURS.map((hours) => ({
     kind: "item" as const,

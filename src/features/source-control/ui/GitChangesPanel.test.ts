@@ -48,7 +48,7 @@ vi.mock("../../files/model/fileWatch", () => ({
   nudgeWatchedFiles: vi.fn(),
 }));
 
-vi.mock("../../inbox/model/inboxSelfActivity", () => ({
+vi.mock("../../github/model/inboxSelfActivity", () => ({
   recordInboxSelfActivity: vi.fn(),
 }));
 
