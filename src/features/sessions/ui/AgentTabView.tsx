@@ -10,12 +10,9 @@ import { HarnessIcon } from "./HarnessIcon";
 import { findModel } from "../model/models";
 import {
   HARNESS_TITLE,
-  sessionDisplayTitle,
   sessionWorkCwd,
   type Session,
 } from "../model/session";
-import { createNote, noteTitle } from "../../notes";
-import { loadNotesEnabled, subscribeNotesEnabled } from "../../settings/model/settings";
 
 /**
  * One orchestration worker, watched from its lead's workspace.
@@ -68,39 +65,6 @@ export function AgentTabView({
     });
     return () => cancelAnimationFrame(frame);
   }, [visible, navigatorReady, jumpRequest, navigateBlock, session?.id]);
-  const notesEnabled = useSyncExternalStore(
-    subscribeNotesEnabled,
-    loadNotesEnabled,
-    () => true,
-  );
-  const saveNote = useCallback(
-    async (text: string) => {
-      if (!session) return;
-      const sessionTitle = sessionDisplayTitle(session.title, session.harness);
-      await createNote({
-        title:
-          sessionTitle && sessionTitle !== "New session"
-            ? sessionTitle
-            : noteTitle(text),
-        body: text,
-        sourceSessionId: session.id,
-        sourceCwd: session.cwd,
-      });
-    },
-    [session?.cwd, session?.harness, session?.id, session?.title],
-  );
-  const saveSelectionNote = useCallback(
-    async (text: string) => {
-      if (!session) return;
-      await createNote({
-        title: noteTitle(text),
-        body: text,
-        sourceSessionId: session.id,
-        sourceCwd: session.cwd,
-      });
-    },
-    [session?.cwd, session?.id],
-  );
   if (!session) {
     return (
       <div className="grid h-full place-items-center px-6 text-center">
@@ -123,8 +87,6 @@ export function AgentTabView({
           model={session.model}
           visible={visible}
           onOpenFile={onOpenFile}
-          onSaveNote={notesEnabled ? saveNote : undefined}
-          onSaveSelectionNote={notesEnabled ? saveSelectionNote : undefined}
           onNavigateReady={onNavigateReady}
           managed
         />

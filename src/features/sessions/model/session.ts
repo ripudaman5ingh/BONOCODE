@@ -3,7 +3,6 @@ import type { UserQuestionPrompt } from "./userQuestion";
 import type { HandoffComposerCard } from "./handoff";
 import type { InboxComposerCard } from "../../inbox/model/githubTasks";
 import type { InboxAskContext } from "../../inbox/model/inboxAsk";
-import type { NoteCardMeta, NoteComposerCard } from "../../notes";
 import type { OrchestrationProposal } from "../../orchestration/model/orchestrationPlan";
 import type { LinkedWorkItemUpdateCard } from "../../inbox/model/linkedWorkItemActivity";
 import {
@@ -254,7 +253,6 @@ export type QueuedMessage = {
   id: string;
   text: string;
   attachments: Attachment[];
-  noteCard?: NoteComposerCard;
   handoffCard?: HandoffComposerCard;
   intent?: TurnIntent;
 };
@@ -342,7 +340,6 @@ export type Block = {
   secondOpinion?: SecondOpinionMeta;
   /** Independent read-only side conversations anchored to this user turn. */
   btwThreads?: BtwThread[];
-  noteCard?: NoteCardMeta;
   /** Exact CI repair instructions and evidence supplied with this user turn. */
   ciContext?: string;
   /** Mid-turn interjection chrome; system blocks only. Body lives in text. */
@@ -453,8 +450,6 @@ export type Session = {
   automationId?: string;
   /** New linked-item activity shown above the composer. In-memory, one-shot. */
   linkedWorkItemUpdateCard?: LinkedWorkItemUpdateCard;
-  /** Note chip shown above the composer. In-memory, one-shot. */
-  noteCard?: NoteComposerCard;
   /** Handoff chip shown above the composer. In-memory, one-shot. */
   handoffCard?: HandoffComposerCard;
   /**

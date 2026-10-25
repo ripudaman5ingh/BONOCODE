@@ -8,7 +8,6 @@ import {
   Plus,
   Search,
   Settings,
-  StickyNote,
   Terminal,
   X,
 } from "../../shared/ui/icons";
@@ -97,7 +96,6 @@ type Props = {
   onNewTerminal?: () => void;
   onOpenSettings?: () => void;
   onOpenInbox?: () => void;
-  onOpenNotes?: () => void;
   onClose: (id: string) => void;
   onCloseMany: (ids: string[], fallbackId: string) => void;
   onArchiveTab?: (id: string) => void;
@@ -616,7 +614,6 @@ function TitleBarComponent({
   onNewTerminal,
   onOpenSettings,
   onOpenInbox,
-  onOpenNotes,
   onClose,
   onCloseMany,
   onArchiveTab,
@@ -851,7 +848,7 @@ function TitleBarComponent({
   const showTrailingActions =
     (projectless &&
       railClosed &&
-      Boolean(onOpenInbox || onOpenNotes || onOpenSettings)) ||
+      Boolean(onOpenInbox || onOpenSettings)) ||
     (railClosed && !projectless);
   const trailingControls =
     showTrailingActions || !IS_MAC ? (
@@ -861,11 +858,6 @@ function TitleBarComponent({
             {projectless && railClosed && onOpenInbox ? (
               <IconButton label="Inbox" onClick={onOpenInbox}>
                 <Inbox className="size-3.5" strokeWidth={1.75} />
-              </IconButton>
-            ) : null}
-            {projectless && railClosed && onOpenNotes ? (
-              <IconButton label="Notes" onClick={onOpenNotes}>
-                <StickyNote className="size-3.5" strokeWidth={1.75} />
               </IconButton>
             ) : null}
             {railClosed && !projectless ? (

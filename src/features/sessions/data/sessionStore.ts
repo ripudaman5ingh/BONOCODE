@@ -710,8 +710,6 @@ function sanitizeBlock(
     );
     if (btwThreads) next.btwThreads = btwThreads;
   }
-  const noteCard = sanitizeNoteCard(block.noteCard);
-  if (noteCard) next.noteCard = noteCard;
   if (
     block.role === "user" &&
     typeof block.ciContext === "string" &&
@@ -1209,22 +1207,6 @@ function sanitizeSecondOpinion(
     ...(request ? { request } : {}),
     ...(files > 0 ? { files } : {}),
     ...(value.kind === "handoff" ? { kind: "handoff" as const } : {}),
-  };
-}
-
-function sanitizeNoteCard(value: Block["noteCard"]): Block["noteCard"] {
-  if (!value || typeof value !== "object") return undefined;
-  const id = typeof value.id === "string" ? value.id.trim() : "";
-  if (!id) return undefined;
-  const slug = typeof value.slug === "string" ? value.slug.trim() : "";
-  const title = typeof value.title === "string" ? value.title.trim() : "";
-  const sourceCwd =
-    typeof value.sourceCwd === "string" ? value.sourceCwd.trim() : "";
-  return {
-    id,
-    slug,
-    title,
-    ...(sourceCwd ? { sourceCwd } : {}),
   };
 }
 

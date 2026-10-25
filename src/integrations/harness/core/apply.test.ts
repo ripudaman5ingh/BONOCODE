@@ -387,17 +387,6 @@ describe("appendSteerUser", () => {
     expect(session.busy).toBe(true);
   });
 
-  it("keeps a note card on a steered user turn", () => {
-    let session = appendUser(newSession("cursor", "/tmp"), "build it");
-    session = appendSteerUser(session, "hi", [], {
-      noteCard: { id: "n1", slug: "overview", title: "Overview" },
-    });
-    expect(session.blocks[1]).toMatchObject({
-      role: "user",
-      text: "hi",
-      noteCard: { id: "n1", slug: "overview", title: "Overview" },
-    });
-  });
 });
 
 describe("usage limits", () => {

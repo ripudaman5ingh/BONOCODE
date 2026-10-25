@@ -242,34 +242,3 @@ it("copies attachments even when the user message has no text", async () => {
     "picture.png",
   );
 });
-
-it("saves the user prompt to Notes from the action row outside the bubble", async () => {
-  const onSaveNote = vi.fn();
-  act(() =>
-    root.render(
-      createElement(AgentTranscript, {
-        blocks: [
-          {
-            id: "prompt",
-            role: "user",
-            text: "Keep this prompt\nWith its formatting",
-          },
-        ],
-        onSaveNote,
-      }),
-    ),
-  );
-  const save = container.querySelector<HTMLButtonElement>(
-    'button[aria-label="Save as note"]',
-  );
-  expect(save).not.toBeNull();
-  expect(save!.closest(".user-message-bubble")).toBeNull();
-  const copy = container.querySelector('button[aria-label="Copy message"]');
-  expect(copy!.closest(".user-message-bubble")).toBeNull();
-  expect(save!.parentElement).toBe(copy!.parentElement);
-  await act(async () => save!.click());
-  expect(onSaveNote).toHaveBeenCalledWith(
-    "Keep this prompt\nWith its formatting",
-  );
-  expect(save!.getAttribute("aria-label")).toBe("Saved to Notes");
-});

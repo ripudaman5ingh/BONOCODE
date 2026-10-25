@@ -700,34 +700,6 @@ describe("sanitizeSessionForPersist", () => {
     });
   });
 
-  it("keeps a note card on the user turn without the note body", () => {
-    const session = newSession("codex", "/tmp/project");
-    session.blocks = [
-      {
-        id: "u1",
-        role: "user",
-        text: "hi",
-        noteCard: {
-          id: "n1",
-          slug: "overview",
-          title: "agent-os project overview",
-          sourceCwd: "/tmp/project",
-        },
-      },
-    ];
-    expect(sanitizeSessionForPersist(session).blocks[0]).toEqual({
-      id: "u1",
-      role: "user",
-      text: "hi",
-      noteCard: {
-        id: "n1",
-        slug: "overview",
-        title: "agent-os project overview",
-        sourceCwd: "/tmp/project",
-      },
-    });
-  });
-
   it("keeps edited and approved plan metadata", () => {
     const session = newSession("codex", "/tmp/project");
     session.blocks = [

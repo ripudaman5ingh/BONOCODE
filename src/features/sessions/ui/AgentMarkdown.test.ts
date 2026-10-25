@@ -156,18 +156,3 @@ describe("AgentMarkdown code fence highlighting", () => {
     expect(markup).not.toContain("markdown-code-fallback-label");
   });
 });
-
-describe("AgentMarkdown note images", () => {
-  it("keeps app-owned note image references for the async image resolver", () => {
-    const markup = renderToStaticMarkup(
-      createElement(AgentMarkdown, {
-        text: "![Diagram](/note-assets/note-1/123-diagram.png)",
-      }),
-    );
-
-    expect(markup).toContain(
-      'data-note-image="/note-assets/note-1/123-diagram.png"',
-    );
-    expect(markup).toContain('alt="Diagram"');
-  });
-});

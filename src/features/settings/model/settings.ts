@@ -53,7 +53,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     label: "General",
     description:
       "The build you are running, how Bonocode reaches you, and the panels it shows.",
-    keywords: "version update sounds notifications notes rail",
+    keywords: "version update sounds notifications rail",
   },
   {
     id: "connections",
@@ -190,12 +190,6 @@ export const SETTINGS_INDEX: SettingsEntry[] = [
     section: "general",
     label: "Notifications",
     keywords: "notify alert toast permission reminder background",
-  },
-  {
-    id: "notes",
-    section: "general",
-    label: "Notes",
-    keywords: "notebook markdown rail scratchpad",
   },
   {
     id: "working-agents",
@@ -685,32 +679,6 @@ export function saveComposerRunner(value: boolean) {
   window.dispatchEvent(
     new CustomEvent<boolean>(COMPOSER_RUNNER_CHANGE_EVENT, { detail: value }),
   );
-}
-
-const NOTES_ENABLED_KEY = "bonocode.notesEnabled";
-
-export const NOTES_ENABLED_DEFAULT = true;
-
-/** Fired on `window` when the Notes UI setting flips. */
-export const NOTES_ENABLED_CHANGE_EVENT = "bonocode:notes-enabled-change";
-
-export function loadNotesEnabled(): boolean {
-  return readFlag(NOTES_ENABLED_KEY) ?? NOTES_ENABLED_DEFAULT;
-}
-
-export function saveNotesEnabled(value: boolean) {
-  writeFlag(NOTES_ENABLED_KEY, value);
-  if (typeof window === "undefined") return;
-  window.dispatchEvent(
-    new CustomEvent<boolean>(NOTES_ENABLED_CHANGE_EVENT, { detail: value }),
-  );
-}
-
-export function subscribeNotesEnabled(onStoreChange: () => void) {
-  if (typeof window === "undefined") return () => {};
-  window.addEventListener(NOTES_ENABLED_CHANGE_EVENT, onStoreChange);
-  return () =>
-    window.removeEventListener(NOTES_ENABLED_CHANGE_EVENT, onStoreChange);
 }
 
 const LIVE_AGENTS_ENABLED_KEY = "bonocode.liveAgentsEnabled";

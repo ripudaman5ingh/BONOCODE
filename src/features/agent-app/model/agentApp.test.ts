@@ -9,23 +9,13 @@ import {
   loadSessionFolders,
   saveSessionFolders,
 } from "../../sessions/model/sessionFolders";
-import type { Note } from "../../notes";
 import type { Worktree } from "../../source-control/model/worktrees";
-import { handleAgentApp, notePreview, type AgentAppHost } from "./agentApp";
+import { handleAgentApp, type AgentAppHost } from "./agentApp";
 
 vi.mock("../../../integrations/harness/core/availability", () => ({
   isHarnessAvailable: (id: string) => id === "codex",
 }));
 
-const note: Note = {
-  id: "n1",
-  slug: "plan",
-  title: "Plan",
-  body: "First paragraph.\n\nSecond paragraph.\n\nThird paragraph should stay out of list.",
-  tags: ["work"],
-  createdAt: 1,
-  updatedAt: 2,
-};
 const featureWorktree: Worktree = {
   path: "/tmp/project-worktrees/feature",
   branch: "feature",
@@ -102,9 +92,6 @@ function fixture() {
       defaultRoot: "/tmp/project-worktrees",
     })),
     createWorktree: vi.fn(async () => ({ ...featureWorktree })),
-    notes: vi.fn(async () => [note]),
-    note: vi.fn(async (id) => (id === note.id ? note : null)),
-    saveNote: vi.fn(async (input) => ({ ...note, ...input })),
   };
   return { source, host };
 }
@@ -604,139 +591,5 @@ describe("agent app commands", () => {
       id: moved.folderId,
       sessionIds: ["other"],
     });
-  });
-
-  it("lists short note previews and reads one full note on request", async () => {
-    const { source, host } = fixture();
-    const listed = (await handleAgentApp(
-      source,
-      "list",
-      "notes.list",
-      {},
-      host,
-    )) as {
-      notes: Array<{ preview: string; body?: string }>;
-    };
-    expect(listed.notes[0]?.preview).toBe(
-      "First paragraph.\n\nSecond paragraph.",
-    );
-    expect(listed.notes[0]).not.toHaveProperty("body");
-    expect(notePreview("A".repeat(500))).toHaveLength(400);
-    expect(
-      await handleAgentApp(source, "read", "notes.read", { id: "n1" }, host),
-    ).toMatchObject({ body: note.body });
-  });
-
-  it("creates a note with source metadata and reuses the same request ID safely", async () => {
-    const { source, host } = fixture();
-    let created: Note | null = null;
-    host.note = vi.fn(async (id) => (id === created?.id ? created : null));
-    host.saveNote = vi.fn(async (input) => {
-      created = { ...note, ...input };
-      return created;
-    });
-    const input = { body: "# Work plan\n\nNext steps", tags: ["#Work"] };
-    const saved = await handleAgentApp(
-      source,
-      "create-1",
-      "notes.write",
-      input,
-      host,
-    );
-    expect(saved).toMatchObject({
-      id: "app-lead-create-1",
-      title: "Work plan",
-      body: input.body,
-      tags: ["work"],
-      sourceSessionId: source.id,
-      sourceCwd: source.cwd,
-    });
-    expect(
-      await handleAgentApp(source, "create-1", "notes.write", input, host),
-    ).toEqual(saved);
-    expect(host.saveNote).toHaveBeenCalledTimes(1);
-    await expect(
-      handleAgentApp(
-        source,
-        "create-1",
-        "notes.write",
-        {
-          body: "Different body",
-        },
-        host,
-      ),
-    ).rejects.toThrow("Request ID was already used");
-  });
-
-  it("edits only supplied note fields and refuses missing or malformed notes", async () => {
-    const { source, host } = fixture();
-    const changed = await handleAgentApp(
-      source,
-      "edit-1",
-      "notes.write",
-      {
-        id: "n1",
-        body: "Updated body",
-      },
-      host,
-    );
-    expect(changed).toMatchObject({
-      id: "n1",
-      title: note.title,
-      body: "Updated body",
-      tags: note.tags,
-    });
-    expect(host.saveNote).toHaveBeenCalledWith({
-      id: "n1",
-      title: note.title,
-      body: "Updated body",
-      tags: note.tags,
-    });
-    await expect(
-      handleAgentApp(
-        source,
-        "edit-2",
-        "notes.write",
-        {
-          id: "missing",
-          body: "x",
-        },
-        host,
-      ),
-    ).rejects.toThrow("Note was not found");
-    await expect(
-      handleAgentApp(
-        source,
-        "edit-3",
-        "notes.write",
-        {
-          id: "n1",
-        },
-        host,
-      ),
-    ).rejects.toThrow("Supply title, body or tags");
-    await expect(
-      handleAgentApp(
-        source,
-        "edit-4",
-        "notes.write",
-        {
-          id: "n1",
-          tags: "work",
-        },
-        host,
-      ),
-    ).rejects.toThrow("tags must be an array");
-    await expect(
-      handleAgentApp(
-        source,
-        "create-2",
-        "notes.write",
-        {
-          title: "Empty",
-        },
-        host,
-      ),
-    ).rejects.toThrow("body is required");
   });
 });

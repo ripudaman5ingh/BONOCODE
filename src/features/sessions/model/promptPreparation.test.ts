@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   applyFileMentionsToTurn: vi.fn(),
-  applyNotesToTurn: vi.fn(),
   applySkillsToTurn: vi.fn(),
   events: [] as string[],
   warmNativeSkills: vi.fn(),
@@ -10,10 +9,6 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("../../files/model/fileMentions", () => ({
   applyFileMentionsToTurn: mocks.applyFileMentionsToTurn,
-}));
-
-vi.mock("../../notes", () => ({
-  applyNotesToTurn: mocks.applyNotesToTurn,
 }));
 
 vi.mock("../../skills/model/skills", () => ({
@@ -36,8 +31,6 @@ function deferred<T>() {
 beforeEach(() => {
   mocks.events.length = 0;
   mocks.applyFileMentionsToTurn.mockReset();
-  mocks.applyNotesToTurn.mockReset();
-  mocks.applyNotesToTurn.mockImplementation(async (text: string) => text);
   mocks.applySkillsToTurn.mockReset();
   mocks.warmNativeSkills.mockReset();
   mocks.warmNativeSkills.mockImplementation(() => {
@@ -55,7 +48,6 @@ describe("preparePrompt", () => {
       preparePrompt(text, { harness: "omp", cwd: "/repo" }),
     ).resolves.toBe(text.replace("/omp:compact", "/compact"));
     expect(mocks.applyFileMentionsToTurn).not.toHaveBeenCalled();
-    expect(mocks.applyNotesToTurn).not.toHaveBeenCalled();
     expect(mocks.applySkillsToTurn).not.toHaveBeenCalled();
   });
   it("starts warmup before awaiting file mentions", async () => {
@@ -74,7 +66,6 @@ describe("preparePrompt", () => {
 
     files.resolve("with files");
     await expect(preparation).resolves.toBe("prepared");
-    expect(mocks.applyNotesToTurn).toHaveBeenCalledWith("with files");
     expect(mocks.applySkillsToTurn).toHaveBeenCalledWith("with files", {
       harness: "pi",
       cwd: "/repo",

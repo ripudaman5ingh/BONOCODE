@@ -13,7 +13,6 @@ import {
   Plus,
   Share,
   Square,
-  StickyNote,
   Trash2,
   X,
 } from "../../../shared/ui/icons";
@@ -124,7 +123,6 @@ import { FileMentionPicker } from "./FileMentionPicker";
 import { McpServerPicker } from "./McpServerPicker";
 import { FileTypeIcon } from "../../files/ui/FileTypeIcon";
 import { InboxMiniCard } from "../../inbox/ui/InboxMiniCard";
-import { NoteMiniCard } from "../../notes/ui/NoteMiniCard";
 import { HandoffMiniCard } from "./HandoffMiniCard";
 import { ModelControlPills, ModelPicker } from "./ModelPicker";
 import { QuestionForm } from "./QuestionForm";
@@ -137,19 +135,8 @@ import {
   COMPOSER_RUNNER_CHANGE_EVENT,
   loadComposerRunner,
   loadModelControls,
-  loadNotesEnabled,
   subscribeModelControls,
-  subscribeNotesEnabled,
 } from "../../settings/model/settings";
-import {
-  isNoteMentionPath,
-  loadNotes,
-  peekNotes,
-  rankNoteFiles,
-  notesAsProjectFiles,
-  type Note,
-  type NoteComposerCard,
-} from "../../notes";
 import { resolveTabGroupLogo } from "../../workspace/model/tabGroups";
 import { useComposerSkills } from "./useComposerSkills";
 import { Popover } from "../../../shared/ui/Popover";
@@ -240,7 +227,6 @@ type Props = {
   initialDraft?: string;
   draftResetToken?: number;
   inboxCard?: InboxComposerCard;
-  noteCard?: NoteComposerCard;
   handoffCard?: HandoffComposerCard;
   question?: UserQuestionPrompt;
   busy?: boolean;
@@ -269,7 +255,6 @@ type Props = {
   onRuntimeModeChange: (mode: RuntimeMode) => void;
   onQuoteRequestConsumed?: (id: number) => void;
   onInboxCardDismiss?: () => void;
-  onNoteCardDismiss?: () => void;
   onHandoffCardDismiss?: () => void;
   onQuestionReply?: (requestId: number, reply: UserQuestionReply) => void;
   onQuestionInteraction?: (requestId: number) => void;
@@ -531,7 +516,6 @@ export function Composer({
   initialDraft,
   draftResetToken,
   inboxCard,
-  noteCard,
   handoffCard,
   question,
   busy = false,
@@ -559,7 +543,6 @@ export function Composer({
   onQuoteRequestConsumed,
   onInboxCardDismiss,
   onBtwCommand,
-  onNoteCardDismiss,
   onHandoffCardDismiss,
   onQuestionReply,
   onQuestionInteraction,
@@ -628,10 +611,7 @@ export function Composer({
   ]);
   const [hasValue, setHasValue] = useState(
     () =>
-      (initialDraft ?? "").trim().length > 0 ||
-      !!inboxCard ||
-      !!noteCard ||
-      !!handoffCard,
+      (initialDraft ?? "").trim().length > 0 || !!inboxCard || !!handoffCard,
   );
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [pasteError, setPasteError] = useState<string | null>(null);
@@ -664,18 +644,12 @@ export function Composer({
   const [files, setFiles] = useState<ProjectFile[]>(
     () => peekProjectFiles(localCwd) ?? [],
   );
-  const notesEnabled = useSyncExternalStore(
-    subscribeNotesEnabled,
-    loadNotesEnabled,
-    () => true,
-  );
   const modelControls = useSyncExternalStore(
     subscribeModelControls,
     loadModelControls,
     () => "menu" as const,
   );
   const controlsBeside = modelControls === "beside";
-  const [notes, setNotes] = useState<Note[]>(() => peekNotes() ?? []);
   const [mention, setMention] = useState<MentionToken | null>(null);
   const [mentionActive, setMentionActive] = useState(0);
   const [resendEdited, setResendEdited] = useState(false);
@@ -691,13 +665,11 @@ export function Composer({
 
   attachmentsRef.current = attachments;
 
-  const mentionOpen =
-    !remote && mention !== null && (looksLikeProject(cwd) || notesEnabled);
+  const mentionOpen = !remote && mention !== null && looksLikeProject(cwd);
   const navigationEmpty =
     draft.length === 0 &&
     attachments.length === 0 &&
     !inboxCard &&
-    !noteCard &&
     !handoffCard;
   const skillPickerOpen = creatingSkill || slash !== null;
   const pickerOpen = skillPickerOpen || sessionFolderOpen || mcpPickerOpen;
@@ -763,31 +735,17 @@ export function Composer({
     // The indent can rewrap the first line after the input already resized.
     if (ref.current) resizeComposer(ref.current);
   }, [modeIndent]);
-  const mentionFiles = useMemo(
-    () => (notesEnabled ? [...files, ...notesAsProjectFiles(notes)] : files),
-    [files, notes, notesEnabled],
-  );
-  const mentionIndex = useMemo(
-    () => buildMentionIndex(mentionFiles),
-    [mentionFiles],
-  );
+  const mentionIndex = useMemo(() => buildMentionIndex(files), [files]);
   const mentionIndexRef = useRef<MentionIndex>(mentionIndex);
   mentionIndexRef.current = mentionIndex;
   const rankedFiles = useMemo(() => {
-    if (!mentionOpen) return [];
-    const fileHits = looksLikeProject(executionCwd)
-      ? rankMentionFiles(
-          files,
-          mention?.query ?? "",
-          recentOpenedFiles(executionCwd),
-        )
-      : [];
-    const noteHits = notesEnabled
-      ? rankNoteFiles(notes, mention?.query ?? "")
-      : [];
-    const seen = new Set(noteHits.map((file) => file.path));
-    return [...noteHits, ...fileHits.filter((file) => !seen.has(file.path))];
-  }, [executionCwd, files, mention?.query, mentionOpen, notes, notesEnabled]);
+    if (!mentionOpen || !looksLikeProject(executionCwd)) return [];
+    return rankMentionFiles(
+      files,
+      mention?.query ?? "",
+      recentOpenedFiles(executionCwd),
+    );
+  }, [executionCwd, files, mention?.query, mentionOpen]);
 
   const syncHasValue = useCallback(
     (text: string, files: Attachment[]) => {
@@ -795,11 +753,10 @@ export function Composer({
         text.trim().length > 0 ||
           files.length > 0 ||
           !!inboxCard ||
-          !!noteCard ||
           !!handoffCard,
       );
     },
-    [inboxCard, noteCard, handoffCard],
+    [inboxCard, handoffCard],
   );
 
   // A leading mode command in the text shows the same pill as picking the mode.
@@ -864,7 +821,7 @@ export function Composer({
 
   useEffect(() => {
     syncHasValue(ref.current?.value ?? "", attachmentsRef.current);
-  }, [inboxCard, noteCard, handoffCard, syncHasValue]);
+  }, [inboxCard, handoffCard, syncHasValue]);
 
   const addAttachments = useCallback(
     (incoming: Attachment[]) => {
@@ -976,17 +933,6 @@ export function Composer({
       unsub();
     };
   }, [localCwd, mentionOpen]);
-
-  useEffect(() => {
-    if (!mentionOpen || !notesEnabled) return;
-    let cancelled = false;
-    void loadNotes().then((next) => {
-      if (!cancelled) setNotes(next);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [mentionOpen, notesEnabled]);
 
   useEffect(() => {
     setMentionActive(0);
@@ -1121,7 +1067,7 @@ export function Composer({
   // text after it over as the unsent side question.
   const enterBtwFromPrefix = useCallback(
     (el: HTMLTextAreaElement) => {
-      if (!onBtwCommand || inboxCard || noteCard || handoffCard) return false;
+      if (!onBtwCommand || inboxCard || handoffCard) return false;
       if (attachmentsRef.current.length > 0) return false;
       const rest = consumeBtwPrefix(el.value);
       if (rest == null || onBtwCommand(rest, { draft: true }) === false) {
@@ -1137,14 +1083,7 @@ export function Composer({
       setMention(null);
       return true;
     },
-    [
-      handoffCard,
-      inboxCard,
-      noteCard,
-      onBtwCommand,
-      onDraftChange,
-      syncHasValue,
-    ],
+    [handoffCard, inboxCard, onBtwCommand, onDraftChange, syncHasValue],
   );
 
   const pickSkill = useCallback(
@@ -1224,9 +1163,7 @@ export function Composer({
         setMention(null);
         return;
       }
-      const label = isNoteMentionPath(file.path)
-        ? file.relative
-        : mentionLabel(file, mentionIndexRef.current);
+      const label = mentionLabel(file, mentionIndexRef.current);
       const next = replaceMentionToken(el.value, token, label);
       el.value = next;
       resizeComposer(el);
@@ -1579,7 +1516,6 @@ export function Composer({
       onBtwCommand &&
       attachmentsRef.current.length === 0 &&
       !inboxCard &&
-      !noteCard &&
       !handoffCard
     ) {
       const accepted = onBtwCommand(btwCommand.text);
@@ -1638,7 +1574,7 @@ export function Composer({
         ? `/operator ${text}`
         : text;
     const files = attachmentsRef.current;
-    if (!text && files.length === 0 && !noteCard && !handoffCard) return;
+    if (!text && files.length === 0 && !handoffCard) return;
     // Clear the parent draft before onSubmit. The app can synchronously remount
     // the composer when the first message leaves an empty session (EmptySession →
     // docked layout). If draftRef still holds the sent text, the new instance
@@ -2143,7 +2079,6 @@ export function Composer({
                 looksLikeProject(executionCwd) &&
                 peekProjectFiles(executionCwd) == null
               }
-              includeNotes={notesEnabled}
               onActive={setMentionActive}
               onPick={pickMention}
             />
@@ -2271,10 +2206,6 @@ export function Composer({
             <InboxMiniCard card={inboxCard} onDismiss={onInboxCardDismiss} />
           ) : null}
 
-          {noteCard ? (
-            <NoteMiniCard card={noteCard} onDismiss={onNoteCardDismiss} />
-          ) : null}
-
           {handoffCard ? (
             <HandoffMiniCard
               card={handoffCard}
@@ -2311,14 +2242,12 @@ export function Composer({
                   ? "Select a branch or worktree to continue…"
                   : inboxCard
                     ? "Add a note, or send to start…"
-                    : noteCard
-                      ? "Add a message, or send…"
-                      : handoffCard
-                        ? "Add context, or send to continue…"
-                        : (placeholder ??
-                          (shell
-                            ? "Ask, build, / for commands, @ for references... "
-                            : "Ask, build, / for commands, @ for references... "))
+                    : handoffCard
+                      ? "Add context, or send to continue…"
+                      : (placeholder ??
+                        (shell
+                          ? "Ask, build, / for commands, @ for references... "
+                          : "Ask, build, / for commands, @ for references... "))
               }
               aria-label={inputAriaLabel}
               disabled={disabled}
@@ -2750,15 +2679,11 @@ function FileMentionRuns({
               {/* `indent-0`: a leading mode command indents the first line,
                   and this box would otherwise inherit that indent. */}
               <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 indent-0">
-                {part.file && isNoteMentionPath(part.file.path) ? (
-                  <StickyNote className="size-3.5" strokeWidth={1.75} />
-                ) : (
-                  <FileTypeIcon
-                    name={part.file.name}
-                    isDir={Boolean(part.file.isDir)}
-                    size={13}
-                  />
-                )}
+                <FileTypeIcon
+                  name={part.file.name}
+                  isDir={Boolean(part.file.isDir)}
+                  size={13}
+                />
               </span>
             </span>
             {part.text.slice(1)}

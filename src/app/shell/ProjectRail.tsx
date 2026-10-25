@@ -8,7 +8,6 @@ import {
   MoreHorizontal,
   Pin,
   PinOff,
-  File,
   Plus,
   Search,
   Settings,
@@ -104,9 +103,6 @@ type Props = {
   searchActive?: boolean;
   onOpenInbox?: () => void;
   inboxActive?: boolean;
-  notesEnabled?: boolean;
-  onOpenNotes?: () => void;
-  notesActive?: boolean;
   onOpenAutomations?: () => void;
   automationsActive?: boolean;
   onTogglePanel?: () => void;
@@ -141,9 +137,6 @@ export function ProjectRail({
   searchActive = false,
   onOpenInbox,
   inboxActive = false,
-  notesEnabled = true,
-  onOpenNotes,
-  notesActive = false,
   onOpenAutomations,
   automationsActive = false,
   onTogglePanel,
@@ -385,15 +378,6 @@ export function ProjectRail({
               dot={inboxUnseen}
               ariaLabel={inboxUnseen ? "Inbox, new items" : "Inbox"}
             />
-            {notesEnabled ? (
-              <RailAction
-                label="Notes"
-                icon={File}
-                onClick={onOpenNotes}
-                active={notesActive}
-                ariaLabel="Notes"
-              />
-            ) : null}
             <RailAction
               label="Automations"
               icon={Zap}
@@ -421,10 +405,7 @@ export function ProjectRail({
                 sortable={pinnedSortable}
                 pinned
                 searchActive={
-                  searchActive ||
-                  inboxActive ||
-                  notesActive ||
-                  automationsActive
+                  searchActive || inboxActive || automationsActive
                 }
                 onSelect={onSelectProject}
                 onTogglePin={toggleProjectPin}
@@ -455,10 +436,7 @@ export function ProjectRail({
                       busy={busy}
                       statsEnabled={visible}
                       searchActive={
-                        searchActive ||
-                        inboxActive ||
-                        notesActive ||
-                        automationsActive
+                        searchActive || inboxActive || automationsActive
                       }
                       onSelect={onSelectProject}
                       onTogglePin={toggleProjectPin}
@@ -501,7 +479,7 @@ export function ProjectRail({
               sortable={projectSortable}
               pinned={false}
               searchActive={
-                searchActive || inboxActive || notesActive || automationsActive
+                searchActive || inboxActive || automationsActive
               }
               onSelect={onSelectProject}
               onTogglePin={toggleProjectPin}

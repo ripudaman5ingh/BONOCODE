@@ -23,12 +23,6 @@ import {
   placeSessionInFolder,
   saveSessionFolders,
 } from "../../sessions/model/sessionFolders";
-import {
-  normalizeNoteTags,
-  noteTitle,
-  type Note,
-  type NoteUpsert,
-} from "../../notes";
 import type { Worktree, Worktrees } from "../../source-control/model/worktrees";
 import { pathKey } from "../../../shared/lib/paths";
 import type { SplitDir } from "../../workspace/model/layout";
@@ -94,9 +88,6 @@ export type AgentAppHost = {
     base: string,
     existing: boolean,
   ): Promise<Worktree>;
-  notes(): Promise<Note[]>;
-  note(id: string): Promise<Note | null>;
-  saveNote(note: NoteUpsert): Promise<Note>;
 };
 
 const FIELDS = new Map<string, readonly string[]>([
@@ -127,9 +118,6 @@ const FIELDS = new Map<string, readonly string[]>([
   ["worktrees.create", ["branch", "base", "existing"]],
   ["folders.list", []],
   ["folders.move", ["sessionId", "folderId", "newFolderName"]],
-  ["notes.list", ["limit", "offset"]],
-  ["notes.read", ["id"]],
-  ["notes.write", ["id", "title", "body", "tags"]],
 ]);
 
 function fields(action: string, input: Record<string, unknown>) {
@@ -163,24 +151,6 @@ function optionalString(
   return value === undefined ? undefined : requiredString(value, name, max);
 }
 
-function noteBody(value: unknown): string {
-  if (typeof value !== "string" || value.length > 240_000)
-    throw new Error("body must be a string under 240000 characters");
-  return value.replace(/\r\n?/g, "\n");
-}
-
-function noteTags(value: unknown): string[] {
-  if (
-    !Array.isArray(value) ||
-    value.length > 20 ||
-    value.some((tag) => typeof tag !== "string" || tag.length > 48)
-  )
-    throw new Error(
-      "tags must be an array of at most 20 strings under 48 characters each",
-    );
-  return normalizeNoteTags(value as string[]);
-}
-
 function requireProject(source: Session): string {
   if (!looksLikeProject(source.cwd))
     throw new Error("Choose a project folder in this session first");
@@ -198,18 +168,6 @@ async function projectSession(
   const target = await host.session(id);
   if (!target) throw new Error("Session was not found in this project");
   return target;
-}
-
-/** Two short body paragraphs, with a hard cap independent of Markdown length. */
-export function notePreview(body: string): string {
-  return body
-    .trim()
-    .split(/\n\s*\n/)
-    .map((paragraph) => paragraph.replace(/\s+/g, " ").trim())
-    .filter(Boolean)
-    .slice(0, 2)
-    .join("\n\n")
-    .slice(0, 400);
 }
 
 function startLaunch(
@@ -474,84 +432,6 @@ export async function handleAgentApp(
       saveSessionFolders(cwd, next);
       const folder = next.find((entry) => entry.sessionIds.includes(sessionId));
       return { sessionId, folderId: folder?.id, folderName: folder?.name };
-    }
-    case "notes.list": {
-      const limit = input.limit ?? 30;
-      const offset = input.offset ?? 0;
-      if (
-        !Number.isInteger(limit) ||
-        (limit as number) < 1 ||
-        (limit as number) > 100
-      )
-        throw new Error("limit must be an integer from 1 to 100");
-      if (!Number.isInteger(offset) || (offset as number) < 0)
-        throw new Error("offset must be a non-negative integer");
-      const notes = await host.notes();
-      return {
-        total: notes.length,
-        offset,
-        notes: notes
-          .slice(offset as number, (offset as number) + (limit as number))
-          .map((note) => ({
-            id: note.id,
-            title: note.title,
-            preview: notePreview(note.body),
-            tags: note.tags,
-            sourceCwd: note.sourceCwd,
-          })),
-      };
-    }
-    case "notes.read": {
-      const id = requiredString(input.id, "id", 256);
-      const note = await host.note(id);
-      if (!note) throw new Error("Note was not found");
-      return note;
-    }
-    case "notes.write": {
-      const id = optionalString(input.id, "id", 256);
-      if (id && !/^[A-Za-z0-9_-]+$/.test(id))
-        throw new Error("Invalid note ID");
-      const title =
-        input.title === undefined
-          ? undefined
-          : requiredString(input.title, "title", 200);
-      const body = input.body === undefined ? undefined : noteBody(input.body);
-      const tags = input.tags === undefined ? undefined : noteTags(input.tags);
-      if (id) {
-        if (title === undefined && body === undefined && tags === undefined)
-          throw new Error("Supply title, body or tags to update a note");
-        const current = await host.note(id);
-        if (!current) throw new Error("Note was not found");
-        return host.saveNote({
-          id,
-          title: title ?? current.title,
-          body: body ?? current.body,
-          tags: tags ?? current.tags,
-        });
-      }
-      if (body === undefined)
-        throw new Error("body is required to create a note");
-      if (!/^[A-Za-z0-9_-]{1,128}$/.test(requestId))
-        throw new Error("Invalid request ID");
-      const createdId = `app-${source.id}-${requestId}`;
-      const existing = await host.note(createdId);
-      if (existing) {
-        if (
-          existing.title !== (title ?? noteTitle(body)) ||
-          existing.body !== body ||
-          JSON.stringify(existing.tags) !== JSON.stringify(tags ?? [])
-        )
-          throw new Error("Request ID was already used for another note");
-        return existing;
-      }
-      return host.saveNote({
-        id: createdId,
-        title: title ?? noteTitle(body),
-        body,
-        tags: tags ?? [],
-        sourceSessionId: source.id,
-        ...(looksLikeProject(source.cwd) ? { sourceCwd: source.cwd } : {}),
-      });
     }
   }
 }

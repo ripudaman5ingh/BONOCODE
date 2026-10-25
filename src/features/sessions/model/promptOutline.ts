@@ -58,7 +58,6 @@ export function promptLabel(block: Block): string {
     const request = firstLine(card.request ?? "");
     return request ? `Second opinion: ${request}` : "Second opinion";
   }
-  if (block.noteCard?.title) return block.noteCard.title;
   const files = block.attachments ?? [];
   if (files.length > 0) {
     const [first] = files;

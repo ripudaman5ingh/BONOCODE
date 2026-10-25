@@ -475,7 +475,6 @@ export function BtwSheet({
   cwd,
   visible = true,
   origin,
-  onSaveNote,
   onOpenFile,
   onOpenDiff,
 }: {
@@ -484,7 +483,6 @@ export function BtwSheet({
   visible?: boolean;
   /** The session composer's box, which the sheet grows out of. */
   origin?: () => HTMLElement | null;
-  onSaveNote?: (text: string) => void | Promise<void>;
   onOpenFile?: (path: string) => void;
   onOpenDiff?: (path: string) => void;
 }) {
@@ -791,7 +789,6 @@ export function BtwSheet({
               harness={harness}
               model={btw.model}
               modelSettings={btw.modelSettings}
-              onSaveNote={onSaveNote}
               onOpenFile={onOpenFile}
               onOpenDiff={onOpenDiff}
             />

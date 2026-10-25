@@ -63,11 +63,6 @@ import {
   type AddToChatRequest,
   type QuoteRequest,
 } from "../model/quoteDraft";
-import { createNote, noteTitle } from "../../notes";
-import {
-  loadNotesEnabled,
-  subscribeNotesEnabled,
-} from "../../settings/model/settings";
 import { getComposerDraft, setComposerDraft } from "../model/draftCache";
 import { resolveModel } from "../model/models";
 import { isAstraModel } from "../model/astraWelcome";
@@ -157,7 +152,6 @@ export type SessionPaneProps = {
   onUsageLimitDismiss: (sessionId: string) => void;
   onInboxCardDismiss?: (sessionId: string) => void;
   onLinkedWorkItemUpdateCardDismiss?: (sessionId: string) => void;
-  onNoteCardDismiss?: (sessionId: string) => void;
   onHandoffCardDismiss?: (sessionId: string) => void;
   onOpenLinkedWorkItem?: (item: LinkedWorkItem, sessionId: string) => void;
   onArchiveSession?: (sessionId: string, archived: boolean) => Promise<boolean>;
@@ -287,7 +281,6 @@ const LocalSessionPane = memo(function LocalSessionPane({
   onUsageLimitDismiss,
   onInboxCardDismiss,
   onLinkedWorkItemUpdateCardDismiss,
-  onNoteCardDismiss,
   onHandoffCardDismiss,
   onOpenLinkedWorkItem,
   onArchiveSession,
@@ -494,37 +487,6 @@ const LocalSessionPane = memo(function LocalSessionPane({
   const acknowledgeQuote = useCallback((handledId: number) => {
     setQuoteRequest((current) => acknowledgeQuoteRequest(current, handledId));
   }, []);
-  const notesEnabled = useSyncExternalStore(
-    subscribeNotesEnabled,
-    loadNotesEnabled,
-    () => true,
-  );
-  const saveNote = useCallback(
-    async (text: string) => {
-      const sessionTitle = sessionDisplayTitle(session.title, session.harness);
-      await createNote({
-        title:
-          sessionTitle && sessionTitle !== "New session"
-            ? sessionTitle
-            : noteTitle(text),
-        body: text,
-        sourceSessionId: session.id,
-        sourceCwd: session.cwd,
-      });
-    },
-    [session.cwd, session.harness, session.id, session.title],
-  );
-  const saveSelectionNote = useCallback(
-    async (text: string) => {
-      await createNote({
-        title: noteTitle(text),
-        body: text,
-        sourceSessionId: session.id,
-        sourceCwd: session.cwd,
-      });
-    },
-    [session.cwd, session.id],
-  );
 
   useEffect(() => {
     if (!addToChatTarget) return;
@@ -573,7 +535,7 @@ const LocalSessionPane = memo(function LocalSessionPane({
       quoteRequest={quoteRequest}
       initialDraft={
         draftRef.current ??
-        (session.inboxCard || session.noteCard || session.handoffCard
+        (session.inboxCard || session.handoffCard
           ? undefined
           : session.composerSeed)
       }
@@ -582,12 +544,10 @@ const LocalSessionPane = memo(function LocalSessionPane({
         setComposerDraft(session.id, text);
       }}
       inboxCard={session.inboxCard}
-      noteCard={session.noteCard}
       handoffCard={session.handoffCard}
       question={session.pendingQuestion}
       onQuoteRequestConsumed={acknowledgeQuote}
       onInboxCardDismiss={() => onInboxCardDismiss?.(session.id)}
-      onNoteCardDismiss={() => onNoteCardDismiss?.(session.id)}
       onHandoffCardDismiss={() => onHandoffCardDismiss?.(session.id)}
       onQuestionReply={replyQuestion}
       onQuestionInteraction={(id) => onQuestionInteraction?.(session.id, id)}
@@ -637,7 +597,6 @@ const LocalSessionPane = memo(function LocalSessionPane({
         !draftBlock &&
         !session.inboxAsk &&
         !session.inboxCard &&
-        !session.noteCard &&
         !session.handoffCard
       }
       onSaveDraft={(text, attachments) =>
@@ -825,7 +784,6 @@ const LocalSessionPane = memo(function LocalSessionPane({
                   backgroundTasks={session.backgroundTasks}
                   onApproval={session.worktreeRemoved ? undefined : approve}
                   onAddToChat={addSelectionToChat}
-                  onSaveNote={notesEnabled ? saveNote : undefined}
                   onSendDraft={
                     draftBlock
                       ? (block) =>
@@ -846,9 +804,6 @@ const LocalSessionPane = memo(function LocalSessionPane({
                     draftBlock
                       ? (block) => onRemoveDraft(session.id, block.id)
                       : undefined
-                  }
-                  onSaveSelectionNote={
-                    notesEnabled ? saveSelectionNote : undefined
                   }
                   onOpenFile={onOpenFile}
                   onOpenDiff={onOpenDiff}
@@ -967,7 +922,6 @@ const LocalSessionPane = memo(function LocalSessionPane({
               "[data-composer-box]",
             ) ?? null
           }
-          onSaveNote={notesEnabled ? saveNote : undefined}
           onOpenFile={onOpenFile}
           onOpenDiff={onOpenDiff}
         />
