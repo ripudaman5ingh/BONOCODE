@@ -63,28 +63,6 @@ describe("editLastTurn", () => {
     expect(canEditLastTurn(session)).toBe(true);
   });
 
-  it("ignores internal user turns when selecting the editable turn", () => {
-    const blocks: Block[] = [
-      { id: "visible", role: "user", text: "keep this" },
-      { id: "reply", role: "assistant", text: "answer" },
-      {
-        id: "internal",
-        role: "user",
-        text: "hidden managed prompt",
-        internal: true,
-      },
-    ];
-    const session = chat(blocks);
-
-    expect(lastUserTurnStartIndex(blocks)).toBe(0);
-    expect(truncateBeforeLastUserTurn(blocks)).toEqual([]);
-    expect(lastTurnRecall(session)).toEqual({
-      text: "keep this",
-      attachments: [],
-    });
-    expect(canEditLastTurn(session)).toBe(true);
-  });
-
   it("recalls the last user message", () => {
     const session = chat([
       { id: "u1", role: "user", text: "hello" },
@@ -94,14 +72,6 @@ describe("editLastTurn", () => {
       text: "hello",
       attachments: [],
     });
-  });
-
-  it("restores /operator when editing an activation turn", () => {
-    const session = chat([
-      { id: "u1", role: "user", text: "list notes", monocode: true },
-      { id: "a1", role: "assistant", text: "Here they are." },
-    ]);
-    expect(lastTurnRecall(session)?.text).toBe("/operator list notes");
   });
 
   it("allows edit on idle pi sessions without queued follow-ups", () => {

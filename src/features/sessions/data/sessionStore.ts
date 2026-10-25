@@ -596,23 +596,13 @@ function sanitizeBlock(
   const turnModel = sanitizeTurnModel(block.turnModel);
   if (block.role === "user" && turnModel) next.turnModel = turnModel;
   if (block.role === "user" && block.draft) next.draft = true;
-  if (block.role === "user" && block.monocode) next.monocode = true;
   if (block.role === "user" && block.intent === "plan") next.intent = "plan";
-  if (
-    block.role === "user" &&
-    typeof block.appRequestId === "string" &&
-    /^[A-Za-z0-9_-]{1,512}$/.test(block.appRequestId)
-  )
-    next.appRequestId = block.appRequestId;
   if (
     block.role === "user" &&
     typeof block.providerTurnId === "string" &&
     isPersistableId(block.providerTurnId)
   )
     next.providerTurnId = block.providerTurnId;
-  // Without this the transcript would show the app's managed turns as
-  // the user's own after a reload.
-  if (block.role === "user" && block.internal) next.internal = true;
   const turnMetrics = sanitizeTurnMetrics(block.turnMetrics);
   if (block.role === "user" && turnMetrics) next.turnMetrics = turnMetrics;
   if (block.tool) next.tool = block.tool;

@@ -30,36 +30,12 @@ export type CodexThreadConfig = {
   sandbox: "read-only" | "workspace-write" | "danger-full-access";
   approvalsReviewer: "user" | "auto_review";
   sandboxPolicy:
-    | { type: "readOnly"; networkAccess?: boolean }
-    | { type: "workspaceWrite"; networkAccess?: boolean }
+    | { type: "readOnly" }
+    | { type: "workspaceWrite" }
     | { type: "dangerFullAccess" };
 };
 
-/**
- * `readOnly` and `workspaceWrite` both default to networkAccess: false, which
- * blocks loopback too. A /operator-enabled thread needs the local CLI socket,
- * so its turns enable network access.
- */
-function withNetwork(
-  config: CodexThreadConfig,
-  controlsAgents?: boolean,
-): CodexThreadConfig {
-  if (!controlsAgents || config.sandboxPolicy.type === "dangerFullAccess")
-    return config;
-  return {
-    ...config,
-    sandboxPolicy: { ...config.sandboxPolicy, networkAccess: true },
-  };
-}
-
-export function runtimeModeToCodexConfig(
-  mode: RuntimeMode,
-  controlsAgents?: boolean,
-): CodexThreadConfig {
-  return withNetwork(baseCodexConfig(mode), controlsAgents);
-}
-
-function baseCodexConfig(mode: RuntimeMode): CodexThreadConfig {
+export function runtimeModeToCodexConfig(mode: RuntimeMode): CodexThreadConfig {
   switch (mode) {
     case "supervised":
       return {
@@ -97,14 +73,10 @@ function baseCodexConfig(mode: RuntimeMode): CodexThreadConfig {
 export function buildThreadStartParams(input: {
   cwd: string;
   runtimeMode: RuntimeMode;
-  controlsAgents?: boolean;
   model?: string;
   serviceTier?: string;
 }): Record<string, unknown> {
-  const config = runtimeModeToCodexConfig(
-    input.runtimeMode,
-    input.controlsAgents,
-  );
+  const config = runtimeModeToCodexConfig(input.runtimeMode);
   return {
     cwd: input.cwd,
     approvalPolicy: config.approvalPolicy,
@@ -134,7 +106,6 @@ export function buildTurnSteerParams(input: {
 export function buildTurnStartParams(input: {
   threadId: string;
   runtimeMode: RuntimeMode;
-  controlsAgents?: boolean;
   prompt?: string;
   attachments?: Attachment[];
   model?: string;
@@ -142,21 +113,15 @@ export function buildTurnStartParams(input: {
   serviceTier?: string;
   intent?: TurnIntent;
 }): Record<string, unknown> {
-  const runtimeConfig = runtimeModeToCodexConfig(
-    input.runtimeMode,
-    input.controlsAgents,
-  );
+  const runtimeConfig = runtimeModeToCodexConfig(input.runtimeMode);
   const config: CodexThreadConfig =
     input.intent === "plan"
-      ? withNetwork(
-          {
-            approvalPolicy: "never",
-            sandbox: "read-only",
-            approvalsReviewer: runtimeConfig.approvalsReviewer,
-            sandboxPolicy: { type: "readOnly" },
-          },
-          input.controlsAgents,
-        )
+      ? {
+          approvalPolicy: "never",
+          sandbox: "read-only",
+          approvalsReviewer: runtimeConfig.approvalsReviewer,
+          sandboxPolicy: { type: "readOnly" },
+        }
       : runtimeConfig;
   return {
     threadId: input.threadId,

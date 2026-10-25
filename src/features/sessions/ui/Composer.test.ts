@@ -750,54 +750,6 @@ describe("Composer question focus", () => {
     expect(textarea.selectionEnd).toBe(initialDraft.length);
   });
 
-  it("offers /operator in the slash picker and submits it as a local command", async () => {
-    const onSubmit = vi.fn(() => true);
-    await act(async () =>
-      root.render(
-        createElement(Composer, {
-          focused: true,
-          harness: "claude",
-          model: "claude-sonnet",
-          runtimeMode: "supervised",
-          executionCwd: "/repo",
-          initialDraft: "/operator",
-          hideProjectPicker: true,
-          hideBranchPicker: true,
-          onFocus: vi.fn(),
-          onCwdChange: vi.fn(),
-          onModelChange: vi.fn(),
-          onRuntimeModeChange: vi.fn(),
-          onSubmit,
-        }),
-      ),
-    );
-    const textarea = container.querySelector("textarea")!;
-    await act(async () =>
-      textarea.dispatchEvent(new Event("input", { bubbles: true })),
-    );
-    const command = Array.from(
-      container.querySelectorAll<HTMLButtonElement>('[role="option"]'),
-    ).find((button) => button.textContent?.includes("/operator"));
-    expect(command).toBeDefined();
-    await act(async () => command!.click());
-    expect(textarea.value).toBe("/operator ");
-    expect(
-      container.querySelector('[aria-label="Turn off Operator"]'),
-    ).not.toBeNull();
-    await act(async () => {
-      textarea.value += "list my notes";
-      textarea.dispatchEvent(new Event("input", { bubbles: true }));
-    });
-    await act(async () =>
-      container
-        .querySelector<HTMLButtonElement>('[aria-label="Send"]')!
-        .click(),
-    );
-    expect(onSubmit).toHaveBeenCalledWith("/operator list my notes", [], {
-      intent: "default",
-    });
-  });
-
   it("keeps /plan in the text beside its pill and submits with the plan intent", async () => {
     const onSubmit = vi.fn(() => true);
     await act(async () =>
@@ -891,77 +843,6 @@ describe("Composer question focus", () => {
     expect(onSubmit).toHaveBeenLastCalledWith("sketch the refactor", [], {
       intent: "plan",
     });
-  });
-
-  it("offers Operator and sends the /operator command", async () => {
-    const onSubmit = vi.fn().mockReturnValueOnce(false).mockReturnValue(true);
-    await act(async () =>
-      root.render(
-        createElement(Composer, {
-          focused: true,
-          harness: "claude",
-          model: "claude-sonnet",
-          runtimeMode: "supervised",
-          executionCwd: "/repo",
-          initialDraft: "List my notes",
-          hideProjectPicker: true,
-          hideBranchPicker: true,
-          onFocus: vi.fn(),
-          onCwdChange: vi.fn(),
-          onModelChange: vi.fn(),
-          onRuntimeModeChange: vi.fn(),
-          onSubmit,
-        }),
-      ),
-    );
-    await act(async () =>
-      container
-        .querySelector<HTMLButtonElement>(
-          '[aria-label="Add files or choose a mode"]',
-        )!
-        .click(),
-    );
-    const options = Array.from(
-      document.querySelectorAll<HTMLButtonElement>(
-        "[data-composer-plus] button",
-      ),
-    );
-    const operator = options.find((button) =>
-      button.textContent?.includes("Operator"),
-    )!;
-    expect(operator).toBeDefined();
-    await act(async () => operator.click());
-    const textarea = container.querySelector("textarea")!;
-    expect(textarea.value).toBe("List my notes");
-    expect(
-      container.querySelector('[aria-label="Turn off Operator"]'),
-    ).not.toBeNull();
-
-    const send = container.querySelector<HTMLButtonElement>(
-      '[aria-label="Send"]',
-    )!;
-    await act(async () => send.click());
-    expect(onSubmit).toHaveBeenLastCalledWith("/operator List my notes", [], {
-      intent: "default",
-    });
-    expect(textarea.value).toBe("List my notes");
-    expect(
-      container.querySelector('[aria-label="Turn off Operator"]'),
-    ).not.toBeNull();
-
-    await act(async () => {
-      textarea.value = "/operator List my notes";
-      textarea.dispatchEvent(new Event("input", { bubbles: true }));
-      send.click();
-    });
-    expect(onSubmit).toHaveBeenCalledTimes(2);
-    expect(onSubmit).toHaveBeenLastCalledWith("/operator List my notes", [], {
-      intent: "default",
-    });
-    expect(textarea.value).toBe("");
-    expect(
-      container.querySelector('[aria-label="Turn off Operator"]'),
-    ).toBeNull();
   });
 
   it("clears the parent draft before submit so a remounting composer stays empty", async () => {

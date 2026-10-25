@@ -1,13 +1,11 @@
 import {
   AiIdea,
   CircleDashed,
-  CursorMagicSelection,
   MessageSquare,
   X,
 } from "../../../shared/ui/icons";
 import { BTW_COMMAND } from "../model/btw";
 import { DRAFT_COMMAND } from "../model/draftCommand";
-import { OPERATOR_COMMAND } from "../model/operatorCommand";
 import { PLAN_COMMAND } from "../model/plan";
 
 type ModeCommandStyle = {
@@ -34,21 +32,6 @@ export const MODE_COMMAND_STYLES: Record<string, ModeCommandStyle> = {
       label: "Plan mode",
       description: "Review a plan before building",
       iconClassName: "text-yellow-300/80",
-    },
-  },
-  [OPERATOR_COMMAND.name]: {
-    Icon: CursorMagicSelection,
-    className: "text-sky-700 dark:text-sky-200/90",
-    pill: {
-      label: "Operator",
-      title: "Operator",
-      className:
-        "bg-sky-500/15 font-medium text-sky-700 hover:bg-sky-500/20 dark:bg-sky-400/10 dark:text-sky-200/90 dark:hover:bg-sky-400/15",
-    },
-    menu: {
-      label: "Operator",
-      description: "Give this thread access to Bonocode",
-      iconClassName: "text-sky-300/80",
     },
   },
   [DRAFT_COMMAND.name]: {

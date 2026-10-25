@@ -292,7 +292,6 @@ describe("btwVisibleBlocks", () => {
   it("returns only visible blocks through the anchored turn", () => {
     const blocks: Block[] = [
       block("before", "user"),
-      { ...block("hidden-user", "user"), internal: true },
       block("assistant", "assistant"),
       block("reasoning", "reasoning"),
       block("tool", "tool"),

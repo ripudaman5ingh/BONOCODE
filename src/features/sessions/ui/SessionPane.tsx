@@ -746,12 +746,7 @@ const LocalSessionPane = memo(function LocalSessionPane({
                             session.id,
                             block.text,
                             block.attachments ?? [],
-                            {
-                              draftBlockId: block.id,
-                              ...(block.appRequestId
-                                ? { appRequestId: block.appRequestId }
-                                : {}),
-                            },
+                            { draftBlockId: block.id },
                           )
                       : undefined
                   }

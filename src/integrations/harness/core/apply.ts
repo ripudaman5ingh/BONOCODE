@@ -425,17 +425,13 @@ type UserTurnExtra = {
   internal?: boolean;
   monocode?: boolean;
   intent?: Block["intent"];
-  appRequestId?: string;
 };
 
 function userTurnFields(extra?: UserTurnExtra) {
   return {
     ...(extra?.secondOpinion ? { secondOpinion: extra.secondOpinion } : {}),
     ...(extra?.ciContext ? { ciContext: extra.ciContext } : {}),
-    ...(extra?.internal ? { internal: true } : {}),
-    ...(extra?.monocode ? { monocode: true } : {}),
     ...(extra?.intent ? { intent: extra.intent } : {}),
-    ...(extra?.appRequestId ? { appRequestId: extra.appRequestId } : {}),
   };
 }
 

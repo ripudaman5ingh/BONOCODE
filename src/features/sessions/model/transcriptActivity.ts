@@ -16,7 +16,6 @@ import {
 import { INTERRUPT_MESSAGE } from "./inFlight";
 import type { Block, ToolPreview } from "./session";
 import { allModels } from "./models";
-import { monoCodeWorkSummary } from "./monocodeToolCall";
 
 export type ToolCallState = "pending" | "accepted" | "rejected";
 
@@ -319,18 +318,11 @@ export function resolveToolCallDisplay(
   return { action, target, fileName, filePath, isFile, previewMatchesFile };
 }
 
-/**
- * User turns, with handoff dividers sitting on their own row. `managed` shows
- * the app-written turns (`internal`), which are otherwise folded away.
- */
-export function groupTurns(blocks: Block[], managed = false): Block[][] {
+/** User turns, with handoff dividers sitting on their own row. */
+export function groupTurns(blocks: Block[]): Block[][] {
   const turns: Block[][] = [];
   let current: Block[] = [];
   for (const block of blocks) {
-    // A turn the app wrote on the user's behalf is not a user message.
-    // Dropping it here folds the reply into the turn above, so a supervised
-    // run reads as one conversation.
-    if (block.internal && !managed) continue;
     if (block.role === "handoff") {
       if (current.length > 0) turns.push(current);
       turns.push([block]);
@@ -849,8 +841,6 @@ function currentWorkKind(steps: Block[]): ActivityWorkKind | undefined {
  * "N notes" clause; a group holding nothing but notes is just that clause.
  */
 export function workSummaryLine(steps: Block[], live = false): string {
-  const appSummary = monoCodeWorkSummary(steps, live);
-  if (appSummary) return appSummary;
   const tally = tallySteps(steps);
   const notes =
     tally.notes === 1

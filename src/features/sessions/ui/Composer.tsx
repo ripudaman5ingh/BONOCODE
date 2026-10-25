@@ -4,7 +4,6 @@ import {
   Check,
   CircleDashed,
   CornerDownRight,
-  CursorMagicSelection,
   FilePlus,
   ListEnd,
   Pause,
@@ -135,10 +134,6 @@ import { useComposerSkills } from "./useComposerSkills";
 import { Popover } from "../../../shared/ui/Popover";
 import { UsageLimitNotice } from "./UsageLimitNotice";
 import { consumePlanCommand, PLAN_COMMAND } from "../model/plan";
-import {
-  consumeOperatorCommand,
-  OPERATOR_COMMAND,
-} from "../model/operatorCommand";
 import { consumeDraftCommand, DRAFT_COMMAND } from "../model/draftCommand";
 import {
   leadingModeCommand,
@@ -603,7 +598,6 @@ export function Composer({
   const [fileDrag, setFileDrag] = useState(false);
   const [plusOpen, setPlusOpen] = useState(false);
   const [planSelected, setPlanSelected] = useState(false);
-  const [operatorSelected, setOperatorSelected] = useState(false);
   const [draftSelected, setDraftSelected] = useState(false);
   const [slash, setSlash] = useState<SlashToken | null>(null);
   const [skillActive, setSkillActive] = useState(0);
@@ -668,23 +662,19 @@ export function Composer({
         : [
             SESSION_FOLDER_COMMAND,
             MCP_COMMAND,
-            OPERATOR_COMMAND,
             PLAN_COMMAND,
             ...(canSaveDraft && onSaveDraft ? [DRAFT_COMMAND] : []),
             COMPACT_COMMAND,
             ...(supportsBtwHarness(harness) ? [BTW_COMMAND] : []),
             ...skills.filter(
               (skill) =>
-                ![OPERATOR_COMMAND.name, "mono", "monocode"].includes(
-                  skill.name,
-                ) &&
-                (skill.kind === "native" ||
-                  (skill.name !== PLAN_COMMAND.name &&
-                    skill.name !== COMPACT_COMMAND.name &&
-                    skill.name !== SESSION_FOLDER_COMMAND.name &&
-                    skill.name !== MCP_COMMAND.name &&
-                    skill.name !== DRAFT_COMMAND.name &&
-                    skill.name !== BTW_COMMAND.name)),
+                skill.kind === "native" ||
+                (skill.name !== PLAN_COMMAND.name &&
+                  skill.name !== COMPACT_COMMAND.name &&
+                  skill.name !== SESSION_FOLDER_COMMAND.name &&
+                  skill.name !== MCP_COMMAND.name &&
+                  skill.name !== DRAFT_COMMAND.name &&
+                  skill.name !== BTW_COMMAND.name),
             ),
           ],
     [
@@ -736,8 +726,6 @@ export function Composer({
   );
 
   // A leading mode command in the text shows the same pill as picking the mode.
-  const operatorActive =
-    operatorSelected || leadingMode?.name === OPERATOR_COMMAND.name;
   const draftActive = draftSelected || leadingMode?.name === DRAFT_COMMAND.name;
   const planActive = planSelected || leadingMode?.name === PLAN_COMMAND.name;
 
@@ -1535,10 +1523,6 @@ export function Composer({
         : value,
     );
     const text = command.text;
-    const submittedText =
-      operatorSelected && !consumeOperatorCommand(text).matched
-        ? `/operator ${text}`
-        : text;
     const files = attachmentsRef.current;
     if (!text && files.length === 0 && !handoffCard) return;
     // Clear the parent draft before onSubmit. The app can synchronously remount
@@ -1553,8 +1537,8 @@ export function Composer({
     onDraftChange?.("");
     const accepted = onSubmit(
       mcpContextText(
-        taggedMcpServers(submittedText, selectedMcp),
-        submittedText,
+        taggedMcpServers(text, selectedMcp),
+        text,
       ),
       files,
       {
@@ -1594,7 +1578,6 @@ export function Composer({
     setResendEdited(false);
     onEditingLastTurnChange?.(false);
     setPlanSelected(false);
-    setOperatorSelected(false);
     setSessionFolderSelected(false);
     setSessionFolderOpen(false);
     setPlusOpen(false);
@@ -2297,7 +2280,6 @@ export function Composer({
                       onClick={() => {
                         setPlanSelected(!planActive);
                         if (planActive) clearLeadingMode(PLAN_COMMAND.name);
-                        setOperatorSelected(false);
                         setDraftSelected(false);
                         setPlusOpen(false);
                         ref.current?.focus();
@@ -2316,35 +2298,6 @@ export function Composer({
                       ) : null}
                     </button>
                   ) : null}
-                  {!remote ? (
-                    <button
-                      type="button"
-                      aria-pressed={operatorActive}
-                      onMouseDown={(event) => event.preventDefault()}
-                      onClick={() => {
-                        setOperatorSelected(!operatorActive);
-                        if (operatorActive) {
-                          clearLeadingMode(OPERATOR_COMMAND.name);
-                        }
-                        setPlanSelected(false);
-                        setDraftSelected(false);
-                        setPlusOpen(false);
-                        ref.current?.focus();
-                      }}
-                      className="flex w-full items-start gap-2.5 rounded-lg px-2 py-2 text-left text-content hover:bg-content/10"
-                    >
-                      <CursorMagicSelection className="mt-0.5 size-4 shrink-0 text-sky-300/80" />
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-[13px]">Operator</span>
-                        <span className="block truncate whitespace-nowrap text-[11px] leading-4 text-content/45">
-                          Give this thread access to Bonocode
-                        </span>
-                      </span>
-                      {operatorActive ? (
-                        <Check className="mt-0.5 size-3.5 shrink-0 text-sky-300/80" />
-                      ) : null}
-                    </button>
-                  ) : null}
                   {canSaveDraft && onSaveDraft ? (
                     <button
                       type="button"
@@ -2354,7 +2307,6 @@ export function Composer({
                         setDraftSelected(!draftActive);
                         if (draftActive) clearLeadingMode(DRAFT_COMMAND.name);
                         setPlanSelected(false);
-                        setOperatorSelected(false);
                         setPlusOpen(false);
                         ref.current?.focus();
                       }}
@@ -2375,16 +2327,6 @@ export function Composer({
                 </Popover>
               ) : null}
             </div>
-            {!compact && operatorActive ? (
-              <ModeCommandPill
-                name={OPERATOR_COMMAND.name}
-                onClear={() => {
-                  setOperatorSelected(false);
-                  clearLeadingMode(OPERATOR_COMMAND.name);
-                  ref.current?.focus();
-                }}
-              />
-            ) : null}
             {!compact && planActive ? (
               <ModeCommandPill
                 name={PLAN_COMMAND.name}

@@ -5,7 +5,6 @@ import type {
   HarnessId,
   Session,
 } from "./session";
-import { isOperatorUserTurn, operatorUserPrompt } from "./operatorCommand";
 
 /** Harnesses that can rewind provider state before resending an edited prompt. */
 export function harnessSupportsEditLastTurn(harness: HarnessId): boolean {
@@ -21,7 +20,7 @@ export function harnessSupportsEditLastTurn(harness: HarnessId): boolean {
 export function lastUserTurnStartIndex(blocks: Block[]): number {
   for (let index = blocks.length - 1; index >= 0; index -= 1) {
     const block = blocks[index];
-    if (block.role === "user" && !block.internal && !block.draft) return index;
+    if (block.role === "user" && !block.draft) return index;
   }
   return -1;
 }
@@ -48,7 +47,7 @@ export function lastEditableTurnStartIndex(session: Session): number {
     if (block.role === "user" && block.providerTurnId !== providerTurnId) {
       break;
     }
-    if (block.role === "user" && !block.internal && !block.draft) {
+    if (block.role === "user" && !block.draft) {
       start = index;
     }
   }
@@ -160,9 +159,7 @@ export function lastTurnRecall(session: Session): LastTurnRecall | null {
   const block = lastUserTurnBlock(session.blocks);
   if (!block?.text.trim() && !block?.attachments?.length) return null;
   return {
-    text: isOperatorUserTurn(block)
-      ? `/operator ${operatorUserPrompt(block)}`
-      : block.text,
+    text: block.text,
     attachments: block.attachments ?? [],
   };
 }

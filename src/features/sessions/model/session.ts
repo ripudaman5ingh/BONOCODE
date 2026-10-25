@@ -298,12 +298,8 @@ export type Block = {
   providerTurnId?: string;
   /** User turn saved to the session but not submitted to the harness yet. */
   draft?: boolean;
-  /** This user turn activated MonoCode app access for its thread. */
-  monocode?: boolean;
   /** The Plan mode this user turn was sent in. */
   intent?: Extract<TurnIntent, "plan">;
-  /** Stable CLI request that submitted this turn, for safe retries. */
-  appRequestId?: string;
   /** Provider-reported token metrics for this user turn, when available. */
   turnMetrics?: TurnMetrics;
   tool?: {
@@ -324,11 +320,6 @@ export type Block = {
   agentRun?: AgentRunMeta;
   taskList?: TaskListMeta;
   plan?: PlanBlockMeta;
-  /**
-   * A turn the app wrote on the user's behalf for a managed run.
-   * The harness needs it; the transcript hides it.
-   */
-  internal?: boolean;
   handoff?: HandoffMeta;
   secondOpinion?: SecondOpinionMeta;
   /** Independent read-only side conversations anchored to this user turn. */

@@ -602,81 +602,6 @@ html.has-user-accent .user-message-bubble {
   border-color: color-mix(in srgb, var(--user-accent-color) 30%, transparent);
 }
 
-/*
- * A freshly sent /operator turn lights up once: the bubble blooms with a warm
- * halo, a golden sheen sweeps across it, and sparkles drift up from a glow at
- * its base, twinkling as they rise and fading out past the top edge.
- */
-.monocode-sparkles {
-  --sparkle-color: #fde68a;
-  --sparkle-glow: rgb(251 191 36 / 0.9);
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  border-radius: inherit;
-  pointer-events: none;
-  animation: monocode-halo 2400ms 150ms ease-out both;
-}
-
-html.theme-light .monocode-sparkles {
-  --sparkle-color: #f59e0b;
-  --sparkle-glow: rgb(217 119 6 / 0.55);
-}
-
-.monocode-sparkles::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    105deg,
-    transparent 30%,
-    rgb(254 243 199 / 0.5) 48%,
-    rgb(251 191 36 / 0.35) 52%,
-    transparent 70%
-  );
-  transform: translateX(-120%);
-  animation: monocode-sheen 1100ms 300ms cubic-bezier(0.4, 0, 0.2, 1) both;
-}
-
-.monocode-sparkles::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(
-    120% 70% at 50% 100%,
-    rgb(251 191 36 / 0.35),
-    transparent 70%
-  );
-  animation: monocode-ember-glow 2200ms 100ms ease-out both;
-}
-
-.monocode-sparkle {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: var(--x);
-  z-index: 1;
-  width: 0;
-  animation: monocode-rise var(--duration) var(--delay)
-    cubic-bezier(0.3, 0.6, 0.4, 1) both;
-}
-
-.monocode-sparkle-glyph {
-  position: absolute;
-  bottom: calc(var(--size) * -1);
-  left: calc(var(--size) / -2);
-  width: var(--size);
-  height: var(--size);
-  color: var(--sparkle-color);
-  filter: drop-shadow(0 0 3px var(--sparkle-glow));
-  animation: monocode-twinkle var(--duration) var(--delay) ease-in-out both;
-}
-
-.monocode-sparkle-ember {
-  border-radius: 9999px;
-  background: radial-gradient(circle, #fffbeb, var(--sparkle-color) 70%);
-}
-
 @keyframes monocode-rise {
   from {
     transform: translate(0, 0);
@@ -709,30 +634,6 @@ html.theme-light .monocode-sparkles {
   }
 }
 
-@keyframes monocode-halo {
-  0% {
-    box-shadow:
-      0 0 0 0 rgb(245 158 11 / 0),
-      0 0 0 0 rgb(245 158 11 / 0);
-  }
-  25% {
-    box-shadow:
-      0 0 0 1px rgb(245 158 11 / 0.55),
-      0 0 24px 3px rgb(245 158 11 / 0.35);
-  }
-  100% {
-    box-shadow:
-      0 0 0 0 rgb(245 158 11 / 0),
-      0 0 0 0 rgb(245 158 11 / 0);
-  }
-}
-
-@keyframes monocode-sheen {
-  to {
-    transform: translateX(120%);
-  }
-}
-
 @keyframes monocode-ember-glow {
   0% {
     opacity: 0;
@@ -745,14 +646,8 @@ html.theme-light .monocode-sparkles {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .monocode-sparkles {
-    display: none;
-  }
-}
-
 /*
- * Plan turns share the /operator bloom and upward exit. Numbered plan marks
+ * Plan turns share the rise and twinkle keyframes. Numbered plan marks
  * keep their own shape and color as they travel from the bottom of the bubble
  * past its top edge.
  */
@@ -2539,7 +2434,7 @@ html.theme-light .btw-morph-frame {
 /*
  * Opening a side question: question marks drift up out of the composer into
  * the panel, wobbling as they rise, while the composer box glows and a sheen
- * crosses it. The /operator sparkles' cousin, in the accent color.
+ * crosses it, in the accent color.
  */
 .btw-burst {
   --burst-color: color-mix(

@@ -4,13 +4,6 @@ import {
   type ScheduledFlush,
 } from "./model/harnessFlush";
 import {
-  handleAgentApp,
-  type AppSessionListing,
-  type AppSessionPlacement,
-  type QuickLaunch,
-} from "../features/agent-app/model/agentApp";
-import { acceptQuickLaunch } from "./model/quickLaunchSession";
-import {
   submitAfterProjectSync,
   type SubmissionAcceptance,
   type SubmissionOutcome,
@@ -22,7 +15,6 @@ import {
   trackCiRepair,
 } from "../features/source-control/model/ciRepairTracking";
 import { invoke } from "@tauri-apps/api/core";
-import { shellPath } from "../shared/lib/shellPath";
 import { flushSync } from "react-dom";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -452,10 +444,6 @@ import {
 } from "../features/workspace/model/tabVisitHistory";
 import { preparePrompt } from "../features/sessions/model/promptPreparation";
 import {
-  consumeOperatorCommand,
-  operatorEnabledInThread,
-} from "../features/sessions/model/operatorCommand";
-import {
   warmNativeSkills,
   isNativeCommandPrompt,
 } from "../features/skills/model/skills";
@@ -616,7 +604,6 @@ type SubmitOptions = ComposerTurnOptions & {
   queuedMessageId?: string;
   planBlockId?: string;
   buildTarget?: PlanBuildTarget;
-  appRequestId?: string;
   /** Settles once with how the turn ended. CI repair tracking waits on it. */
   onSettled?: (outcome: SubmissionOutcome) => void;
   /** Generate a fresh title even when this is not the session's first turn. */
@@ -5211,12 +5198,7 @@ function Workspace({
   );
 
   const onSaveDraft = useCallback(
-    (
-      sessionId: string,
-      text: string,
-      attachments: Attachment[] = [],
-      appRequestId?: string,
-    ) => {
+    (sessionId: string, text: string, attachments: Attachment[] = []) => {
       const current = sessionsRef.current.find(
         (session) => session.id === sessionId,
       );
@@ -5253,7 +5235,6 @@ function Workspace({
                     text,
                     ...(attachments.length > 0 ? { attachments } : {}),
                     draft: true,
-                    ...(appRequestId ? { appRequestId } : {}),
                   },
                 ],
               }
@@ -5314,7 +5295,6 @@ function Workspace({
       )
         return false;
       const storedCurrent = sessionsRef.current.find((s) => s.id === sessionId);
-      if (options?.appRequestId && storedCurrent?.busy) return false;
       if (
         options?.ciRepair &&
         storedCurrent &&
@@ -5407,28 +5387,11 @@ function Workspace({
         return false;
       }
       const submittedText = intent === "build" ? "Build approved plan" : text;
-      const operatorCommand = consumeOperatorCommand(submittedText);
-      if (operatorCommand.matched && intent !== "default") {
-        enqueueHarnessEvent(sessionId, {
-          type: "status",
-          text: "Use /operator from a regular session turn.",
-        });
-        flushHarnessEvents();
-        return false;
-      }
-      const operatorAccess =
-        operatorCommand.matched || operatorEnabledInThread(current.blocks);
-      const promptText = operatorCommand.matched
-        ? operatorCommand.text.trim() ||
-          "Explain what you can do in Bonocode with the app CLI."
-        : submittedText;
-      const rawCommand =
-        !operatorCommand.matched &&
-        isNativeCommandPrompt(submittedText, current.harness);
+      const rawCommand = isNativeCommandPrompt(submittedText, current.harness);
       const ciContext = options?.ciRepair?.prompt ?? options?.ciContext;
       const harnessText =
         options?.ciRepair?.prompt ??
-        (rawCommand ? submittedText : promptText.trim());
+        (rawCommand ? submittedText : submittedText.trim());
 
       const pendingSwitch =
         current.pendingSwitch && current.pendingSwitch.from !== current.harness
@@ -5436,22 +5399,8 @@ function Workspace({
           : null;
 
       if (current.busy && !pendingSwitch) {
-        if (
-          operatorCommand.matched &&
-          options?.queuedMessageId &&
-          options.followUpBehavior === "steer"
-        ) {
-          enqueueHarnessEvent(sessionId, {
-            type: "status",
-            text: "/operator starts a new turn after the current turn finishes.",
-          });
-          flushHarnessEvents();
-          return false;
-        }
         const followUpBehavior =
-          current.worktreePreparing ||
-          intent === "plan" ||
-          operatorCommand.matched
+          current.worktreePreparing || intent === "plan"
             ? "queue"
             : // The agent has yielded and only background work is left, which
               // may never end (a dev server). Queuing would park the message
@@ -5614,19 +5563,14 @@ function Workspace({
       const titleSeed =
         isFirstTurn &&
         placeholderTitle
-          ? titleFromPrompt(
-              operatorCommand.matched ? promptText : submittedText,
-              current.harness,
-              attachments,
-            )
+          ? titleFromPrompt(submittedText, current.harness, attachments)
           : current.title;
       const visible = displayAttachments(attachments);
       const card =
         options?.secondOpinion ??
         (handoffCard ? handoffTurnCard(handoffCard) : undefined);
-      const visibleText = operatorCommand.matched
-        ? promptText
-        : card?.kind === "handoff"
+      const visibleText =
+        card?.kind === "handoff"
           ? submittedText
           : card
             ? SECOND_OPINION_TITLE
@@ -5634,9 +5578,7 @@ function Workspace({
       const cards = {
         ...(rawCommand ? undefined : userTurnCards(card)),
         ...(ciContext ? { ciContext } : {}),
-        ...(operatorCommand.matched ? { monocode: true } : {}),
         ...(intent === "plan" ? { intent } : {}),
-        ...(options?.appRequestId ? { appRequestId: options.appRequestId } : {}),
       };
       const live = isLiveHarness(current.harness);
       const queuedHandoff =
@@ -6080,15 +6022,12 @@ function Workspace({
               providerAccountId,
               runtimeMode: current.runtimeMode,
               intent,
-              // A /operator user turn enables app access for this thread.
-              controlsAgents: operatorAccess,
-              appAccess: operatorAccess,
               text,
               attachments: turnAttachments,
               ...(editedResend ? { onAccepted: acceptEditedResend } : {}),
               onEvent: routeTurnEvent,
             });
-          let sendText =
+          const sendText =
             wrap && !rawCommand
               ? wrapHandoffPrompt(
                   wrap.text,
@@ -6097,10 +6036,6 @@ function Workspace({
                   earlier,
                 )
               : turnPrompt;
-          if (operatorCommand.matched) {
-            const cli = `${shellPath(await invoke<string>("app_cli_path"))} app`;
-            sendText += `\n\n<monocode_app>\nThe user's Operator command enables app access in this thread, including later turns without the command. You can start session tabs or split session panes right or down, list and create project worktrees, choose a new session's checkout, read and continue other project sessions, save unsent drafts, organize session folders, and read or write saved notes through its local CLI. Run \`${cli} --help\` for exact commands and JSON fields, then use it as needed for the user's request. When reading another session, start with its latest two or three user/assistant exchanges. Request older exchanges with nextBefore or a larger excerpt only if needed. The CLI uses a session credential already in your environment; never print it. New sessions inherit this session's permission mode unless runtimeMode is set explicitly. For a new session with a draft, call sessions.start with its prompt and draft:true; do not submit a seed prompt. The returned ID can be used as besideSessionId to split its pane again or moved into a folder immediately. A normal sessions.start submits its prompt but returns after acceptance, so do not wait for that agent to finish before organizing it.\n</monocode_app>`;
-          }
           await sendTurn(sendText);
           acceptEditedResend();
           if (turnGen.current.get(sessionId) !== gen) return;
@@ -6240,73 +6175,6 @@ function Workspace({
       return true;
     },
     [submitSession],
-  );
-
-  const launchQuickSession = useCallback(
-    (launch: QuickLaunch, deliveryId: string, placement?: AppSessionPlacement) =>
-      acceptQuickLaunch(launch, deliveryId, {
-        getSessions: () => sessionsRef.current,
-        updateSessions: (update) => {
-          sessionsRef.current = update(sessionsRef.current);
-          setSessions(update);
-        },
-        appendTab,
-        placeSession: (sessionId, target, cwd) => {
-          const anchor = sessionsRef.current.find(
-            (session) => session.id === target.besideSessionId,
-          );
-          const tab = tabsRef.current.find((entry) =>
-            leafIds(entry.layout).includes(target.besideSessionId),
-          );
-          if (!anchor || !sameProjectPath(anchor.cwd, cwd) || !tab)
-            throw new Error("The target session must be open in this project");
-          const nextTabs = tabsRef.current.map((entry) =>
-            entry.id === tab.id
-              ? {
-                  ...entry,
-                  layout: splitPane(
-                    entry.layout,
-                    target.besideSessionId,
-                    target.direction,
-                    sessionId,
-                  ),
-                  focusedId: launch.reveal ? sessionId : entry.focusedId,
-                  diffFocused: launch.reveal ? false : entry.diffFocused,
-                }
-              : entry,
-          );
-          tabsRef.current = nextTabs;
-          setTabs(nextTabs);
-          return tab.id;
-        },
-        setProjectCwd,
-        setRecents,
-        revealTab: (id, cwd) => {
-          setActiveTabId(id);
-          setComposerFocused(false);
-          setSearchViewOpen(false);
-          setSidebarTab("sessions", cwd);
-        },
-        submit: submitSession,
-        saveDraft: (id, prompt, attachments, requestId) =>
-          flushSync(() =>
-            onSaveDraft(id, prompt, attachments, requestId),
-          ),
-      }, placement),
-    [appendTab, submitSession, onSaveDraft],
-  );
-  const launchQuickSessionRef = useRef(launchQuickSession);
-  launchQuickSessionRef.current = launchQuickSession;
-
-  const submitSessionRef = useRef(submitSession);
-  submitSessionRef.current = submitSession;
-  const saveDraftRef = useRef(onSaveDraft);
-  saveDraftRef.current = onSaveDraft;
-  const ensureOpenSessionRef = useRef(ensureOpenSession);
-  ensureOpenSessionRef.current = ensureOpenSession;
-
-  const appReceipts = useRef(
-    new Map<string, { signature: string; promise: Promise<unknown> }>(),
   );
 
   const onUpdatePlan = useCallback(
@@ -7577,194 +7445,6 @@ function Workspace({
     },
     [focusOpenSession, onSelectHistorySession],
   );
-
-  useEffect(() => {
-    const listening = listen<{
-      id: string;
-      namespace: string;
-      sessionId: string;
-      requestId: string;
-      action: string;
-      input: Record<string, unknown>;
-    }>("bonocode-control-request", ({ payload }) => {
-      const handle = async () => {
-        if (payload.namespace !== "app")
-          throw new Error("Unknown CLI namespace");
-        const source = sessionsRef.current.find(
-          (session) => session.id === payload.sessionId,
-        );
-        if (!source)
-          throw new Error("This session cannot use the Bonocode app CLI");
-        const key = `${source.id}:${payload.requestId}`;
-        const signature = JSON.stringify([payload.action, payload.input]);
-        const previous = appReceipts.current.get(key);
-        if (previous) {
-          if (previous.signature !== signature)
-            throw new Error("Request ID was already used with different input");
-          return previous.promise;
-        }
-        const promise = handleAgentApp(
-          source,
-          payload.requestId,
-          payload.action,
-          payload.input,
-          {
-            start: async (launch, id, placement) => {
-              const open = sessionsRef.current.find(
-                (session) => session.id === id,
-              );
-              const stored = open ? null : await getSession(id);
-              const existing = open ?? stored;
-              const previous = existing?.blocks.find(
-                (block) => block.appRequestId === id,
-              );
-              if (previous) {
-                if (
-                  previous.text !== launch.prompt ||
-                  (!launch.draft && !!previous.draft)
-                )
-                  throw new Error(
-                    "Request ID was already used for another session launch",
-                  );
-                return;
-              }
-              if (
-                existing?.blocks.some(
-                  (block) => block.role === "user" && !block.draft,
-                )
-              )
-                return;
-              if (existing && sessionDraftBlock(existing))
-                throw new Error("Session ID already has a different draft");
-              await launchQuickSessionRef.current(launch, id, placement);
-            },
-            sessions: async (cwd): Promise<AppSessionListing[]> => {
-              const stored = await listSessionsByProject(cwd);
-              const byId = new Map<string, AppSessionListing>();
-              for (const session of stored) {
-                byId.set(session.id, {
-                  id: session.id,
-                  title: session.title,
-                  harness: session.harness,
-                  model: session.model,
-                  busy: false,
-                  hasDraft: !!session.draft,
-                });
-              }
-              for (const session of sessionsRef.current) {
-                if (!sameProjectPath(session.cwd, cwd)) continue;
-                byId.set(session.id, {
-                  id: session.id,
-                  title: session.title,
-                  harness: session.harness,
-                  model: session.model,
-                  busy: !!session.busy,
-                  hasDraft: !!sessionDraftBlock(session),
-                });
-              }
-              return [...byId.values()];
-            },
-            session: async (id) => {
-              const target =
-                sessionsRef.current.find((session) => session.id === id) ??
-                (await getSession(id));
-              return target && sameProjectPath(target.cwd, source.cwd)
-                ? target
-                : null;
-            },
-            send: async (id, prompt, requestId) => {
-              const target = await ensureOpenSessionRef.current(id);
-              if (!target || !sameProjectPath(target.cwd, source.cwd))
-                throw new Error("Session is unavailable in this project");
-              const previous = target.blocks.find(
-                (block) => block.appRequestId === requestId,
-              );
-              if (previous) {
-                if (previous.text !== prompt)
-                  throw new Error(
-                    "Request ID was already used with another prompt",
-                  );
-                if (previous.draft)
-                  throw new Error("Request ID belongs to an unsent draft");
-                return { alreadySubmitted: true };
-              }
-              if (target.busy)
-                throw new Error("Session is busy; try again when it finishes");
-              if (sessionDraftBlock(target))
-                throw new Error(
-                  "Session already has a draft; send or remove it first",
-                );
-              const accepted = await submitSessionRef.current(id, prompt, [], {
-                appRequestId: requestId,
-              });
-              if (!accepted)
-                throw new Error("Session could not accept the follow-up");
-              return { alreadySubmitted: false };
-            },
-            draft: async (id, prompt, requestId) => {
-              const target = await ensureOpenSessionRef.current(id);
-              if (!target || !sameProjectPath(target.cwd, source.cwd))
-                throw new Error("Session is unavailable in this project");
-              const previous = target.blocks.find(
-                (block) => block.appRequestId === requestId,
-              );
-              if (previous) {
-                if (previous.text !== prompt)
-                  throw new Error(
-                    "Request ID was already used with another prompt",
-                  );
-                return { alreadySaved: true, draft: !!previous.draft };
-              }
-              if (target.busy)
-                throw new Error("Session is busy; try again when it finishes");
-              if (sessionDraftBlock(target))
-                throw new Error(
-                  "Session already has a draft; send or remove it first",
-                );
-              const saved = flushSync(() =>
-                saveDraftRef.current(id, prompt, [], requestId),
-              );
-              if (!saved) throw new Error("Session could not accept a draft");
-              return { alreadySaved: false, draft: true };
-            },
-            worktrees: (cwd) => listWorktrees(cwd),
-            createWorktree: (cwd, branch, base, existing) =>
-              createWorktree(cwd, branch, base, existing),
-          },
-        );
-        appReceipts.current.set(key, { signature, promise });
-        void promise.catch(() => {
-          if (appReceipts.current.get(key)?.promise === promise)
-            appReceipts.current.delete(key);
-        });
-        if (appReceipts.current.size > 256) {
-          const first = appReceipts.current.keys().next().value;
-          if (first) appReceipts.current.delete(first);
-        }
-        return promise;
-      };
-      void handle()
-        .then(
-          (result) =>
-            invoke("control_reply", {
-              id: payload.id,
-              response: { ok: true, result },
-            }),
-          (error: unknown) =>
-            invoke("control_reply", {
-              id: payload.id,
-              response: {
-                ok: false,
-                error: error instanceof Error ? error.message : String(error),
-              },
-            }),
-        )
-        .catch(console.error);
-    });
-    return () => {
-      void listening.then((unlisten) => unlisten());
-    };
-  }, []);
 
   const onSelectLiveAgent = useCallback(
     (sessionId: string) => {
