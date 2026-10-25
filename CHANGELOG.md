@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - macOS quick composer (floating composer window and quick git popup).
 - Notes.
 - Session reminders.
+- Automations (scheduled and event-triggered prompts).
 
 ## [0.6.0] - 2026-09-30
 

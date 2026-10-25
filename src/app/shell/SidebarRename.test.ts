@@ -1029,22 +1029,6 @@ describe("sidebar orchestration card", () => {
   });
 });
 
-describe("sidebar automation card", () => {
-  it("shows a bolt on sessions started by an automation", () => {
-    props.busySessionIds = new Set();
-    props.sessions[0].automationId = "automation-1";
-    act(() => render());
-    const icon = card().querySelector("[data-automation-icon]");
-    expect(icon).not.toBeNull();
-    expect(icon?.tagName).toBe("SPAN");
-    expect(icon?.getAttribute("aria-label")).toBe("Started by an automation");
-    expect(card().querySelector("[data-orchestration-icon]")).toBeNull();
-    expect(
-      card().querySelector("[data-session-select] [data-automation-icon]"),
-    ).toBeNull();
-  });
-});
-
 describe("sidebar linked work item updates", () => {
   it("opens a linked item beside the session that owns it", () => {
     props.busySessionIds = new Set();
@@ -1236,7 +1220,6 @@ describe("collapsed rail Inbox actions", () => {
     props.onNew = vi.fn();
     props.onSearch = vi.fn();
     props.onOpenInbox = vi.fn();
-    props.onOpenAutomations = vi.fn();
     props.onOpenSettings = vi.fn();
     props.onToggleProjectRail = vi.fn();
     await act(async () => render());
@@ -1282,7 +1265,6 @@ describe("collapsed rail Inbox actions", () => {
     props.onNew = vi.fn();
     props.onSearch = vi.fn();
     props.onOpenInbox = vi.fn();
-    props.onOpenAutomations = vi.fn();
     props.onOpenSettings = vi.fn();
     props.onToggleProjectRail = vi.fn();
     await act(async () => render());
@@ -1315,7 +1297,6 @@ describe("collapsed rail Inbox actions", () => {
       "Changes",
       "Search",
       "Inbox",
-      "Automations",
       "Settings",
     ]);
     const workspaceTabs = rail.querySelector<HTMLElement>(
