@@ -38,6 +38,7 @@ import {
   loadGraphPanelHeight,
   saveGraphPanelHeight,
 } from "./GitHistoryGraph";
+import { GithubPrActions } from "./GithubPrActions";
 import {
   basename,
   gitCommit,
@@ -811,7 +812,9 @@ function ChangedFiles({
         {index ? (
           <GitSyncActions
             index={index}
+            cwd={cwd}
             pr={pr}
+            onPrChanged={reloadPr}
             busy={busy}
             hasRemote={hasRemote}
             hasOpenPr={hasOpenPr}
@@ -990,7 +993,9 @@ function syncStatusLabel(index: GitDiffIndex): string {
 
 function GitSyncActions({
   index,
+  cwd,
   pr,
+  onPrChanged,
   busy,
   hasRemote,
   hasOpenPr,
@@ -1004,7 +1009,9 @@ function GitSyncActions({
   onViewPr,
 }: {
   index: GitDiffIndex;
+  cwd: string;
   pr: GitPr | null;
+  onPrChanged: () => void;
   busy: string | null;
   hasRemote: boolean;
   hasOpenPr: boolean;
@@ -1045,7 +1052,9 @@ function GitSyncActions({
   const secondary = `${btn} bg-content/10 text-content hover:bg-content/15`;
   const showCreatePr = !hasOpenPr && !onDefault;
   const showViewPr = hasOpenPr;
-  if (!canPublish && !canSync && !showCreatePr && !showViewPr) return null;
+  if (!canPublish && !canSync && !showCreatePr && !showViewPr && !pr?.repo) {
+    return null;
+  }
 
   return (
     <div className="mt-1.5 flex flex-col gap-1.5">
@@ -1124,6 +1133,22 @@ function GitSyncActions({
             {pr?.number ? `View PR #${pr.number}` : "View PR"}
           </span>
         </button>
+      ) : null}
+      {pr?.repo ? (
+        <div className="flex flex-wrap gap-1.5">
+          <GithubPrActions
+            pr={{
+              cwd,
+              repo: pr.repo,
+              number: pr.number,
+              state: pr.state,
+              draft: pr.isDraft ?? false,
+            }}
+            baseRef={pr.baseRefName ?? ""}
+            headRef={pr.headRefName ?? ""}
+            onChange={onPrChanged}
+          />
+        </div>
       ) : null}
     </div>
   );
