@@ -46,7 +46,7 @@ it("allows an event scheduled exactly at the mute deadline", () => {
   updateNotificationPreferences(["private"], { mutedUntil: 2000 });
   expect(
     allowsProjectNotification(
-      { projectId: "private", category: "reminders", occurredAt: 2000 },
+      { projectId: "private", category: "agentFinished", occurredAt: 2000 },
       2000,
     ),
   ).toBe(true);
@@ -57,7 +57,7 @@ it("provides native delivery with the same category and time rule without depend
     disabled: ["issues"],
     mutedUntil: 5000,
   });
-  expect(getProjectNotificationRule("private", "reminders")).toEqual({
+  expect(getProjectNotificationRule("private", "agentFinished")).toEqual({
     enabled: true,
     after: 4999,
   });
@@ -66,7 +66,7 @@ it("provides native delivery with the same category and time rule without depend
     after: 4999,
   });
   updateNotificationPreferences(["private"], { mutedUntil: null });
-  expect(getProjectNotificationRule("private", "reminders").enabled).toBe(
+  expect(getProjectNotificationRule("private", "agentFinished").enabled).toBe(
     false,
   );
 });

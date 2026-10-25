@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Terminal arcade games.
 - macOS quick composer (floating composer window and quick git popup).
 - Notes.
+- Session reminders.
 
 ## [0.6.0] - 2026-09-30
 

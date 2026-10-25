@@ -142,7 +142,6 @@ it("keeps local projects while offering only local notification categories", asy
   act(() => local.click());
   expect(checkbox("Agent finished for fun").checked).toBe(true);
   expect(checkbox("Agent approvals and questions for fun").checked).toBe(true);
-  expect(checkbox("Reminders for fun").checked).toBe(true);
   expect(
     container.querySelector(
       'input[aria-label="Pull requests / Merge requests for fun"]',
@@ -205,7 +204,7 @@ it("keeps projects collapsed until opened and preserves choices when switching p
   act(() => personal.click());
   expect(personalPanel.hidden).toBe(false);
   act(() => checkbox("Issues and Linear tasks for me/private").click());
-  expect(personal.textContent).toContain("4 of 5 enabled");
+  expect(personal.textContent).toContain("3 of 4 enabled");
   act(() => work.click());
   expect(personalPanel.hidden).toBe(true);
   expect(workPanel.hidden).toBe(false);
@@ -296,10 +295,6 @@ it.each(["manual", "expiry"])(
     );
     expect(pr.checked).toBe(true);
     expect(pr.disabled).toBe(false);
-    act(() => checkbox("Reminders for me/private").click());
-    expect(categoriesButton("me/private").textContent).toContain(
-      "All notifications paused",
-    );
     const resume = [...project.querySelectorAll("button")].find(
       (button) => button.textContent === "Resume notifications",
     );
@@ -310,7 +305,7 @@ it.each(["manual", "expiry"])(
       await act(async () => vi.advanceTimersByTimeAsync(60_000));
     }
     expect(categoriesButton("me/private").textContent).toContain(
-      "3 of 5 enabled",
+      "3 of 4 enabled",
     );
     expect(project.textContent).not.toContain("All notifications paused");
     expect(pr.hasAttribute("aria-describedby")).toBe(false);
@@ -319,7 +314,7 @@ it.each(["manual", "expiry"])(
     );
     expect(
       loadNotificationPreferences()["repository:github.com/me/private"],
-    ).toMatchObject({ disabled: ["issues", "reminders"] });
+    ).toMatchObject({ disabled: ["issues"] });
   },
 );
 

@@ -101,58 +101,6 @@ describe("uniqueFolderName", () => {
 });
 
 describe("buildSessionList", () => {
-  it("puts reminders ahead of folders and pins without duplicate cards or changing membership", () => {
-    const sessions = [
-      summary("pin", { pinned: true }),
-      summary("folder-member"),
-      summary("loose"),
-      summary("other-pin", { pinned: true }),
-    ];
-    const folders = [folder("work", ["folder-member", "loose"])];
-    const loose = ungroupedSessions(sessions, folders);
-    const entries = buildSessionList(sessions, folders, loose, false, {
-      sessionIds: ["folder-member", "pin"],
-      collapsed: false,
-    });
-    expect(entries.map((entry) => entry.kind)).toEqual([
-      "reminders",
-      "folder",
-      "pinned",
-    ]);
-    expect(sessionListNavigationIds(entries, false)).toEqual([
-      "folder-member",
-      "pin",
-      "loose",
-      "other-pin",
-    ]);
-    expect(folders[0].sessionIds).toEqual(["folder-member", "loose"]);
-    const restored = buildSessionList(sessions, folders, loose);
-    expect(sessionListNavigationIds(restored, false)).toEqual([
-      "folder-member",
-      "loose",
-      "pin",
-      "other-pin",
-    ]);
-  });
-
-  it("keeps reminder grouping ahead of paginated sessions and respects collapse/search", () => {
-    const sessions = [summary("loose"), summary("reminded")];
-    const entries = buildSessionList(sessions, [], [sessions[0]], false, {
-      sessionIds: ["reminded", "not-visible"],
-      collapsed: true,
-    });
-    expect(entries[0]).toEqual({
-      kind: "reminders",
-      sessions: [sessions[1]],
-      collapsed: true,
-    });
-    expect(sessionListNavigationIds(entries, false)).toEqual(["loose"]);
-    expect(sessionListNavigationIds(entries, true)).toEqual([
-      "reminded",
-      "loose",
-    ]);
-  });
-
   it("places folders above pinned ungrouped sessions", () => {
     const sessions = [
       summary("pin", { pinned: true, updatedAt: 1 }),
