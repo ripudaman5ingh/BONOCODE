@@ -123,7 +123,6 @@ type Shared = {
   onUsageLimitDismiss: (sessionId: string) => void;
   onInboxCardDismiss?: (sessionId: string) => void;
   onLinkedWorkItemUpdateCardDismiss?: (sessionId: string) => void;
-  onNoteCardDismiss?: (sessionId: string) => void;
   onHandoffCardDismiss?: (sessionId: string) => void;
   onOpenLinkedWorkItem?: (item: LinkedWorkItem, sessionId: string) => void;
   onArchiveSession?: (sessionId: string, archived: boolean) => Promise<boolean>;
@@ -246,7 +245,6 @@ function PaneTreeComponent({
   onUsageLimitDismiss,
   onInboxCardDismiss,
   onLinkedWorkItemUpdateCardDismiss,
-  onNoteCardDismiss,
   onHandoffCardDismiss,
   onOpenLinkedWorkItem,
   onArchiveSession,
@@ -504,7 +502,6 @@ function PaneTreeComponent({
                 onLinkedWorkItemUpdateCardDismiss={
                   onLinkedWorkItemUpdateCardDismiss
                 }
-                onNoteCardDismiss={onNoteCardDismiss}
                 onHandoffCardDismiss={onHandoffCardDismiss}
                 onOpenLinkedWorkItem={onOpenLinkedWorkItem}
                 onArchiveSession={onArchiveSession}

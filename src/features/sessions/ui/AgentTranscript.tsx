@@ -4,7 +4,6 @@ import {
   ChevronRight,
   CircleDashed,
   Copy,
-  FilePlusCorner,
   Minus,
   Pencil,
   PenLine,
@@ -43,7 +42,6 @@ import { OrchestrationPreview } from "../../orchestration/ui/OrchestrationPrevie
 import { TaskListPreview } from "./TaskListPreview";
 import { HandoffButton, SecondOpinionButton } from "./SecondOpinionButton";
 import { SecondOpinionCard } from "./SecondOpinionCard";
-import { NoteMiniCard } from "../../notes/ui/NoteMiniCard";
 
 import { TerminalSpinner } from "./TerminalSpinner";
 import { Popover } from "../../../shared/ui/Popover";
@@ -173,10 +171,8 @@ type Props = {
   backgroundTasks?: string[];
   onApproval?: (requestId: number, decision: ApprovalDecision) => void;
   onAddToChat?: (text: string) => void;
-  onSaveNote?: (text: string) => void | Promise<void>;
   onSendDraft?: (block: Block) => boolean | void;
   onRemoveDraft?: (block: Block) => boolean | void;
-  onSaveSelectionNote?: (text: string) => void | Promise<void>;
   onOpenFile?: (path: string) => void;
   onOpenDiff?: (path: string) => void;
   onOpenPlan?: (blockId: string) => void;
@@ -216,10 +212,8 @@ function AgentTranscriptComponent({
   backgroundTasks,
   onApproval,
   onAddToChat,
-  onSaveNote,
   onSendDraft,
   onRemoveDraft,
-  onSaveSelectionNote,
   onOpenFile,
   onOpenDiff,
   onOpenPlan,
@@ -294,7 +288,7 @@ function AgentTranscriptComponent({
   }
   const { selection, dismissSelection } = useTranscriptSelection(
     scrollerEl,
-    onAddToChat !== undefined || onSaveSelectionNote !== undefined,
+    onAddToChat !== undefined,
   );
   const transcriptLayout = useTranscriptLayout();
   const promptAnchor = useTranscriptAnchor();
@@ -794,7 +788,6 @@ function AgentTranscriptComponent({
                     (itemIndex === foldLineAt && showFoldLine))
                 }
                 onApproval={onApproval}
-                onSaveNote={onSaveNote}
                 onSendDraft={onSendDraft}
                 onRemoveDraft={onRemoveDraft}
                 onOpenFile={onOpenFile}
@@ -957,7 +950,6 @@ function AgentTranscriptComponent({
                     startedAt != null ? startedAt + durationMs : undefined
                   }
                   copyText={turnCopyText(turn)}
-                  onSaveNote={onSaveNote}
                   harness={turnHarness}
                   fromHarness={turnHarness}
                   fromModel={turnModel?.id}
@@ -975,11 +967,10 @@ function AgentTranscriptComponent({
           );
         })}
       </div>
-      {onAddToChat || onSaveSelectionNote ? (
+      {onAddToChat ? (
         <TranscriptSelectionMenu
           selection={selection}
           onAddToChat={onAddToChat}
-          onAddToNotes={onSaveSelectionNote}
           onDismiss={dismissSelection}
         />
       ) : null}
@@ -1070,7 +1061,6 @@ function TurnDuration({
   harness,
   completedAt,
   copyText: output,
-  onSaveNote,
   fromHarness,
   fromModel,
   onSecondOpinion,
@@ -1084,7 +1074,6 @@ function TurnDuration({
   harness?: HarnessId;
   completedAt?: number;
   copyText?: string;
-  onSaveNote?: (text: string) => void | Promise<void>;
   fromHarness?: HarnessId;
   /** The turn's own model, so a same-harness second opinion can hide it. */
   fromModel?: string;
@@ -1107,9 +1096,6 @@ function TurnDuration({
         {output ? (
           <>
             <CopyTurnButton text={output} />
-            {onSaveNote ? (
-              <SaveNoteButton text={output} onSave={onSaveNote} />
-            ) : null}
           </>
         ) : (
           <Check className="size-3.5" strokeWidth={1.75} />
@@ -1321,66 +1307,6 @@ function CopyTurnButton({
   );
 }
 
-function SaveNoteButton({
-  text,
-  onSave,
-}: {
-  text: string;
-  onSave: (text: string) => void | Promise<void>;
-}) {
-  const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const timer = useRef<number | null>(null);
-
-  useEffect(() => {
-    setSaved(false);
-    setError(null);
-    return () => {
-      if (timer.current != null) window.clearTimeout(timer.current);
-    };
-  }, [text]);
-
-  return (
-    <>
-      <button
-        type="button"
-        disabled={pending}
-        title={saved ? "Saved to Notes" : "Save as note"}
-        aria-label={saved ? "Saved to Notes" : "Save as note"}
-        className="rounded-md p-1 text-content/40 hover:bg-content/8 hover:text-content/70"
-        onClick={async () => {
-          setError(null);
-          setSaved(false);
-          setPending(true);
-          try {
-            await onSave(text);
-            playCue("copy");
-            setSaved(true);
-            if (timer.current != null) window.clearTimeout(timer.current);
-            timer.current = window.setTimeout(() => setSaved(false), 2000);
-          } catch (error) {
-            setError(error instanceof Error ? error.message : String(error));
-          } finally {
-            setPending(false);
-          }
-        }}
-      >
-        {saved ? (
-          <Check className="size-3.5" strokeWidth={1.75} />
-        ) : (
-          <FilePlusCorner className="size-3.5" strokeWidth={1.75} />
-        )}
-      </button>
-      {error && (
-        <span role="alert" className="max-w-xs text-xs text-content/70">
-          Could not save note. {error}
-        </span>
-      )}
-    </>
-  );
-}
-
 function EditLastTurnButton({
   onEdit,
   editing = false,
@@ -1419,7 +1345,6 @@ const TranscriptBlock = memo(function TranscriptBlock({
   embedded = false,
   cwd,
   onApproval,
-  onSaveNote,
   onSendDraft,
   onRemoveDraft,
   onOpenFile,
@@ -1443,7 +1368,6 @@ const TranscriptBlock = memo(function TranscriptBlock({
   embedded?: boolean;
   cwd?: string;
   onApproval?: (requestId: number, decision: ApprovalDecision) => void;
-  onSaveNote?: (text: string) => void | Promise<void>;
   onSendDraft?: (block: Block) => boolean | void;
   onRemoveDraft?: (block: Block) => boolean | void;
   onOpenFile?: (path: string) => void;
@@ -1467,7 +1391,6 @@ const TranscriptBlock = memo(function TranscriptBlock({
         cwd={cwd}
         onEdit={onEditLastTurn}
         editing={editing}
-        onSaveNote={onSaveNote}
         onSendDraft={onSendDraft}
         onRemoveDraft={onRemoveDraft}
       />
@@ -1591,7 +1514,6 @@ function UserMessageBlock({
   onEdit,
   editing = false,
   cwd,
-  onSaveNote,
   onSendDraft,
   onRemoveDraft,
 }: {
@@ -1602,7 +1524,6 @@ function UserMessageBlock({
   onEdit?: () => void;
   editing?: boolean;
   cwd?: string;
-  onSaveNote?: (text: string) => void | Promise<void>;
   onSendDraft?: (block: Block) => boolean | void;
   onRemoveDraft?: (block: Block) => boolean | void;
 }) {
@@ -1611,7 +1532,6 @@ function UserMessageBlock({
   const [singleLine, setSingleLine] = useState(false);
   const textRef = useRef<HTMLElement>(null);
   const card = block.secondOpinion;
-  const note = block.noteCard;
   const monocode = isOperatorUserTurn(block);
   const text =
     card && card.kind !== "handoff"
@@ -1627,7 +1547,6 @@ function UserMessageBlock({
     !block.draft &&
     !block.attachments?.length &&
     !card &&
-    !note &&
     !block.ciContext;
 
   // Only the chat layout rounds a single line; the document layout always uses
@@ -1706,16 +1625,11 @@ function UserMessageBlock({
         >
           {block.attachments?.length ? (
             <div
-              className={`flex flex-wrap gap-1.5 ${text || card || note ? "mb-2" : ""}`}
+              className={`flex flex-wrap gap-1.5 ${text || card ? "mb-2" : ""}`}
             >
               {block.attachments.map((file) => (
                 <AttachmentChip key={file.id} attachment={file} />
               ))}
-            </div>
-          ) : null}
-          {note ? (
-            <div className={text || card ? "mb-2" : ""}>
-              <NoteMiniCard card={note} embedded />
             </div>
           ) : null}
           {card ? (
@@ -1828,9 +1742,6 @@ function UserMessageBlock({
             ) : null}
             {onEdit ? (
               <EditLastTurnButton onEdit={onEdit} editing={editing} />
-            ) : null}
-            {text && onSaveNote ? (
-              <SaveNoteButton text={text} onSave={onSaveNote} />
             ) : null}
             {block.startedAt != null ? (
               <time

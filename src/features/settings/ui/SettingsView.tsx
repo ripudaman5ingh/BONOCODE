@@ -294,7 +294,6 @@ import {
   loadFormatOnSave,
   loadLiveAgentsEnabled,
   loadModelControls,
-  loadNotesEnabled,
   loadKeybindingOverrides,
   loadTabAnimationsEnabled,
   saveClaudeHooks,
@@ -307,7 +306,6 @@ import {
   saveFormatOnSave,
   saveLiveAgentsEnabled,
   saveModelControls,
-  saveNotesEnabled,
   saveKeybindingOverride,
   subscribeKeybindings,
   type KeybindingOverride,
@@ -712,7 +710,6 @@ function GeneralPage({
   );
   const [notificationPermission, setNotificationPermission] =
     useState<NotificationPermission>(cachedNotificationPermission);
-  const [notesEnabled, setNotesEnabled] = useState(loadNotesEnabled);
   const [liveAgentsEnabled, setLiveAgentsEnabled] = useState(
     loadLiveAgentsEnabled,
   );
@@ -744,11 +741,6 @@ function GeneralPage({
     setNotificationsEnabled(next);
     if (!next) return;
     void requestNotificationPermission().then(setNotificationPermission);
-  };
-
-  const onNotesEnabled = (next: boolean) => {
-    saveNotesEnabled(next);
-    setNotesEnabled(next);
   };
 
   const onLiveAgentsEnabled = (next: boolean) => {
@@ -838,13 +830,6 @@ function GeneralPage({
             on={tabAnimationsEnabled}
             onChange={onTabAnimationsEnabled}
           />
-        </Row>
-        <Row
-          id="notes"
-          label="Notes"
-          description="A global markdown notebook on the project rail. Save a finished turn from the transcript, then mention it later with @note or add it to chat."
-        >
-          <Toggle label="Notes" on={notesEnabled} onChange={onNotesEnabled} />
         </Row>
         <Row
           id="working-agents"

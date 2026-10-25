@@ -1,4 +1,4 @@
-import { FilePlusCorner, MessageSquarePlus } from "../../../shared/ui/icons";
+import { MessageSquarePlus } from "../../../shared/ui/icons";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Popover } from "../../../shared/ui/Popover";
 import { type TranscriptSelection } from "../model/transcriptSelection";
@@ -6,14 +6,12 @@ import { type TranscriptSelection } from "../model/transcriptSelection";
 type Props = {
   selection: TranscriptSelection | null;
   onAddToChat?: (text: string) => void;
-  onAddToNotes?: (text: string) => void | Promise<void>;
   onDismiss: () => void;
 };
 
 export function TranscriptSelectionMenu({
   selection,
   onAddToChat,
-  onAddToNotes,
   onDismiss,
 }: Props) {
   const onDismissRef = useRef(onDismiss);
@@ -55,19 +53,6 @@ export function TranscriptSelectionMenu({
             onDismiss={onDismiss}
           >
             <MessageSquarePlus
-              aria-hidden="true"
-              className="size-3.5"
-              strokeWidth={1.75}
-            />
-          </SelectionAction>
-        ) : null}
-        {onAddToNotes ? (
-          <SelectionAction
-            label="Add to notes"
-            onSelect={() => onAddToNotes(selection.text)}
-            onDismiss={onDismiss}
-          >
-            <FilePlusCorner
               aria-hidden="true"
               className="size-3.5"
               strokeWidth={1.75}
@@ -122,7 +107,7 @@ function SelectionAction({
           role="alert"
           className="max-w-xs px-2.5 py-1 text-xs text-content/70"
         >
-          Could not save note. {error}
+          Could not add to chat. {error}
         </span>
       )}
     </>

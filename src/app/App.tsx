@@ -511,15 +511,6 @@ import {
   type SessionFolderTarget,
 } from "../features/sessions/model/sessionFolders";
 import {
-  ADD_NOTE_TO_CHAT_EVENT,
-  NOTES_CHANGED_EVENT,
-  composeNoteMessage,
-  loadNotes,
-  noteCardMeta,
-  upsertNote,
-  type NoteComposerCard,
-} from "../features/notes";
-import {
   claimDueAutomations,
   listAutomations,
   recoverAutomationRuns,
@@ -596,7 +587,6 @@ import {
   loadCollapsedProjectRailMode,
   loadFileTabMode,
   loadLiveAgentsEnabled,
-  loadNotesEnabled,
   loadDiffViewer,
   loadFollowUpBehavior,
   loadKeybindingOverrides,
@@ -606,7 +596,6 @@ import {
   saveSettingsSection,
   saveAutosave,
   subscribeLiveAgentsEnabled,
-  subscribeNotesEnabled,
   type CollapsedProjectRailMode,
   type SettingsSectionId,
   type FollowUpBehavior,
@@ -684,13 +673,6 @@ const LinkedWorkItemPanel = lazySurface(async () => {
   const module = await import("../features/inbox/ui/InboxView");
   return { default: module.LinkedWorkItemPanel };
 });
-const NotesView = lazySurface(
-  async () => {
-    const module = await import("../features/notes/ui/NotesView");
-    return { default: module.NotesView };
-  },
-  { suspense: false },
-);
 const AutomationsView = lazySurface(
   async () => {
     const module = await import("../features/automations/ui/AutomationsView");
@@ -714,7 +696,6 @@ type SubmitOptions = ComposerTurnOptions & {
   ciContext?: string;
   secondOpinion?: SecondOpinionMeta;
   followUpBehavior?: FollowUpBehavior;
-  noteCard?: NoteComposerCard;
   handoffCard?: HandoffComposerCard;
   queuedMessageId?: string;
   planBlockId?: string;
@@ -771,15 +752,9 @@ function setsEqual<T>(a: Set<T>, b: Set<T>): boolean {
   return true;
 }
 
-function userTurnCards(
-  noteCard: NoteComposerCard | undefined,
-  secondOpinion?: SecondOpinionMeta,
-) {
-  if (!noteCard && !secondOpinion) return undefined;
-  return {
-    ...(secondOpinion ? { secondOpinion } : {}),
-    ...(noteCard ? { noteCard: noteCardMeta(noteCard) } : {}),
-  };
+function userTurnCards(secondOpinion: SecondOpinionMeta | undefined) {
+  if (!secondOpinion) return undefined;
+  return { secondOpinion };
 }
 
 function withHarnessChoice(
@@ -1007,7 +982,6 @@ function Workspace({
   const [inboxAskPortal, setInboxAskPortal] =
     useState<InboxSessionPortal | null>(null);
   const openingInboxSessions = useRef(new Map<string, Promise<string>>());
-  const [notesViewOpen, setNotesViewOpen] = useState(false);
   const [automationsViewOpen, setAutomationsViewOpen] = useState(false);
   const [inspectedWorkerId, setInspectedWorkerId] = useState<string | null>(
     null,
@@ -1023,11 +997,6 @@ function Workspace({
     orchestrator.snapshot,
     orchestrator.snapshot,
   );
-  const notesEnabled = useSyncExternalStore(
-    subscribeNotesEnabled,
-    loadNotesEnabled,
-    () => true,
-  );
   const liveAgentsEnabled = useSyncExternalStore(
     subscribeLiveAgentsEnabled,
     loadLiveAgentsEnabled,
@@ -1039,7 +1008,6 @@ function Workspace({
   const settingsReturnViewRef = useRef({
     search: false,
     inbox: false,
-    notes: false,
     automations: false,
   });
   const [updateNotice, setUpdateNotice] = useState(installedUpdate);
@@ -1149,13 +1117,10 @@ function Workspace({
     workspaceVisible:
       !searchViewOpen &&
       !inboxViewOpen &&
-      !notesViewOpen &&
       !automationsViewOpen &&
       !settingsOpen,
     inboxSessionId: inboxViewOpen ? inboxAskPortal?.sessionId : undefined,
   };
-  const notesViewOpenRef = useRef(notesViewOpen);
-  notesViewOpenRef.current = notesViewOpen;
   const automationsViewOpenRef = useRef(automationsViewOpen);
   automationsViewOpenRef.current = automationsViewOpen;
   const settingsOpenRef = useRef(settingsOpen);
@@ -1185,19 +1150,14 @@ function Workspace({
     [],
   );
 
-  useEffect(() => {
-    if (!notesEnabled) setNotesViewOpen(false);
-  }, [notesEnabled]);
-
   useEffect(
     () =>
       preloadNavigationWhenIdle([
         InboxView.preload,
         AutomationsView.preload,
         listAutomations,
-        ...(notesEnabled ? [NotesView.preload, loadNotes] : []),
       ]),
-    [notesEnabled],
+    [],
   );
 
   const projectReturnRef = useRef<ProjectReturnMemory>(
@@ -1752,7 +1712,6 @@ function Workspace({
             !projectTerminalFocusedRef.current &&
             !searchViewOpenRef.current &&
             !inboxViewOpenRef.current &&
-            !notesViewOpenRef.current &&
             !automationsViewOpenRef.current &&
             !settingsOpenRef.current
           ) {
@@ -1788,7 +1747,6 @@ function Workspace({
     inboxViewOpen,
     inboxAskPortal?.sessionId,
     searchViewOpen,
-    notesViewOpen,
     automationsViewOpen,
     settingsOpen,
     flushHarnessEvents,
@@ -2296,7 +2254,6 @@ function Workspace({
   const onNew = useCallback(() => {
     setSearchViewOpen(false);
     setInboxViewOpen(false);
-    setNotesViewOpen(false);
     setAutomationsViewOpen(false);
     const cwd = active?.cwd ?? sessionDefaults?.cwd ?? projectCwd;
     const session = newDefaultSession(cwd, sessionDefaults?.runtimeMode);
@@ -2318,7 +2275,6 @@ function Workspace({
     (project: string, remoteSessionId: string) => {
       setSearchViewOpen(false);
       setInboxViewOpen(false);
-      setNotesViewOpen(false);
       setAutomationsViewOpen(false);
       const existing = tabsRef.current
         .map((tab) => ({
@@ -2348,7 +2304,6 @@ function Workspace({
     async (item: InboxItem, body?: string) => {
       const start = (description?: string) => {
         setInboxViewOpen(false);
-        setNotesViewOpen(false);
         setAutomationsViewOpen(false);
         const cwd =
           item.projectPath || active?.cwd || sessionDefaults?.cwd || projectCwd;
@@ -2381,52 +2336,6 @@ function Workspace({
       projectCwd,
     ],
   );
-
-  const onAddNoteToChat = useCallback(
-    (card: NoteComposerCard) => {
-      if (!card.id) return;
-      setSearchViewOpen(false);
-      setInboxViewOpen(false);
-      setNotesViewOpen(false);
-      setAutomationsViewOpen(false);
-      const cwd =
-        (card.sourceCwd && looksLikeProject(card.sourceCwd)
-          ? card.sourceCwd
-          : undefined) ||
-        active?.cwd ||
-        sessionDefaults?.cwd ||
-        projectCwd;
-      setSidebarTab("sessions", cwd);
-      const title = card.title.trim();
-      const session = {
-        ...newDefaultSession(cwd, sessionDefaults?.runtimeMode),
-        ...(title ? { title } : {}),
-        noteCard: card,
-      };
-      const tab = newTab(session.id);
-      setSessions((prev) => [...prev, session]);
-      appendTab(tab, cwd);
-      setActiveTabId(tab.id);
-      setComposerFocused(true);
-    },
-    [
-      active?.cwd,
-      appendTab,
-      sessionDefaults?.cwd,
-      sessionDefaults?.runtimeMode,
-      projectCwd,
-    ],
-  );
-
-  useEffect(() => {
-    const onAdd = (event: Event) => {
-      const card = (event as CustomEvent<NoteComposerCard>).detail;
-      if (!card?.id) return;
-      onAddNoteToChat(card);
-    };
-    window.addEventListener(ADD_NOTE_TO_CHAT_EVENT, onAdd);
-    return () => window.removeEventListener(ADD_NOTE_TO_CHAT_EVENT, onAdd);
-  }, [onAddNoteToChat]);
 
   const onInboxCardDismiss = useCallback((sessionId: string) => {
     setSessions((prev) =>
@@ -2466,16 +2375,6 @@ function Workspace({
     },
     [setLinkedWorkItemUpdateCard],
   );
-
-  const onNoteCardDismiss = useCallback((sessionId: string) => {
-    setSessions((prev) =>
-      prev.map((session) =>
-        session.id === sessionId && session.noteCard
-          ? { ...session, noteCard: undefined }
-          : session,
-      ),
-    );
-  }, []);
 
   const onHandoffCardDismiss = useCallback((sessionId: string) => {
     setSessions((prev) =>
@@ -4142,7 +4041,6 @@ function Workspace({
         throw new Error("This conversation is no longer available.");
       setSearchViewOpen(false);
       setInboxViewOpen(false);
-      setNotesViewOpen(false);
       setAutomationsViewOpen(false);
       setSettingsOpen(false);
       setFilePickerOpen(false);
@@ -4739,7 +4637,6 @@ function Workspace({
           surfaceOpen: Boolean(
             searchViewOpenRef.current ||
             inboxViewOpenRef.current ||
-            notesViewOpenRef.current ||
             automationsViewOpenRef.current ||
             settingsOpenRef.current ||
             filePickerOpenRef.current ||
@@ -5241,7 +5138,6 @@ function Workspace({
       // Nothing below opens a project without also leaving one of these views.
       setSearchViewOpen(false);
       setInboxViewOpen(false);
-      setNotesViewOpen(false);
       setAutomationsViewOpen(false);
 
       // At most one folder can take the blank session, and it keeps the
@@ -6016,18 +5912,11 @@ function Workspace({
           return false;
         }
       }
-      const noteCard =
-        options && "noteCard" in options ? options.noteCard : current.noteCard;
       const handoffCard =
         options && "handoffCard" in options
           ? options.handoffCard
           : current.handoffCard;
-      if (
-        !text.trim() &&
-        attachments.length === 0 &&
-        !noteCard &&
-        !handoffCard
-      ) {
+      if (!text.trim() && attachments.length === 0 && !handoffCard) {
         return false;
       }
       if (isPreparingHandoff(current)) return false;
@@ -6083,7 +5972,7 @@ function Workspace({
       const ciContext = options?.ciRepair?.prompt ?? options?.ciContext;
       const harnessText =
         options?.ciRepair?.prompt ??
-        (rawCommand ? submittedText : composeNoteMessage(noteCard, promptText));
+        (rawCommand ? submittedText : promptText.trim());
 
       const pendingSwitch =
         current.pendingSwitch && current.pendingSwitch.from !== current.harness
@@ -6122,7 +6011,6 @@ function Workspace({
                 ? {
                     ...s,
                     inboxCard: rawCommand ? s.inboxCard : undefined,
-                    noteCard: rawCommand ? s.noteCard : undefined,
                     handoffCard: rawCommand ? s.handoffCard : undefined,
                     queuedMessages: [
                       ...(s.queuedMessages ?? []),
@@ -6130,7 +6018,6 @@ function Workspace({
                         id: crypto.randomUUID(),
                         text,
                         attachments,
-                        noteCard,
                         handoffCard,
                         intent,
                       },
@@ -6159,19 +6046,17 @@ function Workspace({
         }
         dismissNoticesForContinuedSession(sessionId);
         const visible = displayAttachments(attachments);
-        const cards = userTurnCards(noteCard);
         const nextSessions = sessionsRef.current.map((s) => {
           if (s.id !== sessionId) return s;
           let next: Session = {
             ...s,
             inboxCard: rawCommand ? s.inboxCard : undefined,
-            noteCard: rawCommand ? s.noteCard : undefined,
             handoffCard: rawCommand ? s.handoffCard : undefined,
           };
           if (options?.queuedMessageId) {
             next = dequeueQueuedMessage(next, options.queuedMessageId);
           }
-          return appendSteerUser(next, submittedText, visible, cards);
+          return appendSteerUser(next, submittedText, visible);
         });
         sessionsRef.current = nextSessions;
         setSessions(nextSessions);
@@ -6300,7 +6185,6 @@ function Workspace({
       const titleSeed =
         isFirstTurn &&
         !current.inboxCard &&
-        !current.noteCard &&
         placeholderTitle
           ? titleFromPrompt(
               operatorCommand.matched ? promptText : submittedText,
@@ -6320,7 +6204,7 @@ function Workspace({
             ? SECOND_OPINION_TITLE
             : submittedText;
       const cards = {
-        ...(rawCommand ? undefined : userTurnCards(noteCard, card)),
+        ...(rawCommand ? undefined : userTurnCards(card)),
         ...(ciContext ? { ciContext } : {}),
         ...(operatorCommand.matched ? { monocode: true } : {}),
         ...(intent === "plan" || intent === "orchestrate" ? { intent } : {}),
@@ -6362,8 +6246,6 @@ function Workspace({
                 : selected.worktreePreparing,
               inboxCard:
                 rawCommand || options?.ciRepair ? s.inboxCard : undefined,
-              noteCard:
-                rawCommand || options?.ciRepair ? s.noteCard : undefined,
               handoffCard:
                 rawCommand || options?.ciRepair ? s.handoffCard : undefined,
             };
@@ -7168,7 +7050,6 @@ function Workspace({
         if (reveal) {
           setSearchViewOpen(false);
           setInboxViewOpen(false);
-          setNotesViewOpen(false);
           setAutomationsViewOpen(false);
           setSidebarTab("sessions", session.cwd);
         }
@@ -7258,7 +7139,6 @@ function Workspace({
           setComposerFocused(false);
           setSearchViewOpen(false);
           setInboxViewOpen(false);
-          setNotesViewOpen(false);
           setAutomationsViewOpen(false);
           setSidebarTab("sessions", cwd);
         },
@@ -7478,7 +7358,6 @@ function Workspace({
           }
           onSubmit(session.id, head.text, head.attachments, {
             queuedMessageId: head.id,
-            noteCard: head.noteCard,
             handoffCard: head.handoffCard,
             intent: head.intent,
           });
@@ -7556,7 +7435,6 @@ function Workspace({
       onSubmit(sessionId, message.text, message.attachments, {
         followUpBehavior: "steer",
         queuedMessageId: message.id,
-        noteCard: message.noteCard,
         handoffCard: message.handoffCard,
         intent: message.intent,
       });
@@ -9222,13 +9100,6 @@ function Workspace({
             worktrees: (cwd) => listWorktrees(cwd),
             createWorktree: (cwd, branch, base, existing) =>
               createWorktree(cwd, branch, base, existing),
-            notes: () => invoke("notes_list"),
-            note: (id) => invoke("notes_get", { id }),
-            saveNote: async (note) => {
-              const saved = await upsertNote(note);
-              window.dispatchEvent(new Event(NOTES_CHANGED_EVENT));
-              return saved;
-            },
           },
         );
         appReceipts.current.set(key, { signature, promise });
@@ -9459,7 +9330,6 @@ function Workspace({
     (sessionId: string) => {
       setSearchViewOpen(false);
       setInboxViewOpen(false);
-      setNotesViewOpen(false);
       setAutomationsViewOpen(false);
       onOpenApprovalSession(sessionId);
     },
@@ -9593,7 +9463,6 @@ function Workspace({
   const onGoToFile = useCallback(() => {
     setSearchViewOpen(false);
     setInboxViewOpen(false);
-    setNotesViewOpen(false);
     setAutomationsViewOpen(false);
     setFilePickerInitialQuery("");
     setFilePickerResetToken((token) => token + 1);
@@ -9602,7 +9471,6 @@ function Workspace({
   const onOpenCommandPalette = useCallback(() => {
     setSearchViewOpen(false);
     setInboxViewOpen(false);
-    setNotesViewOpen(false);
     setAutomationsViewOpen(false);
     setFilePickerInitialQuery(">");
     setFilePickerResetToken((token) => token + 1);
@@ -9618,7 +9486,6 @@ function Workspace({
   const onFindInProject = useCallback(() => {
     setSearchViewOpen(false);
     setInboxViewOpen(false);
-    setNotesViewOpen(false);
     setAutomationsViewOpen(false);
     setSidebarTab("files");
     setFilesSearchOpen(true);
@@ -9630,7 +9497,6 @@ function Workspace({
       setFilePickerOpen(false);
       setSettingsOpen(false);
       setInboxViewOpen(false);
-      setNotesViewOpen(false);
       setAutomationsViewOpen(false);
       setSearchViewOpen(true);
       setSearchViewFocusToken((token) => token + 1);
@@ -9646,7 +9512,6 @@ function Workspace({
       setFilePickerOpen(false);
       setSettingsOpen(false);
       setSearchViewOpen(false);
-      setNotesViewOpen(false);
       setAutomationsViewOpen(false);
       setInboxViewOpen(true);
     });
@@ -9659,7 +9524,6 @@ function Workspace({
       setFilePickerOpen(false);
       setSettingsOpen(false);
       setSearchViewOpen(false);
-      setNotesViewOpen(false);
       setAutomationsViewOpen(false);
       setInboxViewOpen(false);
       const cwd =
@@ -9736,13 +9600,11 @@ function Workspace({
       trackCiRepair(cwd, request, repairSessionId, (settle) =>
         onSubmit(repairSessionId, request.text, [], {
           ciRepair: request,
-          noteCard: undefined,
           handoffCard: undefined,
           onSettled: (outcome) => settle(outcome.status),
         }),
       );
       setInboxViewOpen(false);
-      setNotesViewOpen(false);
       setSearchViewOpen(false);
       setSidebarTab("sessions", cwd);
       await onSelectHistorySession(session.id);
@@ -9755,29 +9617,12 @@ function Workspace({
     ],
   );
 
-  const onOpenNotes = useCallback(() => {
-    if (!loadNotesEnabled()) return;
-    startTransition(() => {
-      setFilePickerOpen(false);
-      setSettingsOpen(false);
-      setSearchViewOpen(false);
-      setInboxViewOpen(false);
-      setAutomationsViewOpen(false);
-      setNotesViewOpen(true);
-    });
-  }, []);
-
-  const onLeaveNotes = useCallback(() => {
-    setNotesViewOpen(false);
-  }, []);
-
   const onOpenAutomations = useCallback(() => {
     startTransition(() => {
       setFilePickerOpen(false);
       setSettingsOpen(false);
       setSearchViewOpen(false);
       setInboxViewOpen(false);
-      setNotesViewOpen(false);
       setAutomationsViewOpen(true);
     });
   }, []);
@@ -9794,7 +9639,6 @@ function Workspace({
       setAutomationsViewOpen(false);
       setSearchViewOpen(false);
       setInboxViewOpen(false);
-      setNotesViewOpen(false);
       setSettingsOpen(false);
       setFilePickerOpen(false);
       setSidebarTab("sessions", session.cwd);
@@ -9811,7 +9655,6 @@ function Workspace({
         settingsReturnViewRef.current = {
           search: searchViewOpenRef.current,
           inbox: inboxViewOpenRef.current,
-          notes: notesViewOpenRef.current,
           automations: automationsViewOpenRef.current,
         };
       }
@@ -9819,7 +9662,6 @@ function Workspace({
         setFilePickerOpen(false);
         setSearchViewOpen(false);
         setInboxViewOpen(false);
-        setNotesViewOpen(false);
         setAutomationsViewOpen(false);
         if (section) {
           setSettingsSection(section);
@@ -9871,7 +9713,6 @@ function Workspace({
     const returnView = settingsReturnViewRef.current;
     setSearchViewOpen(returnView.search);
     setInboxViewOpen(returnView.inbox);
-    setNotesViewOpen(returnView.notes && loadNotesEnabled());
     setAutomationsViewOpen(returnView.automations);
     setSettingsOpen(false);
   }, []);
@@ -9902,10 +9743,6 @@ function Workspace({
       setInboxViewOpen(false);
       return;
     }
-    if (notesViewOpen) {
-      setNotesViewOpen(false);
-      return;
-    }
     if (automationsViewOpen) {
       setAutomationsViewOpen(false);
       return;
@@ -9917,7 +9754,6 @@ function Workspace({
     searchViewOpen,
     settingsOpen,
     inboxViewOpen,
-    notesViewOpen,
     automationsViewOpen,
   ]);
 
@@ -9925,7 +9761,6 @@ function Workspace({
     setSearchViewOpen(false);
     setSettingsOpen(false);
     setInboxViewOpen(false);
-    setNotesViewOpen(false);
     setAutomationsViewOpen(false);
     onVisitForward();
   }, [onVisitForward]);
@@ -10071,7 +9906,6 @@ function Workspace({
     onFindInProject,
     onOpenSearch,
     onOpenInbox,
-    onOpenNotes,
     pickProject,
     onNewTerminal,
     onNewTerminalTab,
@@ -10102,7 +9936,6 @@ function Workspace({
     onFindInProject,
     onOpenSearch,
     onOpenInbox,
-    onOpenNotes,
     pickProject,
     onNewTerminal,
     onNewTerminalTab,
@@ -10192,7 +10025,6 @@ function Workspace({
           const surfaceOpen =
             searchViewOpenRef.current ||
             inboxViewOpenRef.current ||
-            notesViewOpenRef.current ||
             automationsViewOpenRef.current ||
             settingsOpenRef.current ||
             filePickerOpenRef.current ||
@@ -10275,7 +10107,6 @@ function Workspace({
       if (
         !searchViewOpenRef.current &&
         !inboxViewOpenRef.current &&
-        !notesViewOpenRef.current &&
         !automationsViewOpenRef.current &&
         !(
           e.target instanceof Element &&
@@ -10390,7 +10221,6 @@ function Workspace({
       listen("reload", () => run("reload", actions.current.onReload)),
       listen("open_search", () => actions.current.onOpenSearch()),
       listen("open_inbox", () => actions.current.onOpenInbox()),
-      listen("open_notes", () => actions.current.onOpenNotes()),
       listen("open_settings", () => actions.current.openSettings()),
       listen("check_for_updates", () => {
         void runUpdateFlow(true);
@@ -10524,7 +10354,6 @@ function Workspace({
     onUsageLimitDismiss,
     onInboxCardDismiss,
     onLinkedWorkItemUpdateCardDismiss,
-    onNoteCardDismiss,
     onHandoffCardDismiss,
     onOpenLinkedWorkItem,
     onArchiveSession: onArchiveHistorySession,
@@ -10550,7 +10379,6 @@ function Workspace({
     searchViewOpen ||
     settingsOpen ||
     inboxViewOpen ||
-    notesViewOpen ||
     automationsViewOpen;
   const compactProjectRail = collapsedProjectRailMode === "compact";
   const compactRailActive = compactProjectRail && !projectRailOpen;
@@ -10574,7 +10402,6 @@ function Workspace({
       onNewTerminal={onNewTerminal}
       onOpenSettings={onOpenSettings}
       onOpenInbox={onOpenInbox}
-      onOpenNotes={notesEnabled ? onOpenNotes : undefined}
       onClose={onCloseTitleTab}
       onCloseMany={onCloseTabs}
       onArchiveTab={onArchiveTitleTab}
@@ -10641,7 +10468,6 @@ function Workspace({
                 searchViewOpen ||
                 settingsOpen ||
                 inboxViewOpen ||
-                notesViewOpen ||
                 automationsViewOpen
               }
               canGoForward={tabVisitNav.canForward}
@@ -10675,14 +10501,11 @@ function Workspace({
               onSearch={onOpenSearch}
               onOpenInbox={onOpenInbox}
               onOpenInboxItem={onOpenLinkedWorkItem}
-              onOpenNotes={notesEnabled ? onOpenNotes : undefined}
               onOpenAutomations={onOpenAutomations}
               onGoToFile={onGoToFile}
               searchActive={searchViewOpen}
               inboxActive={inboxViewOpen}
-              notesActive={notesViewOpen}
               automationsActive={automationsViewOpen}
-              notesEnabled={notesEnabled}
               projectRailOpen={projectRailOpen}
               compactProjectRail={compactProjectRail}
               titleBarAbove={compactTitleBar}
@@ -10707,7 +10530,6 @@ function Workspace({
                   searchViewOpen ||
                   settingsOpen ||
                   inboxViewOpen ||
-                  notesViewOpen ||
                   automationsViewOpen
                     ? "hidden"
                     : "flex min-h-0 min-w-0 flex-1 flex-col"
@@ -10716,14 +10538,12 @@ function Workspace({
                   searchViewOpen ||
                   settingsOpen ||
                   inboxViewOpen ||
-                  notesViewOpen ||
                   automationsViewOpen
                 }
                 inert={
                   searchViewOpen ||
                   settingsOpen ||
                   inboxViewOpen ||
-                  notesViewOpen ||
                   automationsViewOpen ||
                   undefined
                 }
@@ -10746,7 +10566,6 @@ function Workspace({
                     onFindInProject={onFindInProject}
                     onSearch={onOpenSearch}
                     onOpenInbox={onOpenInbox}
-                    onOpenNotes={notesEnabled ? onOpenNotes : undefined}
                     onZoomIn={() => {
                       const next = saveUiScale(zoomInUiScale(loadUiScale()));
                       void applyUiScale(next);
@@ -10886,7 +10705,6 @@ function Workspace({
                         !searchViewOpen &&
                         !settingsOpen &&
                         !inboxViewOpen &&
-                        !notesViewOpen &&
                         !automationsViewOpen &&
                         activeLinkedWorkItemPanel?.sessionId === panel.sessionId
                       }
@@ -10959,16 +10777,6 @@ function Workspace({
                   onOpenIntegrations={onOpenInboxIntegrations}
                 />
               ) : null}
-              {notesViewOpen ? (
-                <NotesView
-                  besideRail={projectRailOpen || compactProjectRail}
-                  compactRail={compactRailActive}
-                  cwd={projectCwd}
-                  recents={recents}
-                  onClose={onLeaveNotes}
-                  onToggleSidebar={onToggleSidebar}
-                />
-              ) : null}
               {automationsViewOpen ? (
                 <AutomationsView
                   besideRail={projectRailOpen || compactProjectRail}
@@ -11013,7 +10821,6 @@ function Workspace({
               ) : null}
               {searchViewOpen ||
               inboxViewOpen ||
-              notesViewOpen ||
               automationsViewOpen ||
               settingsOpen ? null : (
                 <UsageFooter

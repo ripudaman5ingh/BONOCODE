@@ -1,7 +1,5 @@
-import { StickyNote } from "../../../shared/ui/icons";
 import { useEffect, useRef, type MouseEvent as ReactMouseEvent } from "react";
 import type { RankedFile } from "../../files/model/fileIndex";
-import { isNoteMentionPath } from "../../notes";
 import { useLockOverscroll } from "../../../shared/hooks/useLockOverscroll";
 import { FileTypeIcon } from "../../files/ui/FileTypeIcon";
 import { MatchText } from "../../../shared/ui/MatchText";
@@ -11,7 +9,6 @@ type Props = {
   query: string;
   active: number;
   loading?: boolean;
-  includeNotes?: boolean;
   onActive: (index: number) => void;
   onPick: (file: RankedFile) => void;
 };
@@ -21,7 +18,6 @@ export function FileMentionPicker({
   query,
   active,
   loading,
-  includeNotes = false,
   onActive,
   onPick,
 }: Props) {
@@ -66,32 +62,25 @@ export function FileMentionPicker({
             {loading
               ? "Indexing files…"
               : query.trim()
-                ? includeNotes
-                  ? "No matching files or notes"
-                  : "No matching files or folders"
-                : includeNotes
-                  ? "No files or notes found"
-                  : "No files or folders found"}
+                ? "No matching files or folders"
+                : "No files or folders found"}
         </p>
       ) : (
         <div
           ref={lockOverscroll}
           role="listbox"
-          aria-label={includeNotes ? "Files and notes" : "Files and folders"}
+          aria-label="Files and folders"
           onMouseMove={onListMouseMove}
           className="max-h-[min(240px,40vh)] overflow-y-auto overscroll-none px-1 py-1"
         >
           {files.map((file, index) => {
             const highlighted = index === active;
-            const note = isNoteMentionPath(file.path);
             const slash = file.relative.lastIndexOf("/");
-            const dir = note ? "" : slash === -1 ? "" : file.relative.slice(0, slash);
+            const dir = slash === -1 ? "" : file.relative.slice(0, slash);
             const nameOffset = slash === -1 ? 0 : slash + 1;
-            const namePositions = note
-              ? file.positions
-              : file.positions
-                  .filter((pos) => pos >= nameOffset)
-                  .map((pos) => pos - nameOffset);
+            const namePositions = file.positions
+              .filter((pos) => pos >= nameOffset)
+              .map((pos) => pos - nameOffset);
             return (
               <button
                 key={file.path}
@@ -107,15 +96,11 @@ export function FileMentionPicker({
                 }`}
               >
                 <span className="shrink-0">
-                  {isNoteMentionPath(file.path) ? (
-                    <StickyNote className="size-3.5" strokeWidth={1.75} />
-                  ) : (
-                    <FileTypeIcon
-                      name={file.name}
-                      isDir={Boolean(file.isDir)}
-                      size={15}
-                    />
-                  )}
+                  <FileTypeIcon
+                    name={file.name}
+                    isDir={Boolean(file.isDir)}
+                    size={15}
+                  />
                 </span>
                 <span
                   className={`min-w-0 flex-1 truncate ${
@@ -129,11 +114,7 @@ export function FileMentionPicker({
                   />
                   {file.isDir ? "/" : null}
                 </span>
-                {note ? (
-                  <span className="shrink-0 font-mono text-[11px] text-content/40">
-                    Note
-                  </span>
-                ) : dir ? (
+                {dir ? (
                   <span className="min-w-0 max-w-[45%] truncate font-mono text-[11px] text-content/40">
                     <MatchText
                       text={dir}

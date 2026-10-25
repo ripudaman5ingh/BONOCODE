@@ -53,13 +53,6 @@ describe.each([
     "bonocode:composer-runner-change",
   ],
   [
-    "bonocode.notesEnabled",
-    settings.loadNotesEnabled,
-    settings.saveNotesEnabled,
-    true,
-    "bonocode:notes-enabled-change",
-  ],
-  [
     "bonocode.liveAgentsEnabled",
     settings.loadLiveAgentsEnabled,
     settings.saveLiveAgentsEnabled,

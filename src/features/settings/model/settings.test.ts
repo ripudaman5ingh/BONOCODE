@@ -24,11 +24,9 @@ import {
   loadFileTabMode,
   loadFollowUpBehavior,
   loadLiveAgentsEnabled,
-  loadNotesEnabled,
   keybindingPressed,
   matchCustomKeybinding,
   loadTabAnimationsEnabled,
-  NOTES_ENABLED_DEFAULT,
   saveComposerRunner,
   saveAutosave,
   saveCollapsedProjectRailMode,
@@ -38,7 +36,6 @@ import {
   saveFileTabMode,
   saveFollowUpBehavior,
   saveLiveAgentsEnabled,
-  saveNotesEnabled,
   saveKeybindingOverride,
   type KeybindingOverride,
   saveTabAnimationsEnabled,
@@ -48,7 +45,6 @@ import { IS_MAC, MOD, SHIFT } from "../../../platform/tauri/platform";
 const KEY = "bonocode.composerRunner";
 const MODEL_CONTROLS_KEY = "bonocode.modelControls";
 const LEGACY_EFFORT_VISIBLE_KEY = "bonocode.composerEffortVisible";
-const NOTES_KEY = "bonocode.notesEnabled";
 const KEYBINDING_OVERRIDES_KEY = "bonocode.keybindingOverrides";
 const LIVE_AGENTS_KEY = "bonocode.liveAgentsEnabled";
 const DIFF_VIEWER_KEY = "bonocode.diffViewer";
@@ -156,26 +152,6 @@ describe("model controls setting", () => {
     localStorage.setItem(LEGACY_EFFORT_VISIBLE_KEY, "0");
     localStorage.removeItem(MODEL_CONTROLS_KEY);
     expect(loadModelControls()).toBe("menu");
-  });
-});
-
-describe("notes enabled setting", () => {
-  beforeEach(mockLocalStorage);
-  afterEach(() => {
-    localStorage.removeItem(NOTES_KEY);
-  });
-
-  it("defaults to on", () => {
-    expect(NOTES_ENABLED_DEFAULT).toBe(true);
-    expect(loadNotesEnabled()).toBe(true);
-  });
-
-  it("persists an off switch", () => {
-    saveNotesEnabled(false);
-    expect(localStorage.getItem(NOTES_KEY)).toBe("0");
-    expect(loadNotesEnabled()).toBe(false);
-    saveNotesEnabled(true);
-    expect(loadNotesEnabled()).toBe(true);
   });
 });
 

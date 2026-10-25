@@ -86,7 +86,7 @@ export function CwdPicker({
 
   const inProject = looksLikeProject(cwd);
   const label = prettyCwd(cwd);
-  // Read the saved rail order on opening, including changes made while Notes is open.
+  // Read the saved rail order on opening, including changes made while another view is open.
   const projects =
     mode === "move" ? projectRailItems(recents, activeCwd ?? "") : recents;
   const otherRecents = projects.filter(

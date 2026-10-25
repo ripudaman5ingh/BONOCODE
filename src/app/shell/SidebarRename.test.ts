@@ -1329,7 +1329,6 @@ describe("collapsed rail Inbox actions", () => {
     props.onNew = vi.fn();
     props.onSearch = vi.fn();
     props.onOpenInbox = vi.fn();
-    props.onOpenNotes = vi.fn();
     props.onOpenAutomations = vi.fn();
     props.onOpenSettings = vi.fn();
     props.onToggleProjectRail = vi.fn();
@@ -1376,7 +1375,6 @@ describe("collapsed rail Inbox actions", () => {
     props.onNew = vi.fn();
     props.onSearch = vi.fn();
     props.onOpenInbox = vi.fn();
-    props.onOpenNotes = vi.fn();
     props.onOpenAutomations = vi.fn();
     props.onOpenSettings = vi.fn();
     props.onToggleProjectRail = vi.fn();
@@ -1410,7 +1408,6 @@ describe("collapsed rail Inbox actions", () => {
       "Changes",
       "Search",
       "Inbox",
-      "Notes",
       "Automations",
       "Settings",
     ]);

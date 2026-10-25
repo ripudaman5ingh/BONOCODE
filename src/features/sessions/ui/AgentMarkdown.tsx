@@ -1,5 +1,4 @@
 import { code } from "@streamdown/code";
-import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   createContext,
@@ -44,7 +43,6 @@ import { useLockOverscroll } from "../../../shared/hooks/useLockOverscroll";
 import { copyText } from "../../../platform/tauri/clipboard";
 import { openPathWithDefaultApp, revealPath } from "../../../platform/tauri/fs";
 import { INBOX_MEDIA_PREFIXES, isInboxMediaUrl } from "../../inbox/model/inboxMedia";
-import { isNoteImagePath } from "../../notes";
 import { IS_MAC, IS_WIN } from "../../../platform/tauri/platform";
 import { InboxMedia } from "../../inbox/ui/InboxMedia";
 import { rehypeHardBreaks } from "./hardBreaks";
@@ -71,8 +69,8 @@ const MARKDOWN_REHYPE_PLUGINS: PluggableList = [
   [
     harden,
     {
-      // MarkdownImage remains the final allowlist. The wildcard lets app-owned
-      // relative note URLs reach that component without changing link parsing.
+      // MarkdownImage remains the final allowlist. The wildcard lets every
+      // image URL reach that component without changing link parsing.
       allowedImagePrefixes: ["*"],
       allowedLinkPrefixes: ["*"],
       allowDataImages: true,
@@ -423,42 +421,6 @@ function CodeCopyButton({ code }: { code: string }) {
 
 type MarkdownImageProps = ComponentProps<"img"> & { node?: unknown };
 
-const noteImageSrcCache = new Map<string, string>();
-
-function NoteAssetImage({
-  asset,
-  alt,
-  ...props
-}: Omit<MarkdownImageProps, "src" | "node"> & { asset: string }) {
-  const [src, setSrc] = useState(() => noteImageSrcCache.get(asset));
-
-  useEffect(() => {
-    if (src) return;
-    let cancelled = false;
-    void invoke<string>("notes_image_path", { asset })
-      .then((path) => {
-        const next = convertFileSrc(path);
-        noteImageSrcCache.set(asset, next);
-        if (!cancelled) setSrc(next);
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, [asset, src]);
-
-  return (
-    <img
-      {...props}
-      src={src}
-      alt={alt ?? ""}
-      data-note-image={asset}
-      draggable={false}
-      loading="lazy"
-    />
-  );
-}
-
 function MarkdownImage({
   src,
   alt,
@@ -469,9 +431,6 @@ function MarkdownImage({
   const url = typeof src === "string" ? src.trim() : "";
   if (url.startsWith("data:image/")) {
     return <img {...props} src={url} alt={alt ?? ""} />;
-  }
-  if (isNoteImagePath(url)) {
-    return <NoteAssetImage {...props} asset={url} alt={alt} />;
   }
   if (!allowRemoteMedia || !url || !isInboxMediaUrl(url)) return null;
   return <InboxMedia src={url} alt={alt} />;
