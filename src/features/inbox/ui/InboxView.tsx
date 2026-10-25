@@ -1,6 +1,6 @@
-import { useGithubPrChecks } from "../hooks/useGithubPrChecks";
-import { summarizePrChecks } from "../model/githubPrChecks";
-import type { CiRepairRequest } from "../model/ciRepair";
+import { useGithubPrChecks } from "../../source-control/hooks/useGithubPrChecks";
+import { summarizePrChecks } from "../../source-control/model/githubPrChecks";
+import type { CiRepairRequest } from "../../source-control/model/ciRepair";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   Check,
@@ -187,10 +187,7 @@ import {
 } from "./InboxComments";
 import { InboxPrDiff } from "./InboxPrDiff";
 import { GithubPrActions } from "../../source-control/ui/GithubPrActions";
-import {
-  InboxPrChecks,
-  PrChecksTab,
-} from "./InboxPrChecks";
+import { PrChecks, PrChecksTab } from "../../source-control/ui/PrChecks";
 import {
   InboxDiscussionPanel,
   type InboxSessionPortal,
@@ -2547,7 +2544,7 @@ export function InboxDetail({
                 <p className="text-[13px] text-content/45">No file changes</p>
               )
             ) : isPr && tab === "checks" ? (
-              <InboxPrChecks
+              <PrChecks
                 view={prChecksView}
                 onRefresh={prChecksView.refresh}
                 cwd={item.projectPath || cwd}

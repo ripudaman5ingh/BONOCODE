@@ -1,7 +1,7 @@
 import { expect, it } from "vitest";
 import { appendUser } from "../../../integrations/harness/core/apply";
 import { sanitizeSessionForPersist } from "../data/sessionStore";
-import { buildCiRepairRequest } from "../../inbox/model/ciRepair";
+import { buildCiRepairRequest } from "../../source-control/model/ciRepair";
 import {
   appendPreparingHandoff,
   appendReadyHandoff,

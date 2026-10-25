@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Merge, squash, rebase, draft, ready, close and reopen the current branch's pull request from the git panel.
+- The git panel shows the current PR's CI checks, with failure logs and "Fix with AI".
 
 ### Removed
 

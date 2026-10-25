@@ -1,5 +1,5 @@
 import { isEditTool } from "../../../integrations/harness/core/preview";
-import { compactCiRepairContext } from "../../inbox/model/ciRepair";
+import { compactCiRepairContext } from "../../source-control/model/ciRepair";
 import { limitSection } from "../../../shared/lib/jsonText";
 import { displayPath } from "../../../shared/lib/paths";
 import {

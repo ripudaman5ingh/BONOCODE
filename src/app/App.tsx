@@ -15,12 +15,12 @@ import {
   submitAfterProjectSync,
   type SubmissionAcceptance,
 } from "./model/submissionAcceptance";
-import type { CiRepairRequest } from "../features/inbox/model/ciRepair";
-import { ciRepairSessions } from "../features/inbox/model/ciRepairSessions";
+import type { CiRepairRequest } from "../features/source-control/model/ciRepair";
+import { ciRepairSessions } from "../features/source-control/model/ciRepairSessions";
 import {
   rebaseCiRepairs,
   trackCiRepair,
-} from "../features/inbox/model/ciRepairTracking";
+} from "../features/source-control/model/ciRepairTracking";
 import { invoke } from "@tauri-apps/api/core";
 import {
   orchestrationCheckoutCwd,
@@ -9238,9 +9238,18 @@ function Workspace({
     [history, onSelectHistorySession],
   );
 
-  const onRepairChecks = useCallback(
-    async (item: InboxItem, request: CiRepairRequest, sessionId?: string) => {
-      const cwd = item.projectPath;
+  const startCiRepair = useCallback(
+    async (
+      target: {
+        cwd: string;
+        number: number;
+        title: string;
+        linkedWorkItem?: LinkedWorkItem;
+      },
+      request: CiRepairRequest,
+      sessionId?: string,
+    ) => {
+      const cwd = target.cwd;
       if (!cwd) throw new Error("Choose a local project for this PR first.");
       let session = sessionId ? await ensureOpenSession(sessionId) : undefined;
       if (
@@ -9263,8 +9272,8 @@ function Workspace({
       if (!session) {
         session = {
           ...newDefaultSession(cwd, sessionDefaults?.runtimeMode),
-          title: `Fix CI #${item.number}: ${item.title}`,
-          linkedWorkItem: linkedWorkItemFromInboxItem(item) ?? undefined,
+          title: `Fix CI #${target.number}: ${target.title}`,
+          linkedWorkItem: target.linkedWorkItem,
         };
         const next = [...sessionsRef.current, session];
         sessionsRef.current = next;
@@ -9289,6 +9298,21 @@ function Workspace({
       onSelectHistorySession,
       sessionDefaults?.runtimeMode,
     ],
+  );
+
+  const onRepairChecks = useCallback(
+    (item: InboxItem, request: CiRepairRequest, sessionId?: string) =>
+      startCiRepair(
+        {
+          cwd: item.projectPath ?? "",
+          number: item.number,
+          title: item.title,
+          linkedWorkItem: linkedWorkItemFromInboxItem(item) ?? undefined,
+        },
+        request,
+        sessionId,
+      ),
+    [startCiRepair],
   );
 
   const openSettings = useCallback(
@@ -10062,6 +10086,11 @@ function Workspace({
               filesSearchOpen={filesSearchOpen}
               onFilesSearchOpenChange={setFilesSearchOpen}
               onOpenFilesSearch={onFindInProject}
+              ciRepair={{
+                sessions: repairSessions,
+                onOpenSession: onOpenInboxSession,
+                onStart: startCiRepair,
+              }}
               searchFocusToken={searchFocusToken}
               sessions={sidebarHistory}
               busySessionIds={busySessionIds}

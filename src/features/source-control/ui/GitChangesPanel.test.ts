@@ -7,6 +7,11 @@ vi.mock("@tauri-apps/plugin-opener", () => ({
   openUrl: vi.fn(async () => {}),
 }));
 
+vi.mock("@tauri-apps/api/core", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@tauri-apps/api/core")>()),
+  invoke: vi.fn(async () => null),
+}));
+
 const { invalidateWatchedFiles } = vi.hoisted(() => ({
   invalidateWatchedFiles: vi.fn(),
 }));
@@ -48,9 +53,11 @@ vi.mock("../../inbox/model/inboxSelfActivity", () => ({
 }));
 
 import { GitChangesPanel } from "./GitChangesPanel";
+import { invoke } from "@tauri-apps/api/core";
 import {
   gitDiffIndex,
   gitPrCreate,
+  gitPrStatus,
   gitPull,
   gitPush,
   gitRangeContext,
@@ -95,6 +102,8 @@ beforeEach(() => {
   vi.mocked(gitDiffIndex).mockReset();
   vi.mocked(gitPull).mockReset();
   vi.mocked(generateCommitMessage).mockReset();
+  vi.mocked(gitPrStatus).mockResolvedValue(null);
+  vi.mocked(invoke).mockImplementation(async () => null);
   invalidateWatchedFiles.mockReset();
   container = document.createElement("div");
   document.body.append(container);
@@ -240,6 +249,45 @@ describe("GitChangesPanel pull action", () => {
 
     expect(gitPull).toHaveBeenCalledWith("/repo");
     expect(invalidateWatchedFiles).toHaveBeenCalled();
+  });
+});
+
+describe("GitChangesPanel PR checks", () => {
+  it("lists the failing checks of the current PR", async () => {
+    const cwd = "/repo-checks";
+    vi.mocked(gitDiffIndex).mockResolvedValue(
+      index({ remote: "origin", upstream: "origin/feature/pull" }),
+    );
+    vi.mocked(gitPrStatus).mockResolvedValue({
+      number: 7,
+      title: "Add checks",
+      url: "https://github.com/acme/app/pull/7",
+      state: "open",
+      repo: "acme/app",
+    });
+    vi.mocked(invoke).mockImplementation(async (command) =>
+      command === "git_github_pr_checks"
+        ? {
+            headOid: "abc123",
+            checks: [
+              {
+                name: "unit tests",
+                workflow: "CI",
+                state: "fail",
+                url: null,
+                startedAt: null,
+                completedAt: null,
+              },
+            ],
+          }
+        : null,
+    );
+    await renderPanel(cwd);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(container.textContent).toContain("unit tests");
   });
 });
 

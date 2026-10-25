@@ -502,7 +502,7 @@ function PrCheckRow({
  * load error with retry. A failed refresh keeps the previous rows on screen
  * behind an explicit out-of-date notice.
  */
-export function InboxPrChecks({
+export function PrChecks({
   view,
   onRefresh,
   cwd = "",

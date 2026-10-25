@@ -1,6 +1,6 @@
 import type { HarnessId } from "../../sessions/model/session";
 import type { GitFileDiffKind, GitHistoryCommit } from "../../../platform/tauri/fs";
-import { GitChangesPanel } from "./GitChangesPanel";
+import { GitChangesPanel, type GitCiRepair } from "./GitChangesPanel";
 
 type Props = {
   cwd: string;
@@ -12,6 +12,7 @@ type Props = {
   onOpenFile: (path: string, kind: GitFileDiffKind) => void;
   onOpenAllChanges: (kind: GitFileDiffKind) => void;
   onOpenCommit: (commit: GitHistoryCommit) => void;
+  ciRepair?: GitCiRepair;
 };
 
 export function SourceControl({
@@ -24,6 +25,7 @@ export function SourceControl({
   onOpenFile,
   onOpenAllChanges,
   onOpenCommit,
+  ciRepair,
 }: Props) {
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
@@ -38,6 +40,7 @@ export function SourceControl({
         onOpenFile={onOpenFile}
         onOpenAllChanges={onOpenAllChanges}
         onOpenCommit={onOpenCommit}
+        ciRepair={ciRepair}
       />
     </div>
   );
