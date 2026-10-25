@@ -7450,7 +7450,8 @@ mod tests {
 
     #[test]
     fn parse_gh_pr_list_defaults_missing_draft_and_refs() {
-        let json = r#"[{"number":4,"title":"Old gh","url":"https://example.com/4","state":"OPEN"}]"#;
+        let json =
+            r#"[{"number":4,"title":"Old gh","url":"https://example.com/4","state":"OPEN"}]"#;
         let pr = parse_gh_pr_list(json).unwrap();
         assert!(!pr.is_draft);
         assert_eq!(pr.base_ref_name, "");
