@@ -363,6 +363,11 @@ export type GitPr = {
   title: string;
   url: string;
   state: string;
+  // Optional: the remote host's GitPr does not send these.
+  repo?: string;
+  isDraft?: boolean;
+  baseRefName?: string;
+  headRefName?: string;
 };
 
 export function gitPrStatus(cwd: string): Promise<GitPr | null> {

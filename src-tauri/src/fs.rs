@@ -1137,6 +1137,11 @@ pub struct GitPr {
     pub title: String,
     pub url: String,
     pub state: String,
+    /// "owner/name" slug of the repository the PR belongs to.
+    pub repo: String,
+    pub is_draft: bool,
+    pub base_ref_name: String,
+    pub head_ref_name: String,
 }
 
 /// Latest pull request for the current branch, if `gh` can see one.
@@ -2651,14 +2656,16 @@ fn git_pr_status_for(root: &Path) -> Option<GitPr> {
             "--head",
             &head,
             "--json",
-            "number,title,url,state",
+            "number,title,url,state,isDraft,baseRefName,headRefName",
             "--limit",
             "20",
             "--state",
             "all",
         ],
     )?;
-    parse_gh_pr_list(&json)
+    let mut pr = parse_gh_pr_list(&json)?;
+    pr.repo = repo;
+    Some(pr)
 }
 
 fn github_pr_head_filter(repo: &str, branch: &str) -> Option<String> {
@@ -4017,11 +4024,18 @@ fn parse_github_work_item(json: &str, kind: &str, repo: &str) -> Result<GitHubWo
 
 fn parse_gh_pr_list(json: &str) -> Option<GitPr> {
     #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
     struct Row {
         number: i64,
         title: String,
         url: String,
         state: String,
+        #[serde(default)]
+        is_draft: bool,
+        #[serde(default)]
+        base_ref_name: String,
+        #[serde(default)]
+        head_ref_name: String,
     }
     let rows: Vec<Row> = serde_json::from_str(json).ok()?;
     let mut best: Option<GitPr> = None;
@@ -4031,6 +4045,10 @@ fn parse_gh_pr_list(json: &str) -> Option<GitPr> {
             title: row.title,
             url: row.url,
             state: row.state.to_lowercase(),
+            repo: String::new(),
+            is_draft: row.is_draft,
+            base_ref_name: row.base_ref_name,
+            head_ref_name: row.head_ref_name,
         };
         if pr.state == "open" {
             return Some(pr);
@@ -7419,11 +7437,24 @@ mod tests {
 
     #[test]
     fn parse_gh_pr_list_prefers_open() {
-        let json = r#"[{"number":2,"title":"Old","url":"https://example.com/2","state":"MERGED"},{"number":3,"title":"Now","url":"https://example.com/3","state":"OPEN"}]"#;
+        let json = r#"[{"number":2,"title":"Old","url":"https://example.com/2","state":"MERGED"},{"number":3,"title":"Now","url":"https://example.com/3","state":"OPEN","isDraft":true,"baseRefName":"main","headRefName":"feat/x"}]"#;
         let pr = parse_gh_pr_list(json).unwrap();
         assert_eq!(pr.number, 3);
         assert_eq!(pr.state, "open");
         assert_eq!(pr.title, "Now");
+        assert!(pr.is_draft);
+        assert_eq!(pr.base_ref_name, "main");
+        assert_eq!(pr.head_ref_name, "feat/x");
+        assert_eq!(pr.repo, "");
+    }
+
+    #[test]
+    fn parse_gh_pr_list_defaults_missing_draft_and_refs() {
+        let json = r#"[{"number":4,"title":"Old gh","url":"https://example.com/4","state":"OPEN"}]"#;
+        let pr = parse_gh_pr_list(json).unwrap();
+        assert!(!pr.is_draft);
+        assert_eq!(pr.base_ref_name, "");
+        assert_eq!(pr.head_ref_name, "");
     }
 
     #[test]
