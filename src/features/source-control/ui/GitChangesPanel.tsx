@@ -79,7 +79,14 @@ import { invalidateWatchedFiles } from "../../files/model/fileWatch";
 import { MOD } from "../../../platform/tauri/platform";
 import { applyProjectDiffStats } from "../hooks/useProjectDiffStats";
 import { useLockOverscroll } from "../../../shared/hooks/useLockOverscroll";
-import { isRemoteProjectPath } from "../../projects/model/recents";
+import {
+  isRemoteProjectPath,
+  sameProjectPath,
+} from "../../projects/model/recents";
+import type { SessionSummary } from "../../sessions/data/sessionStore";
+import type { CiRepairRequest } from "../model/ciRepair";
+import { useGithubPrChecks } from "../hooks/useGithubPrChecks";
+import { PrChecks } from "./PrChecks";
 
 const GIT_POLL_MS = 2000;
 
@@ -102,6 +109,17 @@ const prByCwd = new Map<string, GitPr | null>();
 
 type AmendTarget = { branch: string | null; head: string | null };
 
+/** Repair hooks behind "Fix with agent" on the current PR's checks. */
+export type GitCiRepair = {
+  sessions: readonly SessionSummary[];
+  onOpenSession: (sessionId: string) => void | Promise<void>;
+  onStart: (
+    target: { cwd: string; number: number; title: string },
+    request: CiRepairRequest,
+    sessionId?: string,
+  ) => void | Promise<void>;
+};
+
 type Props = {
   cwd: string;
   enabled: boolean;
@@ -112,6 +130,7 @@ type Props = {
   onOpenFile: (path: string, kind: GitFileDiffKind, pin?: boolean) => void;
   onOpenAllChanges: (kind: GitFileDiffKind) => void;
   onOpenCommit: (commit: GitHistoryCommit, pin?: boolean) => void;
+  ciRepair?: GitCiRepair;
 };
 
 export function GitChangesPanel({
@@ -124,6 +143,7 @@ export function GitChangesPanel({
   onOpenFile,
   onOpenAllChanges,
   onOpenCommit,
+  ciRepair,
 }: Props) {
   const { index, reload } = useDiffIndex(cwd, enabled);
   const files = index?.files ?? [];
@@ -284,6 +304,7 @@ export function GitChangesPanel({
         setBusy={setBusy}
         onOpenFile={onOpenFile}
         onOpenAllChanges={onOpenAllChanges}
+        ciRepair={ciRepair}
         onMutated={(paths) => {
           reload();
           notifyGitChanged();
@@ -342,6 +363,7 @@ function ChangedFiles({
   onOpenFile,
   onOpenAllChanges,
   onMutated,
+  ciRepair,
 }: {
   cwd: string;
   textHarness?: HarnessId;
@@ -356,6 +378,7 @@ function ChangedFiles({
   onOpenFile: (path: string, kind: GitFileDiffKind, pin?: boolean) => void;
   onOpenAllChanges: (kind: GitFileDiffKind) => void;
   onMutated: (paths?: string[]) => void;
+  ciRepair?: GitCiRepair;
 }) {
   const lockOverscroll = useLockOverscroll<HTMLDivElement>();
   const menuRef = useRef<HTMLDivElement>(null);
@@ -369,6 +392,14 @@ function ChangedFiles({
   const [changesExpanded, setChangesExpanded] = useState(changesOpen);
   const [view, setView] = useState<ChangesView>(changesView);
   const { pr, reload: reloadPr } = usePrStatus(cwd, index?.branch);
+  const prChecksView = useGithubPrChecks({
+    cwd,
+    repo: pr?.repo ?? "",
+    number: pr?.number ?? 0,
+    enabled: enabled && Boolean(pr?.repo),
+    open: pr?.state === "open",
+    poll: enabled,
+  });
   const staged = useMemo(() => files.filter((file) => file.staged), [files]);
   const unstaged = useMemo(
     () => files.filter((file) => file.unstaged),
@@ -829,6 +860,41 @@ function ChangedFiles({
               if (pr?.url) void openUrl(pr.url);
             }}
           />
+        ) : null}
+        {pr?.repo ? (
+          <div className="mt-2 flex min-w-0 flex-col gap-1 border-t border-stroke pt-2">
+            <span className="px-1.5 text-[10px] font-semibold tracking-[0.04em] text-content/55 uppercase">
+              Checks
+            </span>
+            <div className="max-h-72 min-w-0 overflow-y-auto">
+              <PrChecks
+                view={prChecksView}
+                onRefresh={prChecksView.refresh}
+                cwd={cwd}
+                repo={pr.repo}
+                repair={
+                  ciRepair
+                    ? {
+                        number: pr.number,
+                        onOpenSession: ciRepair.onOpenSession,
+                        sessions: ciRepair.sessions.filter(
+                          (session) =>
+                            !session.archived &&
+                            !session.orchestrationLeadId &&
+                            sameProjectPath(session.cwd, cwd),
+                        ),
+                        onStart: (request, sessionId) =>
+                          ciRepair.onStart(
+                            { cwd, number: pr.number, title: pr.title },
+                            request,
+                            sessionId,
+                          ),
+                      }
+                    : undefined
+                }
+              />
+            </div>
+          </div>
         ) : null}
       </div>
       <div

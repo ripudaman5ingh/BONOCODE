@@ -2,7 +2,7 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, expect, it, vi } from "vitest";
-import { InboxPrChecks } from "./InboxPrChecks";
+import { PrChecks } from "./PrChecks";
 import { buildCiRepairRequest } from "../model/ciRepair";
 import { trackCiRepair } from "../model/ciRepairTracking";
 import { CheckRepairProgress } from "./CheckRepairProgress";
@@ -39,7 +39,7 @@ it("only marks the selected job as repairing when check names repeat", async () 
   );
   await act(async () =>
     root.render(
-      createElement(InboxPrChecks, {
+      createElement(PrChecks, {
         cwd: "/duplicate-jobs",
         repo: "acme/web",
         onRefresh() {},
@@ -252,7 +252,7 @@ it.each([1, 0.8])(
         refresh() {},
       },
     };
-    await act(async () => root.render(createElement(InboxPrChecks, props)));
+    await act(async () => root.render(createElement(PrChecks, props)));
     expect(
       host
         .querySelector('[aria-label="Unit tests / Linux details"]')
@@ -276,7 +276,7 @@ it.each([1, 0.8])(
     );
     await act(async () =>
       root.render(
-        createElement(InboxPrChecks, {
+        createElement(PrChecks, {
           ...props,
           view: {
             ...props.view,
@@ -393,7 +393,7 @@ it("collapses a batch into one conversation card and keeps results in the check 
       refresh() {},
     },
   };
-  await act(async () => root.render(createElement(InboxPrChecks, props)));
+  await act(async () => root.render(createElement(PrChecks, props)));
   const buttons = () =>
     [...host.querySelectorAll("button")].filter(
       (button) => button.textContent === "Open conversation",
@@ -420,7 +420,7 @@ it("collapses a batch into one conversation card and keeps results in the check 
   });
   await act(async () =>
     root.render(
-      createElement(InboxPrChecks, {
+      createElement(PrChecks, {
         ...props,
         view: {
           ...props.view,
@@ -469,7 +469,7 @@ it("shows live repair progress and opens the linked conversation", async () => {
   const open = vi.fn();
   await act(async () =>
     root.render(
-      createElement(InboxPrChecks, {
+      createElement(PrChecks, {
         cwd: "/progress",
         repo: "acme/web",
         onRefresh() {},
@@ -627,7 +627,7 @@ it("starts a repair with all failed checks and the selected project chat", async
   });
   await act(async () =>
     root.render(
-      createElement(InboxPrChecks, {
+      createElement(PrChecks, {
         cwd: "/web",
         repo: "acme/web",
         onRefresh() {},
@@ -847,7 +847,7 @@ it.each(["results", "pr"])(
         refresh() {},
       },
     };
-    await act(async () => root.render(createElement(InboxPrChecks, props)));
+    await act(async () => root.render(createElement(PrChecks, props)));
     await act(async () =>
       host
         .querySelector<HTMLButtonElement>(
@@ -862,7 +862,7 @@ it.each(["results", "pr"])(
     ).not.toBeNull();
     await act(async () =>
       root.render(
-        createElement(InboxPrChecks, {
+        createElement(PrChecks, {
           ...props,
           view: {
             ...props.view,
@@ -927,7 +927,7 @@ it.each(["refreshing", "failed"] as const)(
         refresh() {},
       },
     };
-    await act(async () => root.render(createElement(InboxPrChecks, props)));
+    await act(async () => root.render(createElement(PrChecks, props)));
     await act(async () =>
       host.querySelector<HTMLButtonElement>('button[aria-label="Fix lint with AI"]')!.click(),
     );
@@ -938,7 +938,7 @@ it.each(["refreshing", "failed"] as const)(
     );
     await act(async () =>
       root.render(
-        createElement(InboxPrChecks, {
+        createElement(PrChecks, {
           ...props,
           view: {
             ...props.view,
@@ -988,13 +988,13 @@ it("keeps the selected failed job when another check changes", async () => {
       refresh() {},
     },
   };
-  await act(async () => root.render(createElement(InboxPrChecks, props)));
+  await act(async () => root.render(createElement(PrChecks, props)));
   await act(async () =>
     host.querySelector<HTMLButtonElement>('button[aria-label="Fix lint with AI"]')!.click(),
   );
   await act(async () =>
     root.render(
-      createElement(InboxPrChecks, {
+      createElement(PrChecks, {
         ...props,
         view: {
           ...props.view,

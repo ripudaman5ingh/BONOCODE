@@ -156,6 +156,7 @@ import { LinkSessionWorkItemDialog } from "../../features/sessions/ui/LinkSessio
 import { SessionsEmpty } from "../../features/sessions/ui/SessionsEmpty";
 import { SidebarUpdateFooter } from "./SidebarUpdate";
 import { SourceControl } from "../../features/source-control/ui/SourceControl";
+import type { GitCiRepair } from "../../features/source-control/ui/GitChangesPanel";
 import { GithubStarPrompt } from "./GithubStarPrompt";
 import {
   refreshRemoteProjectSessions,
@@ -260,6 +261,8 @@ type Props = {
   selectedDiffKind?: GitFileDiffKind;
   selectedCommitSha?: string;
   textHarness?: HarnessId;
+  /** Repair hooks for the current PR's checks in the Changes tab. */
+  ciRepair?: GitCiRepair;
   recents?: RecentProject[];
   busyProjectPaths?: Iterable<string>;
   liveAgents?: LiveAgent[];
@@ -341,6 +344,7 @@ function SidebarComponent({
   selectedDiffKind,
   selectedCommitSha,
   textHarness,
+  ciRepair,
   recents = [],
   busyProjectPaths,
   liveAgents = [],
@@ -1897,6 +1901,7 @@ function SidebarComponent({
                 }
                 onOpenAllChanges={onOpenAllChanges ?? (() => {})}
                 onOpenCommit={onOpenCommit ?? (() => {})}
+                ciRepair={ciRepair}
               />
           </div>
         ) : null}
