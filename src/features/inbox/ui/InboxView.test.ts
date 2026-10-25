@@ -6,7 +6,7 @@ import {
   clearInboxCache,
   githubWorkItemDetails,
   type InboxItem,
-} from "../model/githubTasks";
+} from "../../github/model/githubTasks";
 import type { LinkedWorkItem } from "../../sessions/model/session";
 import type { SessionSummary } from "../../sessions/data/sessionStore";
 import {
@@ -14,7 +14,7 @@ import {
   inboxStatusMark,
   inboxShowsFullFileDiff,
   LinkedWorkItemPanel,
-} from "./InboxView";
+} from "../../github/ui/WorkItemDetail";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 

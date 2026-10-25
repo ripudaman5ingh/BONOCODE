@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { inboxAskKey, inboxAskPrompt } from "./inboxAsk";
-import type { InboxItem } from "./githubTasks";
+import type { InboxItem } from "../../github/model/githubTasks";
 import { newSession } from "../../sessions/model/session";
 import { shouldPersistSession, upsertSession } from "../../sessions/data/sessionStore";
 import {

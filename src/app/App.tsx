@@ -547,7 +547,7 @@ import {
   githubWorkItemThread,
   inboxComposerCard,
   type InboxItem,
-} from "../features/inbox/model/githubTasks";
+} from "../features/github/model/githubTasks";
 import {
   linkedWorkItemFromInboxItem,
   resolveLinkedWorkItem,
@@ -557,9 +557,9 @@ import {
   failLinkedWorkItemUpdateCard,
   pendingLinkedWorkItemUpdateCard,
   type LinkedWorkItemUpdateCard,
-} from "../features/inbox/model/linkedWorkItemActivity";
-import type { LinkedSessionUpdate } from "../features/inbox/model/linkedSessionUpdates";
-import { markLinkedSessionUpdateSeen } from "../features/inbox/model/linkedSessionSeen";
+} from "../features/github/model/linkedWorkItemActivity";
+import type { LinkedSessionUpdate } from "../features/github/model/linkedSessionUpdates";
+import { markLinkedSessionUpdateSeen } from "../features/github/model/linkedSessionSeen";
 import {
   loadCloseToTray,
   loadAutosave,
@@ -649,7 +649,7 @@ const InboxView = lazySurface(
   { suspense: false },
 );
 const LinkedWorkItemPanel = lazySurface(async () => {
-  const module = await import("../features/inbox/ui/InboxView");
+  const module = await import("../features/github/ui/WorkItemDetail");
   return { default: module.LinkedWorkItemPanel };
 });
 

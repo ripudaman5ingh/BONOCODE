@@ -68,7 +68,7 @@ import type { ProjectFile } from "../../../platform/tauri/fs";
 import {
   composeInboxMessage,
   type InboxComposerCard,
-} from "../../inbox/model/githubTasks";
+} from "../../github/model/githubTasks";
 import type { HandoffComposerCard } from "../model/handoff";
 import {
   looksLikeProject,
@@ -122,7 +122,7 @@ import { CwdPicker } from "../../projects/ui/CwdPicker";
 import { FileMentionPicker } from "./FileMentionPicker";
 import { McpServerPicker } from "./McpServerPicker";
 import { FileTypeIcon } from "../../files/ui/FileTypeIcon";
-import { InboxMiniCard } from "../../inbox/ui/InboxMiniCard";
+import { InboxMiniCard } from "../../github/ui/InboxMiniCard";
 import { HandoffMiniCard } from "./HandoffMiniCard";
 import { ModelControlPills, ModelPicker } from "./ModelPicker";
 import { QuestionForm } from "./QuestionForm";

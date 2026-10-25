@@ -2,7 +2,7 @@ import {
   INBOX_SOURCE_LABELS,
   type ConnectableInboxSource,
 } from "../model/inboxFilters";
-import { InboxProviderMark } from "./InboxProviderMark";
+import { InboxProviderMark } from "../../github/ui/InboxProviderMark";
 import { Popover, type PopoverAnchor } from "../../../shared/ui/Popover";
 
 const WIDTH = 188;

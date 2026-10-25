@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { PanelLeft, RotateCcw } from "../../../shared/ui/icons";
 import { IconButton } from "../../../app/shell/TitleBar";
 import { useDragResize } from "../../../shared/hooks/useDragResize";
-import { inboxItemRef, type InboxItem } from "../model/githubTasks";
+import { inboxItemRef, type InboxItem } from "../../github/model/githubTasks";
 import { inboxAskKey } from "../model/inboxAsk";
 
 export type InboxSessionPortal = { sessionId: string; host: HTMLElement };

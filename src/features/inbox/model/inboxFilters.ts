@@ -4,7 +4,7 @@ import {
   type InboxItem,
   type InboxKind,
   type InboxProvider,
-} from "./githubTasks";
+} from "../../github/model/githubTasks";
 import { normalizeProjectPath } from "../../projects/model/recents";
 import { timeFilterStart, type SessionTimeFilter } from "../../sessions/model/sessionFilters";
 

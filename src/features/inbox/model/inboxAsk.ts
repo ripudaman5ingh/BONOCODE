@@ -1,4 +1,4 @@
-import type { InboxItem, InboxProvider } from "./githubTasks";
+import type { InboxItem, InboxProvider } from "../../github/model/githubTasks";
 import inboxInstructions from "../../../instructions/inbox.md?raw";
 
 export type InboxAskContext = {

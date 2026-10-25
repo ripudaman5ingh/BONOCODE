@@ -16,7 +16,7 @@ import {
   type InboxItem,
   type InboxQuery,
   type InboxProvider,
-} from "../model/githubTasks";
+} from "../../github/model/githubTasks";
 import {
   applyInboxFilters,
   inboxFetchState,
@@ -37,12 +37,12 @@ import {
   linkedWorkItemUpdateKey,
   type LinkedSessionUpdate,
   type LinkedWorkItemTarget,
-} from "../model/linkedSessionUpdates";
+} from "../../github/model/linkedSessionUpdates";
 import {
   markLinkedSessionUpdateSeen,
   linkedSessionSeenAt,
   subscribeLinkedSessionSeen,
-} from "../model/linkedSessionSeen";
+} from "../../github/model/linkedSessionSeen";
 import type { RecentProject } from "../../projects/model/recents";
 import type { SessionSummary } from "../../sessions/data/sessionStore";
 import { playCue } from "../../settings/model/sounds";

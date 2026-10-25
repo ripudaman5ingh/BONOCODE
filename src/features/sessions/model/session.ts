@@ -1,10 +1,10 @@
 import { dropContextWindow, type ContextUsage } from "./contextUsage";
 import type { UserQuestionPrompt } from "./userQuestion";
 import type { HandoffComposerCard } from "./handoff";
-import type { InboxComposerCard } from "../../inbox/model/githubTasks";
+import type { InboxComposerCard } from "../../github/model/githubTasks";
 import type { InboxAskContext } from "../../inbox/model/inboxAsk";
 import type { OrchestrationProposal } from "../../orchestration/model/orchestrationPlan";
-import type { LinkedWorkItemUpdateCard } from "../../inbox/model/linkedWorkItemActivity";
+import type { LinkedWorkItemUpdateCard } from "../../github/model/linkedWorkItemActivity";
 import {
   defaultSessionChoice,
   firstEnabledHarness,

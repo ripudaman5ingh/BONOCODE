@@ -2,7 +2,7 @@
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { InboxDetail, LinkedWorkItemPanel } from "./InboxView";
+import { InboxDetail, LinkedWorkItemPanel } from "./WorkItemDetail";
 
 const { openUrl, invoke } = vi.hoisted(() => ({
   openUrl: vi.fn(),

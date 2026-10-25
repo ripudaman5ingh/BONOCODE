@@ -2,8 +2,8 @@
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { InboxItem } from "../model/githubTasks";
-import { inboxItemKey } from "../model/githubTasks";
+import type { InboxItem } from "../../github/model/githubTasks";
+import { inboxItemKey } from "../../github/model/githubTasks";
 import {
   isInboxEntryUnseen,
   markInboxItemSeen,
@@ -11,7 +11,7 @@ import {
 } from "../model/inboxSeen";
 import { updateNotificationPreferences } from "../../notifications/model/notificationPreferences";
 import type { SessionSummary } from "../../sessions/data/sessionStore";
-import { markLinkedSessionUpdateSeen } from "../model/linkedSessionSeen";
+import { markLinkedSessionUpdateSeen } from "../../github/model/linkedSessionSeen";
 import {
   clearPendingInboxSelfActivity,
   recordInboxSelfActivity,
@@ -23,8 +23,8 @@ const { githubWorkItem, listInboxItems, playCue } = vi.hoisted(() => ({
   listInboxItems: vi.fn(),
   playCue: vi.fn(),
 }));
-vi.mock("../model/githubTasks", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../model/githubTasks")>()),
+vi.mock("../../github/model/githubTasks", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../github/model/githubTasks")>()),
   githubWorkItem,
   listInboxItems,
 }));

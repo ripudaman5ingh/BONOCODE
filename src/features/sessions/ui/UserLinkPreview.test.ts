@@ -7,7 +7,7 @@ vi.mock("@tauri-apps/plugin-opener", () => ({
   openUrl: vi.fn(async () => undefined),
 }));
 
-vi.mock("../../inbox/model/githubTasks", () => ({
+vi.mock("../../github/model/githubTasks", () => ({
   formatRelativeTime: () => "2 hours ago",
   githubWorkItem: vi.fn(async () => ({
     kind: "pr",
@@ -35,7 +35,7 @@ vi.mock("../../inbox/model/githubTasks", () => ({
 }));
 
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { githubWorkItem, githubWorkItemDetails } from "../../inbox/model/githubTasks";
+import { githubWorkItem, githubWorkItemDetails } from "../../github/model/githubTasks";
 import type { UserLink } from "../model/linkPreview";
 import { UserLinkPreview } from "./UserLinkPreview";
 

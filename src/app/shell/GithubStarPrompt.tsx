@@ -3,7 +3,7 @@ import { useEffect, useSyncExternalStore } from "react";
 import {
   githubMonocodeStarStatus,
   starMonocodeOnGithub,
-} from "../../features/inbox/model/githubTasks";
+} from "../../features/github/model/githubTasks";
 import { Loader, Star, X } from "../../shared/ui/icons";
 
 const MONOCODE_GITHUB_URL = "https://github.com/hardbeat920/monocode";

@@ -1,12 +1,12 @@
 import { invoke } from "@tauri-apps/api/core";
-import { clearKnownInboxItems } from "./inboxSeen";
+import { clearKnownInboxItems } from "../../inbox/model/inboxSeen";
 import {
   collectRailProjects,
   normalizeProjectPath,
   sameProjectPath,
   type RecentProject,
 } from "../../projects/model/recents";
-import { recordInboxSelfActivity } from "./inboxSelfActivity";
+import { recordInboxSelfActivity } from "../../inbox/model/inboxSelfActivity";
 import {
   githubPrAction as runGithubPrAction,
   type GithubPrAction,

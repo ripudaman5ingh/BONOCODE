@@ -42,7 +42,7 @@ import { Popover } from "../../../shared/ui/Popover";
 import { SecondaryButton } from "../../../shared/ui/SecondaryButton";
 import { GradientBlurBackground } from "./GradientBlurBackground";
 import { McpSettings } from "./McpSettings";
-import { InboxProviderMark } from "../../inbox/ui/InboxProviderMark";
+import { InboxProviderMark } from "../../github/ui/InboxProviderMark";
 import { RemoveProjectDialog } from "../../projects/ui/RemoveProjectDialog";
 import { WindowControls } from "../../../app/shell/WindowControls";
 import { useLockOverscroll } from "../../../shared/hooks/useLockOverscroll";
@@ -241,7 +241,7 @@ import {
   saveSessionSidebarFilters,
 } from "../../sessions/model/sessionFilters";
 import type { SessionSummary } from "../../sessions/data/sessionStore";
-import { githubStatus, type GithubStatus } from "../../inbox/model/githubTasks";
+import { githubStatus, type GithubStatus } from "../../github/model/githubTasks";
 import {
   loadTabGroupColors,
   loadTabGroupCustomColors,

@@ -9,7 +9,7 @@ import {
 import { rememberNotificationProjects } from "../../notifications/model/notificationProjects";
 import { ProjectRail } from "../../../app/shell/ProjectRail";
 import { invoke } from "@tauri-apps/api/core";
-import { inboxItemKey, listInboxItems, type InboxItem } from "../model/githubTasks";
+import { inboxItemKey, listInboxItems, type InboxItem } from "../../github/model/githubTasks";
 import {
   clearKnownInboxItems,
   isInboxEntryUnseen,
@@ -19,8 +19,8 @@ import {
 } from "../model/inboxSeen";
 import { useInboxActivity } from "../hooks/useInboxUnseen";
 
-vi.mock("../model/githubTasks", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../model/githubTasks")>()),
+vi.mock("../../github/model/githubTasks", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../github/model/githubTasks")>()),
   listInboxItems: vi.fn(),
 }));
 

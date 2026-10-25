@@ -17,7 +17,7 @@ import {
   sameCheckout,
 } from "../../orchestration/model/orchestration";
 import { DiscussionEmpty } from "./DiscussionEmpty";
-import { LinkedWorkItemUpdateNotice } from "../../inbox/ui/LinkedWorkItemUpdateNotice";
+import { LinkedWorkItemUpdateNotice } from "../../github/ui/LinkedWorkItemUpdateNotice";
 import { SessionReview } from "./SessionReview";
 import { PromptOutline } from "./PromptOutline";
 import {
@@ -85,7 +85,7 @@ import {
   subscribeChatBackgroundPath,
 } from "../../settings/model/appearance";
 import type { SessionFolderTarget } from "../model/sessionFolders";
-import { markLinkedSessionUpdateSeen } from "../../inbox/model/linkedSessionSeen";
+import { markLinkedSessionUpdateSeen } from "../../github/model/linkedSessionSeen";
 import { RemoteSession } from "../../connections/ui/RemoteSession";
 import { isRemoteProjectPath } from "../../projects/model/recents";
 import type { HostSession } from "../../connections/model/protocol";

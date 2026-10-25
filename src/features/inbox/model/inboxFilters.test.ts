@@ -13,7 +13,7 @@ import {
   resolveInboxSource,
   saveInboxConnections,
 } from "./inboxFilters";
-import type { InboxItem } from "./githubTasks";
+import type { InboxItem } from "../../github/model/githubTasks";
 
 function item(
   overrides: Partial<InboxItem> & Pick<InboxItem, "number" | "updatedAt">,

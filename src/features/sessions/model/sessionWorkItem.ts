@@ -4,7 +4,7 @@ import {
   inboxIdentityKey,
   type InboxItem,
   type GithubTaskKind,
-} from "../../inbox/model/githubTasks";
+} from "../../github/model/githubTasks";
 import type { LinkedWorkItem } from "./session";
 import type { GeneratedWorkItemHint } from "./sessionTitle";
 

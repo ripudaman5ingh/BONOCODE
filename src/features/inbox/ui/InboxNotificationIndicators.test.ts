@@ -4,14 +4,14 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import { InboxView } from "./InboxView";
-import { inboxItemKey, type InboxItem } from "../model/githubTasks";
+import { inboxItemKey, type InboxItem } from "../../github/model/githubTasks";
 import { isInboxEntryUnseen, seedInboxSeenIfNeeded } from "../model/inboxSeen";
 import { saveInboxConnections } from "../model/inboxFilters";
 import { updateNotificationPreferences } from "../../notifications/model/notificationPreferences";
 
 const { listInboxItems } = vi.hoisted(() => ({ listInboxItems: vi.fn() }));
-vi.mock("../model/githubTasks", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../model/githubTasks")>()),
+vi.mock("../../github/model/githubTasks", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../github/model/githubTasks")>()),
   listInboxItems,
 }));
 vi.mock("@tauri-apps/api/core", () => ({

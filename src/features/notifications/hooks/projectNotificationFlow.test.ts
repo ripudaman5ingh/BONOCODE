@@ -2,7 +2,7 @@
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { inboxItemKey, type InboxItem } from "../../inbox/model/githubTasks";
+import { inboxItemKey, type InboxItem } from "../../github/model/githubTasks";
 import { isInboxEntryUnseen, markInboxItemSeen } from "../../inbox/model/inboxSeen";
 import {
   loadNotificationPreferences,
@@ -21,8 +21,8 @@ const { listInboxItems, play } = vi.hoisted(() => ({
   listInboxItems: vi.fn(),
   play: vi.fn(),
 }));
-vi.mock("../../inbox/model/githubTasks", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../../inbox/model/githubTasks")>()),
+vi.mock("../../github/model/githubTasks", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../github/model/githubTasks")>()),
   listInboxItems,
 }));
 vi.mock("cuelume", () => ({ play, setEnabled: vi.fn(), setVolume: vi.fn() }));
