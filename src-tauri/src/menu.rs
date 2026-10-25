@@ -148,9 +148,8 @@ pub fn dispatch(app: &AppHandle, id: &str) {
         "new_tab" | "close_tab" | "close_other_tabs" | "next_tab" | "prev_tab" | "back_tab"
         | "forward_tab" | "split_right" | "split_down" | "focus_left" | "focus_right"
         | "focus_up" | "focus_down" | "sidebar_opacity" | "open_project" | "go_to_file"
-        | "open_search" | "open_inbox" | "find_in_project" | "find" | "new_terminal"
-        | "new_terminal_tab" | "toggle_terminal" | "open_model_picker" | "open_settings"
-        | "check_for_updates" => {
+        | "open_search" | "find_in_project" | "find" | "new_terminal" | "new_terminal_tab"
+        | "toggle_terminal" | "open_model_picker" | "open_settings" | "check_for_updates" => {
             let _ = app.emit(id, ());
         }
         // Sidebar, Zoom, Reload, Command Palette, and Close All Tabs target one window: a broadcast would
@@ -244,7 +243,6 @@ fn build(
         "App: Search",
         overrides,
     )?;
-    let open_inbox = MenuItemBuilder::with_id("open_inbox", "Inbox").build(app)?;
     let new_tab = menu_item(
         app,
         "new_tab",
@@ -477,7 +475,6 @@ fn build(
     let view = SubmenuBuilder::new(app, "View")
         .item(&toggle_sidebar)
         .item(&toggle_session_sidebar)
-        .item(&open_inbox)
         .item(&toggle_terminal)
         .item(&open_model_picker)
         .separator()

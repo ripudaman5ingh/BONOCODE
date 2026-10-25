@@ -1223,16 +1223,6 @@ pub struct GitHubStatus {
     pub authenticated: bool,
 }
 
-#[derive(Serialize, Clone, Copy, Debug, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub enum GitHubStarStatus {
-    Starred,
-    NotStarred,
-    Unavailable,
-}
-
-const MONOCODE_STAR_ENDPOINT: &str = "/user/starred/hardbeat920/monocode";
-
 /// Whether the GitHub CLI is installed and has an active authenticated account.
 #[tauri::command]
 pub async fn git_github_status() -> Result<GitHubStatus, String> {
@@ -1268,86 +1258,12 @@ fn git_github_status_for() -> GitHubStatus {
     }
 }
 
-/// Whether the active GitHub CLI account has starred the MonoCode repository.
-#[tauri::command]
-pub async fn github_monocode_star_status() -> Result<GitHubStarStatus, String> {
-    tauri::async_runtime::spawn_blocking(github_monocode_star_status_for)
-        .await
-        .map_err(|error| error.to_string())
-}
-
-fn github_monocode_star_status_for() -> GitHubStarStatus {
-    let result = gh_run(
-        Path::new("."),
-        &["api", "--silent", MONOCODE_STAR_ENDPOINT],
-        true,
-    );
-    github_star_status_from_result(result)
-}
-
-fn github_star_status_from_result(result: Result<String, String>) -> GitHubStarStatus {
-    match result {
-        Ok(_) => GitHubStarStatus::Starred,
-        Err(error) if error.contains("HTTP 404") => GitHubStarStatus::NotStarred,
-        Err(_) => GitHubStarStatus::Unavailable,
-    }
-}
-
-/// Star the MonoCode repository for the active GitHub CLI account.
-#[tauri::command]
-pub async fn github_star_monocode() -> Result<(), String> {
-    tauri::async_runtime::spawn_blocking(|| {
-        gh_run(
-            Path::new("."),
-            &["api", "--silent", "--method", "PUT", MONOCODE_STAR_ENDPOINT],
-            true,
-        )
-        .map(|_| ())
-    })
-    .await
-    .map_err(|error| error.to_string())?
-}
-
 /// `owner/repo` for the GitHub remote of this working copy, via `gh`.
 #[tauri::command]
 pub async fn git_github_repo(cwd: String) -> Result<String, String> {
     tauri::async_runtime::spawn_blocking(move || git_github_repo_for(&expand_home(&cwd)))
         .await
         .map_err(|e| e.to_string())?
-}
-
-/// The GitHub remote of this working copy and, when it is a fork, its parent.
-#[tauri::command]
-pub async fn git_github_repositories(cwd: String) -> Result<Vec<String>, String> {
-    tauri::async_runtime::spawn_blocking(move || git_github_repositories_for(&expand_home(&cwd)))
-        .await
-        .map_err(|e| e.to_string())?
-}
-
-/// Open issues or pull requests for one GitHub repository, via `gh`.
-#[tauri::command]
-pub async fn git_github_work_items(
-    cwd: String,
-    repo: String,
-    kind: String,
-    assigned_to_me: bool,
-    state: String,
-    search: String,
-    limit: Option<u32>,
-) -> Result<Vec<GitHubWorkItem>, String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        git_github_work_items_for(
-            &expand_home(&cwd),
-            &repo,
-            &kind,
-            assigned_to_me,
-            &state,
-            &search,
-            limit.unwrap_or(40),
-        )
-    })
-    .await
-    .map_err(|e| e.to_string())?
 }
 
 /// One issue or pull request by number, used when session navigation misses
@@ -2686,95 +2602,6 @@ fn git_github_repo_for(root: &Path) -> Result<String, String> {
         return Err("GitHub did not return a repository".into());
     }
     Ok(slug.to_string())
-}
-
-fn git_github_repositories_for(root: &Path) -> Result<Vec<String>, String> {
-    let json = gh_checked(root, &["repo", "view", "--json", "nameWithOwner,parent"])?;
-    parse_github_repositories(&json)
-}
-
-fn parse_github_repositories(json: &str) -> Result<Vec<String>, String> {
-    #[derive(Deserialize)]
-    struct Owner {
-        login: String,
-    }
-    #[derive(Deserialize)]
-    struct Parent {
-        name: String,
-        owner: Owner,
-    }
-    #[derive(Deserialize)]
-    struct View {
-        #[serde(rename = "nameWithOwner")]
-        name_with_owner: String,
-        #[serde(default)]
-        parent: Option<Parent>,
-    }
-
-    let view: View = serde_json::from_str(json).map_err(|error| error.to_string())?;
-    let (owner, name) = split_github_repo(&view.name_with_owner)?;
-    let mut repos = vec![format!("{owner}/{name}")];
-    if let Some(parent) = view.parent {
-        let parent = format!("{}/{}", parent.owner.login, parent.name);
-        let (owner, name) = split_github_repo(&parent)?;
-        let parent = format!("{owner}/{name}");
-        if !repos[0].eq_ignore_ascii_case(&parent) {
-            repos.push(parent);
-        }
-    }
-    Ok(repos)
-}
-
-fn git_github_work_items_for(
-    root: &Path,
-    repo: &str,
-    kind: &str,
-    assigned_to_me: bool,
-    state: &str,
-    search: &str,
-    limit: u32,
-) -> Result<Vec<GitHubWorkItem>, String> {
-    let kind = kind.trim();
-    if kind != "issue" && kind != "pr" {
-        return Err("Unknown GitHub task kind".into());
-    }
-    let (owner, name) = split_github_repo(repo)?;
-    let repo = format!("{owner}/{name}");
-    let state = if state.trim().eq_ignore_ascii_case("all") {
-        "all"
-    } else {
-        "open"
-    };
-    let limit = limit.clamp(1, 100).to_string();
-    let fields = if kind == "pr" {
-        "number,title,url,state,createdAt,updatedAt,labels,assignees,isDraft"
-    } else {
-        "number,title,url,state,stateReason,createdAt,updatedAt,labels,assignees"
-    };
-    let mut args = vec![
-        kind.to_string(),
-        "list".into(),
-        "--state".into(),
-        state.into(),
-        "--limit".into(),
-        limit,
-        "--repo".into(),
-        repo.clone(),
-        "--json".into(),
-        fields.into(),
-    ];
-    if assigned_to_me {
-        args.push("--assignee".into());
-        args.push("@me".into());
-    }
-    let search = search.trim();
-    if !search.is_empty() {
-        args.push("--search".into());
-        args.push(search.to_string());
-    }
-    let refs: Vec<&str> = args.iter().map(String::as_str).collect();
-    let json = gh_checked(root, &refs)?;
-    parse_github_work_items(&json, kind, &repo)
 }
 
 fn git_github_work_item_for(
@@ -5871,22 +5698,6 @@ mod tests {
     }
 
     #[test]
-    fn github_star_status_distinguishes_a_missing_star_from_an_unavailable_check() {
-        assert_eq!(
-            github_star_status_from_result(Ok(String::new())),
-            GitHubStarStatus::Starred
-        );
-        assert_eq!(
-            github_star_status_from_result(Err("gh: Not Found (HTTP 404)".into())),
-            GitHubStarStatus::NotStarred
-        );
-        assert_eq!(
-            github_star_status_from_result(Err("GitHub CLI is not installed".into())),
-            GitHubStarStatus::Unavailable
-        );
-    }
-
-    #[test]
     fn omp_active_assistant_texts_keep_active_message_order_with_both_forms() {
         let dir = tmp("omp-active-texts");
         let path = dir.0.join("session.jsonl");
@@ -7463,33 +7274,6 @@ mod tests {
         assert_eq!(
             github_pr_head_filter("hardbeat920/monocode", "main").as_deref(),
             Some("hardbeat920:main")
-        );
-    }
-
-    #[test]
-    fn parse_github_repositories_includes_a_forks_parent() {
-        let json = r#"{
-            "nameWithOwner": "EricRasputin/monocode-eric",
-            "parent": {
-                "name": "monocode",
-                "owner": { "login": "hardbeat920" }
-            }
-        }"#;
-        assert_eq!(
-            parse_github_repositories(json).unwrap(),
-            vec!["EricRasputin/monocode-eric", "hardbeat920/monocode"]
-        );
-    }
-
-    #[test]
-    fn parse_github_repositories_keeps_a_normal_repo_single() {
-        let json = r#"{
-            "nameWithOwner": "hardbeat920/monocode",
-            "parent": null
-        }"#;
-        assert_eq!(
-            parse_github_repositories(json).unwrap(),
-            vec!["hardbeat920/monocode"]
         );
     }
 
