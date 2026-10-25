@@ -35,26 +35,17 @@ describe("inbox sessions", () => {
     expect(inboxAskKey(item)).not.toBe(
       inboxAskKey({ ...item, url: "https://git.example.com/acme/app/pull/42" }),
     );
-    expect(
-      inboxAskKey({ provider: "linear", id: "issue-uuid" } as InboxItem),
-    ).toBe("linear:issue-uuid");
-    expect(
-      inboxAskKey({
-        provider: "gitlab",
-        url: "https://gitlab.example.com/acme/app/-/merge_requests/42",
-      } as InboxItem),
-    ).toBe("gitlab:gitlab.example.com:/acme/app/-/merge_requests/42");
   });
 
   it("falls back to a stable key when the item has no usable link", () => {
     const item = {
-      provider: "azuredevops",
+      provider: "github",
       kind: "pr",
       number: 12,
       repo: "platform/web",
       url: "",
     } as InboxItem;
-    expect(inboxAskKey(item)).toBe("azuredevops:platform/web:pr:12");
+    expect(inboxAskKey(item)).toBe("github:platform/web:pr:12");
     expect(() => inboxAskKey({ ...item, url: "not a url" })).not.toThrow();
   });
 

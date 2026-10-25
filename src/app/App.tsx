@@ -560,15 +560,6 @@ import {
 } from "../features/inbox/model/linkedWorkItemActivity";
 import type { LinkedSessionUpdate } from "../features/inbox/model/linkedSessionUpdates";
 import { markLinkedSessionUpdateSeen } from "../features/inbox/model/linkedSessionSeen";
-import { inboxTrackerDescription } from "../features/inbox/model/inboxContext";
-import {
-  gitlabWorkItemDetails,
-  peekGitlabWorkItemDetails,
-} from "../features/inbox/model/gitlab";
-import {
-  azureDevOpsWorkItemDetails,
-  peekAzureDevOpsWorkItemDetails,
-} from "../features/inbox/model/azureDevOps";
 import {
   loadCloseToTray,
   loadAutosave,
@@ -2264,31 +2255,23 @@ function Workspace({
   );
 
   const onStartInboxItem = useCallback(
-    async (item: InboxItem, body?: string) => {
-      const start = (description?: string) => {
-        setInboxViewOpen(false);
-        const cwd =
-          item.projectPath || active?.cwd || sessionDefaults?.cwd || projectCwd;
-        setSidebarTab("sessions", cwd);
-        const ref =
-          item.provider === "linear" || item.provider === "jira"
-            ? item.identifier?.trim() || `#${item.number}`
-            : `#${item.number}`;
-        const linkedWorkItem = linkedWorkItemFromInboxItem(item);
-        const session = {
-          ...newDefaultSession(cwd, sessionDefaults?.runtimeMode),
-          title: `${ref} ${item.title}`,
-          inboxCard: inboxComposerCard(item, description),
-          ...(linkedWorkItem ? { linkedWorkItem } : {}),
-        };
-        const tab = newTab(session.id);
-        setSessions((prev) => [...prev, session]);
-        appendTab(tab, cwd);
-        setActiveTabId(tab.id);
-        setComposerFocused(true);
+    (item: InboxItem) => {
+      setInboxViewOpen(false);
+      const cwd =
+        item.projectPath || active?.cwd || sessionDefaults?.cwd || projectCwd;
+      setSidebarTab("sessions", cwd);
+      const linkedWorkItem = linkedWorkItemFromInboxItem(item);
+      const session = {
+        ...newDefaultSession(cwd, sessionDefaults?.runtimeMode),
+        title: `#${item.number} ${item.title}`,
+        inboxCard: inboxComposerCard(item),
+        ...(linkedWorkItem ? { linkedWorkItem } : {}),
       };
-
-      start(await inboxTrackerDescription(item, body));
+      const tab = newTab(session.id);
+      setSessions((prev) => [...prev, session]);
+      appendTab(tab, cwd);
+      setActiveTabId(tab.id);
+      setComposerFocused(true);
     },
     [
       active?.cwd,
@@ -3850,38 +3833,6 @@ function Workspace({
             candidate && candidate !== "~"
               ? candidate
               : await invoke<string>("default_cwd");
-          const description =
-            item.provider === "linear" || item.provider === "jira"
-              ? await inboxTrackerDescription(item)
-              : item.provider === "gitlab" &&
-                  (item.kind === "issue" || item.kind === "pr")
-                ? (
-                    peekGitlabWorkItemDetails(
-                      item.repo,
-                      item.kind,
-                      item.number,
-                    ) ??
-                    (await gitlabWorkItemDetails(
-                      item.repo,
-                      item.kind,
-                      item.number,
-                    ))
-                  ).body
-                : item.provider === "azuredevops" &&
-                    (item.kind === "issue" || item.kind === "pr")
-                  ? (
-                      peekAzureDevOpsWorkItemDetails(
-                        item.repo,
-                        item.kind,
-                        item.number,
-                      ) ??
-                      (await azureDevOpsWorkItemDetails(
-                        item.repo,
-                        item.kind,
-                        item.number,
-                      ))
-                    ).body
-                  : undefined;
           session = {
             ...newDefaultSession(cwd),
             title: `Ask · ${item.title}`,
@@ -3890,7 +3841,6 @@ function Workspace({
               title: item.title,
               url: item.url,
               provider: item.provider,
-              description,
             },
           };
           sessionsRef.current = [...sessionsRef.current, session];
@@ -10347,7 +10297,6 @@ function Workspace({
                       key={panel.sessionId}
                       target={panel.item}
                       cwd={panel.cwd}
-                      recents={recents}
                       visible={
                         !searchViewOpen &&
                         !settingsOpen &&

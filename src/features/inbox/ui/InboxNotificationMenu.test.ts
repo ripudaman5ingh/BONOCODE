@@ -152,8 +152,8 @@ it("keeps unread items and the menu open when marking read fails, then allows re
   expect(document.activeElement).toBe(inbox);
 });
 
-it("marks all Inbox providers as read from the rail, including muted projects", async () => {
-  const items: InboxItem[] = (["github", "gitlab", "linear"] as const).map((provider) => ({
+it("marks all Inbox items as read from the rail, including muted projects", async () => {
+  const items: InboxItem[] = (["github"] as const).map((provider) => ({
     provider, kind: "issue", repo: "company/work", number: 1,
     title: "Inbox update", url: `https://${provider}.com/company/work/1`,
     state: "open", updatedAt: "2026-09-16T10:00:00Z",
@@ -205,10 +205,10 @@ it("mutes all rail and known Inbox projects for one hour directly from Inbox", a
   vi.spyOn(Date, "now").mockReturnValue(new Date(2030, 0, 15, 20, 30).getTime());
   rememberNotificationProjects([
     {
-      id: "linear:project:planning",
-      name: "Planning",
-      detail: "Linear",
-      kind: "linear",
+      id: "repository:github.com/acme/planning",
+      name: "acme/planning",
+      detail: "github.com",
+      kind: "repository",
       paths: [],
     },
   ]);
@@ -223,9 +223,9 @@ it("mutes all rail and known Inbox projects for one hour directly from Inbox", a
   act(() => button("1 hour").click());
   const preferences = loadNotificationPreferences();
   expect(Object.keys(preferences).sort()).toEqual([
-    "linear:project:planning",
     "local:/repos/private",
     "local:/repos/work",
+    "repository:github.com/acme/planning",
   ]);
   for (const preference of Object.values(preferences)) {
     expect(preference.mutedUntil).toBeGreaterThanOrEqual(start + 3_600_000);

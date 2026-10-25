@@ -49,7 +49,6 @@ type Props = {
   error: string | null;
   cwd: string;
   provider: InboxProvider;
-  replyMode?: "thread" | "parent";
   onReply?: (target: InboxReplyTarget) => void;
 };
 
@@ -59,7 +58,6 @@ export function InboxComments({
   error,
   cwd,
   provider,
-  replyMode,
   onReply,
 }: Props) {
   if (thread && thread.comments.length === 0 && !thread.truncated) {
@@ -79,23 +77,12 @@ export function InboxComments({
     0,
   );
   const label = count === 1 ? "1 comment" : `${count} comments`;
-  const moreOn =
-    provider === "linear"
-      ? "Linear"
-      : provider === "jira"
-        ? "Jira"
-        : provider === "gitlab"
-          ? "GitLab"
-          : provider === "azuredevops"
-            ? "ADO"
-            : "GitHub";
-
   return (
     <section className="flex flex-col gap-3 border-t border-stroke pt-5">
       <div className="flex items-center gap-2 text-[12px] text-content/50">
         <h2 className="text-content/70">{label}</h2>
         {thread.truncated ? (
-          <span>Latest comments · more on {moreOn}</span>
+          <span>Latest comments · more on GitHub</span>
         ) : null}
         {loading ? (
           <LoaderCircle
@@ -112,7 +99,6 @@ export function InboxComments({
               comment={comment}
               cwd={cwd}
               provider={provider}
-              replyMode={replyMode}
               onReply={onReply}
             />
           </li>
@@ -236,14 +222,12 @@ function InboxComment({
   cwd,
   provider,
   nested = false,
-  replyMode,
   onReply,
 }: {
   comment: InboxComment;
   cwd: string;
   provider: InboxProvider;
   nested?: boolean;
-  replyMode?: "thread" | "parent";
   onReply?: (target: InboxReplyTarget) => void;
 }) {
   const time = formatRelativeTime(comment.createdAt);
@@ -258,9 +242,7 @@ function InboxComment({
   const hasBody = comment.body.trim().length > 0;
   const hasReplies = !nested && comment.replies.length > 0;
   const canReply =
-    onReply != null &&
-    (replyMode === "parent" ||
-      (replyMode === "thread" && (comment.threadId ?? "").trim().length > 0));
+    onReply != null && (comment.threadId ?? "").trim().length > 0;
 
   const inner = (
     <>
@@ -286,17 +268,7 @@ function InboxComment({
             {comment.url && part === time ? (
               <button
                 type="button"
-                title={
-                  provider === "linear"
-                    ? "Open in Linear"
-                    : provider === "jira"
-                      ? "Open in Jira"
-                      : provider === "gitlab"
-                        ? "Open on GitLab"
-                        : provider === "azuredevops"
-                          ? "Open on ADO"
-                          : "Open on GitHub"
-                }
+                title="Open on GitHub"
                 onClick={() => void openUrl(comment.url)}
                 className="hover:text-content"
               >
@@ -362,7 +334,6 @@ function InboxComment({
                 cwd={cwd}
                 provider={provider}
                 nested
-                replyMode={replyMode}
                 onReply={onReply}
               />
             </div>

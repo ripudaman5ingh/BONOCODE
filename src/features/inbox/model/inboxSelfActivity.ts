@@ -3,16 +3,15 @@ import { sameProjectPath } from "../../projects/model/recents";
 const MAX_PENDING_AGE_MS = 10 * 60_000;
 
 export type InboxSelfActivityTarget = {
-  provider: "github" | "gitlab" | "linear" | "jira" | "azuredevops";
-  kind?: "issue" | "pr" | "linear" | "jira";
+  provider: "github";
+  kind?: "issue" | "pr";
   repo?: string;
   number?: number;
-  id?: string;
   projectPath?: string;
 };
 
 export type InboxSelfActivityItem = InboxSelfActivityTarget & {
-  kind: "issue" | "pr" | "linear" | "jira";
+  kind: "issue" | "pr";
   number: number;
   projectPath: string;
 };
@@ -36,7 +35,6 @@ function prune(now: number) {
 
 function matches(activity: PendingActivity, item: InboxSelfActivityItem) {
   if (activity.provider !== item.provider) return false;
-  if (activity.id && activity.id !== item.id) return false;
   if (activity.kind && activity.kind !== item.kind) return false;
   if (activity.number != null && activity.number !== item.number) return false;
   if (activity.repo && normalized(activity.repo) !== normalized(item.repo)) {
@@ -49,10 +47,7 @@ function matches(activity: PendingActivity, item: InboxSelfActivityItem) {
     return false;
   }
   return Boolean(
-    activity.id ||
-    activity.repo ||
-    activity.number != null ||
-    activity.projectPath,
+    activity.repo || activity.number != null || activity.projectPath,
   );
 }
 

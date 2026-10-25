@@ -3,8 +3,8 @@ import { sniffImageMime } from "../../files/model/filePreview";
 
 /**
  * Prefixes rehype-harden will keep on issue/PR markdown. The fetcher still
- * re-checks the host; this list only has to match the URLs GitHub and Linear
- * put in the markdown source, not the CDN they redirect to.
+ * re-checks the host; this list only has to match the URLs GitHub puts in the
+ * markdown source, not the CDN it redirects to.
  */
 export const INBOX_MEDIA_PREFIXES = [
   "https://github.com/user-attachments/",
@@ -17,7 +17,6 @@ export const INBOX_MEDIA_PREFIXES = [
   "https://avatars.githubusercontent.com/",
   "https://raw.githubusercontent.com/",
   "https://gist.githubusercontent.com/",
-  "https://uploads.linear.app/",
 ];
 
 export type InboxMediaKind = "image" | "video";
@@ -25,7 +24,7 @@ export type InboxMediaType = { kind: InboxMediaKind; mime: string };
 
 const mediaCache = new Map<string, Promise<Uint8Array>>();
 
-/** Remote image/video URLs GitHub and Linear actually put in issue bodies. */
+/** Remote image/video URLs GitHub actually puts in issue bodies. */
 export function isInboxMediaUrl(value: string): boolean {
   let url: URL;
   try {
@@ -37,9 +36,6 @@ export function isInboxMediaUrl(value: string): boolean {
   if (url.username || url.password) return false;
   const host = url.hostname.replace(/\.$/, "").toLowerCase();
   if (pathHasDotDot(url.pathname)) return false;
-  if (host === "uploads.linear.app" || host.endsWith(".uploads.linear.app")) {
-    return true;
-  }
   if (
     host === "githubusercontent.com" ||
     host.endsWith(".githubusercontent.com")

@@ -6,7 +6,7 @@ export type NotificationProject = {
   id: string;
   name: string;
   detail: string;
-  kind: "repository" | "local" | "linear" | "jira";
+  kind: "repository" | "local";
   paths: string[];
 };
 
@@ -74,7 +74,7 @@ export function loadNotificationProjects(): NotificationProject[] {
         typeof value.id === "string" &&
         typeof value.name === "string" &&
         typeof value.detail === "string" &&
-        ["repository", "local", "linear", "jira"].includes(value.kind) &&
+        ["repository", "local"].includes(value.kind) &&
         Array.isArray(value.paths) &&
         value.paths.every((path: unknown) => typeof path === "string"),
     );
@@ -128,43 +128,11 @@ export function subscribeNotificationProjects(
 }
 
 type NotificationWorkItem = Pick<InboxItem, "provider" | "repo" | "url"> &
-  Partial<
-    Pick<
-      InboxItem,
-      "projectPath" | "projectId" | "projectName" | "teamId" | "teamName"
-    >
-  >;
+  Partial<Pick<InboxItem, "projectPath">>;
 
 export function inboxNotificationProject(
   item: NotificationWorkItem,
 ): NotificationProject {
-  if (item.provider === "jira") {
-    let site = "unknown";
-    try {
-      site = new URL(item.url).host.toLowerCase();
-    } catch {
-      // Preserve a usable project identity even if a provider omits the URL.
-    }
-    return {
-      id: `jira:${site}:project:${item.teamId || item.repo.toLowerCase() || "unknown"}`,
-      name: item.teamName || item.repo || "Jira project",
-      detail: `Jira · ${site}`,
-      kind: "jira",
-      paths: [],
-    };
-  }
-  if (item.provider === "linear") {
-    const project = item.projectId?.trim();
-    return {
-      id: project
-        ? `linear:project:${project}`
-        : `linear:team:${item.teamId || "unknown"}:unassigned`,
-      name: project ? item.projectName || project : "No project",
-      detail: `Linear · ${item.teamName || item.teamId || "Unknown team"}`,
-      kind: "linear",
-      paths: [],
-    };
-  }
   if (item.projectPath && looksLikeProject(item.projectPath)) {
     return {
       ...localNotificationProject(item.projectPath),
