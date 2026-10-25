@@ -1,13 +1,11 @@
 import { invoke } from "@tauri-apps/api/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  clearInboxCache,
+  clearGithubWorkItemCache,
   githubPrDiff,
-  githubRepositories,
   githubWorkItemComment,
   githubWorkItemDetails,
   githubWorkItemThread,
-  listInboxItems,
   peekGithubWorkItemDetails,
   type GithubWorkItem,
 } from "./githubTasks";
@@ -15,7 +13,7 @@ import {
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 
 beforeEach(() => {
-  clearInboxCache();
+  clearGithubWorkItemCache();
   vi.mocked(invoke).mockReset();
 });
 
@@ -33,91 +31,6 @@ function workItem(repo: string, kind: "issue" | "pr"): GithubWorkItem {
     repo,
   };
 }
-
-describe("GitHub fork repositories", () => {
-  it("caches the local repository and parent metadata", async () => {
-    vi.mocked(invoke).mockResolvedValue(["maya/web", "acme/web"] as never);
-
-    await expect(githubRepositories("/tmp/web")).resolves.toEqual([
-      "maya/web",
-      "acme/web",
-    ]);
-    await expect(githubRepositories("/tmp/web/")).resolves.toEqual([
-      "maya/web",
-      "acme/web",
-    ]);
-
-    expect(invoke).toHaveBeenCalledTimes(1);
-    expect(invoke).toHaveBeenCalledWith("git_github_repositories", {
-      cwd: "/tmp/web",
-    });
-  });
-
-  it("fetches a shared parent once and keeps the preferred local checkout", async () => {
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      const input = args as Record<string, unknown> | undefined;
-      if (command === "git_github_repositories") {
-        return (
-          input?.cwd === "/tmp/fork-a"
-            ? ["maya/web", "acme/web"]
-            : ["lin/web", "ACME/web"]
-        ) as never;
-      }
-      if (command === "git_github_work_items") {
-        const repo = String(input?.repo ?? "");
-        const kind = input?.kind as "issue" | "pr";
-        return (
-          repo.toLowerCase() === "acme/web" && kind === "issue"
-            ? [workItem("acme/web", kind)]
-            : []
-        ) as never;
-      }
-      throw new Error(`Unexpected command: ${command}`);
-    });
-
-    const result = await listInboxItems(
-      [{ path: "/tmp/fork-a" }, { path: "/tmp/fork-b" }],
-      { assignedToMe: false, state: "open", search: "" },
-    );
-
-    expect(result.items).toHaveLength(1);
-    expect(result.items[0]).toMatchObject({
-      repo: "acme/web",
-      projectPath: "/tmp/fork-a",
-    });
-    const listCalls = vi
-      .mocked(invoke)
-      .mock.calls.filter(([command]) => command === "git_github_work_items");
-    expect(listCalls).toHaveLength(6);
-    expect(
-      listCalls.filter(
-        ([, args]) =>
-          String((args as Record<string, unknown>).repo).toLowerCase() ===
-          "acme/web",
-      ),
-    ).toHaveLength(2);
-  });
-
-  it("reports an error when repository discovery fails", async () => {
-    vi.mocked(invoke).mockImplementation(async (command) => {
-      if (command === "git_github_repositories") {
-        throw new Error("not a GitHub repository");
-      }
-      throw new Error(`Unexpected command: ${command}`);
-    });
-
-    await expect(
-      listInboxItems([{ path: "/tmp/local" }], {
-        assignedToMe: false,
-        state: "open",
-        search: "",
-      }),
-    ).resolves.toEqual({
-      items: [],
-      errors: { github: "not a GitHub repository" },
-    });
-  });
-});
 
 describe("repository-qualified GitHub item operations", () => {
   it("passes the repository through and isolates same-number caches", async () => {

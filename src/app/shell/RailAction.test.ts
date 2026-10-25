@@ -3,9 +3,9 @@ import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
 import { expect, it, vi } from "vitest";
 import { RailAction } from "./RailAction";
-import { Inbox } from "../../shared/ui/icons";
+import { Search } from "../../shared/ui/icons";
 
-it("opens Inbox context actions from the keyboard without navigating", () => {
+it("opens context actions from the keyboard without navigating", () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const container = document.createElement("div");
   document.body.append(container);
@@ -16,8 +16,8 @@ it("opens Inbox context actions from the keyboard without navigating", () => {
     act(() =>
       root.render(
         createElement(RailAction, {
-          label: "Inbox",
-          icon: Inbox,
+          label: "Search",
+          icon: Search,
           onClick,
           onOpenContextMenu,
         }),

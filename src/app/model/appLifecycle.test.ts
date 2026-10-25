@@ -309,28 +309,6 @@ describe("coordinated quit", () => {
     }
   });
 
-  it("counts a running Inbox Ask, which cannot be resumed", async () => {
-    const session = newSession("cursor", "C:/test");
-    session.busy = true;
-    session.inboxAsk = true;
-    const tab = newTab(session.id);
-    const release = setQuitWorkspace(
-      () => [session],
-      () => [tab],
-      () => tab.id,
-      () => session.cwd,
-      () => [],
-      () => new Map(),
-      vi.fn(),
-    );
-    try {
-      await reportQuitPoll(1);
-      expect(invokedWith("quit_poll_reply")).toEqual({ id: 1, inFlight: 1 });
-    } finally {
-      release();
-    }
-  });
-
   it("reports nothing from a window with no workspace yet", async () => {
     await reportQuitPoll(2);
     expect(invokedWith("quit_poll_reply")).toEqual({ id: 2, inFlight: 0 });

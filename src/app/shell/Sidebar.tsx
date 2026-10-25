@@ -14,7 +14,6 @@ import {
   Folder,
   GitBranch,
   GitPullRequest,
-  Inbox,
   ListFilter,
   PanelLeft,
   Pin,
@@ -125,7 +124,6 @@ import { useSortable } from "../../shared/hooks/useSortable";
 import { useAnimatedReorder } from "../../shared/hooks/useAnimatedReorder";
 import { normalizeHex } from "../../shared/lib/colorUtils";
 import {
-  collectRailProjects,
   looksLikeProject,
   isRemoteProjectPath,
   sameProjectPath,
@@ -143,7 +141,6 @@ import { FileTree } from "../../features/files/ui/FileTree";
 import { HarnessIcon } from "../../features/sessions/ui/HarnessIcon";
 import { LiveAgentsPreview } from "../../features/sessions/ui/LiveAgentsPreview";
 import { ProjectRail } from "./ProjectRail";
-import { InboxNotificationMenu } from "../../features/inbox/ui/InboxNotificationMenu";
 import { RailAction } from "./RailAction";
 import { TerminalSpinner } from "../../features/sessions/ui/TerminalSpinner";
 import { DevModeSlot, IconButton, TabVisitNav } from "./TitleBar";
@@ -157,7 +154,6 @@ import { SessionsEmpty } from "../../features/sessions/ui/SessionsEmpty";
 import { SidebarUpdateFooter } from "./SidebarUpdate";
 import { SourceControl } from "../../features/source-control/ui/SourceControl";
 import type { GitCiRepair } from "../../features/source-control/ui/GitChangesPanel";
-import { GithubStarPrompt } from "./GithubStarPrompt";
 import {
   refreshRemoteProjectSessions,
   remoteRequest,
@@ -177,14 +173,12 @@ type SidebarTab = SidebarTabId;
 
 const TAB_LABELS: Record<SidebarTab, string> = {
   sessions: "Sessions",
-  inbox: "Inbox",
   files: "Explorer",
   changes: "Changes",
 };
 
 const COMPACT_TAB_ICONS: Record<SidebarTab, typeof PanelLeft> = {
   sessions: Chatting,
-  inbox: Inbox,
   files: FileScript,
   changes: GitBranch,
 };
@@ -273,17 +267,14 @@ type Props = {
   onNew?: () => string | void;
   onNewTerminal?: () => void;
   onSearch?: () => void;
-  onOpenInbox?: () => void;
-  onOpenInboxItem?: (item: LinkedWorkItem, sessionId: string) => void;
+  onOpenLinkedWorkItem?: (item: LinkedWorkItem, sessionId: string) => void;
   onGoToFile?: () => void;
   searchActive?: boolean;
-  inboxActive?: boolean;
   onToggleProjectRail?: () => void;
   projectRailOpen?: boolean;
   compactProjectRail?: boolean;
   titleBarAbove?: boolean;
   unseenFinishedIds?: Set<string>;
-  inboxUnseen?: boolean;
   /** Linked GitHub work changed after the session last advanced. */
   linkedSessionUpdateIds?: ReadonlySet<string>;
   settingsOpen?: boolean;
@@ -354,17 +345,14 @@ function SidebarComponent({
   onRemoveProject,
   onNew,
   onSearch,
-  onOpenInbox,
-  onOpenInboxItem,
+  onOpenLinkedWorkItem,
   onGoToFile,
   searchActive = false,
-  inboxActive = false,
   onToggleProjectRail,
   projectRailOpen = true,
   compactProjectRail = true,
   titleBarAbove = false,
   unseenFinishedIds: unseenFinishedIdsProp,
-  inboxUnseen = false,
   linkedSessionUpdateIds = new Set(),
   settingsOpen = false,
   settingsSection = "general",
@@ -659,14 +647,9 @@ function SidebarComponent({
   const sessionListKey = `${cwd}\0${sessionFilters.showArchived}\0${sessionFilters.time}\0${sessionFilters.hiddenHarnesses.join(",")}\0${sessionFilters.status.working}\0${sessionFilters.status.needsApproval}\0${sessionFilters.status.done}\0${searchQuery}`;
   const sessionHarnesses = harnessesInSessions(projectSessions);
   const narrowedByUser = searchNarrowed || filtersActive;
-  const visibleTabs = tabOrder.filter((itemId) => itemId !== "inbox");
-  const sortable = useAnimatedReorder(visibleTabs, (ids) => {
-    let index = 0;
-    const next = tabOrder.map((itemId) =>
-      itemId === "inbox" ? itemId : ids[index++],
-    );
-    setTabOrder(next);
-    saveSidebarTabOrder(next);
+  const sortable = useAnimatedReorder(tabOrder, (ids) => {
+    setTabOrder(ids);
+    saveSidebarTabOrder(ids);
   });
   const visibleFolderIds = sessionListEntries.flatMap((entry) =>
     entry.kind === "folder" ? [entry.folder.id] : [],
@@ -699,7 +682,6 @@ function SidebarComponent({
   // one is picked — whether or not the rail is open.
   const sidebarAvailable =
     !searchActive &&
-    !inboxActive &&
     !settingsOpen &&
     inProject;
   const sidebarVisible = open && sidebarAvailable;
@@ -1304,7 +1286,7 @@ function SidebarComponent({
   // the latest version, so a sidebar render no longer re-renders every card.
   const cardHandlers = useRef({
     onSessionCardSelect,
-    onOpenInboxItem,
+    onOpenLinkedWorkItem,
     onPrefetchSession,
     onPlaceSessionOnPane,
     onSessionListDrop,
@@ -1315,7 +1297,7 @@ function SidebarComponent({
   });
   cardHandlers.current = {
     onSessionCardSelect,
-    onOpenInboxItem,
+    onOpenLinkedWorkItem,
     onPrefetchSession,
     onPlaceSessionOnPane,
     onSessionListDrop,
@@ -1331,7 +1313,7 @@ function SidebarComponent({
         event: { shiftKey: boolean; ctrlKey: boolean; metaKey: boolean },
       ) => cardHandlers.current.onSessionCardSelect(sessionId, event),
       openWorkItem: (item: LinkedWorkItem, sessionId: string) =>
-        cardHandlers.current.onOpenInboxItem?.(item, sessionId),
+        cardHandlers.current.onOpenLinkedWorkItem?.(item, sessionId),
       prefetch: (sessionId: string) =>
         cardHandlers.current.onPrefetchSession?.(sessionId),
       placeOnPane: (sessionId: string, targetId: string, edge: PaneEdge) =>
@@ -1375,7 +1357,7 @@ function SidebarComponent({
         compact={compact}
         now={now}
         onSelect={cardActions.select}
-        onOpenWorkItem={onOpenInboxItem && !remoteProject ? cardActions.openWorkItem : undefined}
+        onOpenWorkItem={onOpenLinkedWorkItem && !remoteProject ? cardActions.openWorkItem : undefined}
         onPrefetch={onPrefetchSession ? cardActions.prefetch : undefined}
         onPlaceOnPane={
           onPlaceSessionOnPane ? cardActions.placeOnPane : undefined
@@ -1457,7 +1439,7 @@ function SidebarComponent({
         .join(" ")
     : "Changes";
 
-  const workspaceTabItems = visibleTabs.map((itemId) => {
+  const workspaceTabItems = tabOrder.map((itemId) => {
     const active = tab === itemId;
     const isChangesTab = itemId === "changes";
     return (
@@ -1550,11 +1532,8 @@ function SidebarComponent({
               onRemoveProject={onRemoveProject}
               onNew={onNew}
               onSearch={onSearch}
-              onOpenInbox={onOpenInbox}
               onOpenNotificationSettings={onOpenNotificationSettings}
               searchActive={searchActive}
-              inboxActive={inboxActive}
-              inboxUnseen={inboxUnseen}
             />
           ) : null}
           {!compactRailVisible ? (
@@ -1919,7 +1898,6 @@ function SidebarComponent({
               onDismissUpdate={onDismissUpdate}
             />
             <div className="flex shrink-0 flex-col gap-px p-2 empty:hidden">
-              <GithubStarPrompt />
               {!compactProjectRail ? (
                 <RailAction
                   label="Settings"
@@ -2017,20 +1995,17 @@ function SidebarComponent({
           cwd={cwd}
           recents={recents}
           busy={projectPathBusy(busyProjectPaths, cwd)}
-          tabs={visibleTabs}
+          tabs={tabOrder}
           activeTab={tab}
           tabShown={panelOpen}
           changesLabel={changesLabel}
           hasChanges={hasChanges}
-          inboxUnseen={inboxUnseen}
           onSelectProject={onSelectProject}
           onOpenProject={onOpenProject}
           onRemoveProject={onRemoveProject}
           onTabChange={onCompactTabPick}
           onSearch={onSearch}
           searchActive={searchActive}
-          onOpenInbox={onOpenInbox}
-          inboxActive={inboxActive}
           onOpenNotificationSettings={onOpenNotificationSettings}
           onOpenSettings={onOpenSettings}
           onTogglePanel={onToggleProjectRail}
@@ -2043,7 +2018,6 @@ function SidebarComponent({
           visible={railVisible}
           cwd={cwd}
           recents={recents}
-          inboxUnseen={inboxUnseen}
           busyPaths={busyProjectPaths}
           liveAgents={liveAgents}
           activeSessionId={activeSessionId}
@@ -2054,8 +2028,6 @@ function SidebarComponent({
           onGoForward={onGoForward}
           onSearch={onSearch}
           searchActive={searchActive}
-          onOpenInbox={onOpenInbox}
-          inboxActive={inboxActive}
           onTogglePanel={onToggleProjectRail}
           onSelectProject={onSelectProject}
           onOpenProject={onOpenProject}
@@ -2128,11 +2100,8 @@ function SidebarProjectPicker({
   onRemoveProject,
   onNew,
   onSearch,
-  onOpenInbox,
   onOpenNotificationSettings,
   searchActive = false,
-  inboxActive = false,
-  inboxUnseen = false,
 }: {
   cwd: string;
   recents: RecentProject[];
@@ -2142,16 +2111,9 @@ function SidebarProjectPicker({
   onRemoveProject?: Props["onRemoveProject"];
   onNew?: () => string | void;
   onSearch?: () => void;
-  onOpenInbox?: () => void;
   onOpenNotificationSettings?: (projectPath?: string) => void;
   searchActive?: boolean;
-  inboxActive?: boolean;
-  inboxUnseen?: boolean;
 }) {
-  const [inboxMenu, setInboxMenu] = useState<{ x: number; y: number } | null>(
-    null,
-  );
-  const inboxTrigger = useRef<HTMLElement | null>(null);
   return (
     <div
       className="flex h-9 items-center gap-0.5 border-b border-stroke px-2"
@@ -2182,42 +2144,7 @@ function SidebarProjectPicker({
             <Search className="size-3.5" strokeWidth={1.75} />
           </IconButton>
         ) : null}
-        {onOpenInbox ? (
-          <IconButton
-            label={inboxUnseen ? "Inbox, new items" : "Inbox"}
-            active={inboxActive}
-            onClick={onOpenInbox}
-            onOpenContextMenu={(x, y) => {
-              inboxTrigger.current =
-                document.activeElement instanceof HTMLElement
-                  ? document.activeElement
-                  : null;
-              setInboxMenu({ x, y });
-            }}
-          >
-            <span className="relative">
-              <Inbox className="size-3.5" strokeWidth={1.75} />
-              {inboxUnseen ? (
-                <span
-                  aria-hidden
-                  className="absolute -right-0.5 -top-0.5 size-1.5 rounded-full bg-accent"
-                />
-              ) : null}
-            </span>
-          </IconButton>
-        ) : null}
       </div>
-      {inboxMenu ? (
-        <InboxNotificationMenu
-          {...inboxMenu}
-          projectPaths={[...collectRailProjects(recents, cwd).keys()]}
-          onOpenSettings={onOpenNotificationSettings}
-          onClose={() => {
-            setInboxMenu(null);
-            inboxTrigger.current?.focus();
-          }}
-        />
-      ) : null}
     </div>
   );
 }
@@ -2231,15 +2158,12 @@ function CompactProjectRail({
   tabShown,
   changesLabel,
   hasChanges,
-  inboxUnseen,
   onSelectProject,
   onOpenProject,
   onRemoveProject,
   onTabChange,
   onSearch,
   searchActive,
-  onOpenInbox,
-  inboxActive,
   onOpenNotificationSettings,
   onOpenSettings,
   onTogglePanel,
@@ -2254,28 +2178,21 @@ function CompactProjectRail({
   tabShown: boolean;
   changesLabel: string;
   hasChanges: boolean;
-  inboxUnseen: boolean;
   onSelectProject?: (path: string) => void;
   onOpenProject?: () => void;
   onRemoveProject?: Props["onRemoveProject"];
   onTabChange: (tab: SidebarTab) => void;
   onSearch?: () => void;
   searchActive: boolean;
-  onOpenInbox?: () => void;
-  inboxActive: boolean;
   onOpenNotificationSettings?: (projectPath?: string) => void;
   onOpenSettings?: () => void;
   onTogglePanel?: () => void;
   onLeaveActive?: () => void;
   titleBarAbove: boolean;
 }) {
-  const [inboxMenu, setInboxMenu] = useState<{ x: number; y: number } | null>(
-    null,
-  );
-  const inboxTrigger = useRef<HTMLElement | null>(null);
   const action = (active: boolean, open?: () => void) =>
     active && onLeaveActive ? onLeaveActive : open;
-  const workspaceActive = !searchActive && !inboxActive;
+  const workspaceActive = !searchActive;
   const openWorkspaceTab = (nextTab: SidebarTab) => {
     if (!workspaceActive) onLeaveActive?.();
     onTabChange(nextTab);
@@ -2346,20 +2263,6 @@ function CompactProjectRail({
           active={searchActive}
           onClick={action(searchActive, onSearch)}
         />
-        <CompactRailAction
-          label={inboxUnseen ? "Inbox, new items" : "Inbox"}
-          icon={Inbox}
-          active={inboxActive}
-          dot={inboxUnseen}
-          onClick={action(inboxActive, onOpenInbox)}
-          onOpenContextMenu={(x, y) => {
-            inboxTrigger.current =
-              document.activeElement instanceof HTMLElement
-                ? document.activeElement
-                : null;
-            setInboxMenu({ x, y });
-          }}
-        />
       </div>
       <div className="min-h-2 flex-1" />
       <div className="flex w-full flex-col items-center gap-1 py-1.5">
@@ -2369,17 +2272,6 @@ function CompactProjectRail({
           onClick={onOpenSettings}
         />
       </div>
-      {inboxMenu ? (
-        <InboxNotificationMenu
-          {...inboxMenu}
-          projectPaths={[...collectRailProjects(recents, cwd).keys()]}
-          onOpenSettings={onOpenNotificationSettings}
-          onClose={() => {
-            setInboxMenu(null);
-            inboxTrigger.current?.focus();
-          }}
-        />
-      ) : null}
     </nav>
   );
 }

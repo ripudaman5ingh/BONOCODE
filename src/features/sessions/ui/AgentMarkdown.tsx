@@ -42,9 +42,9 @@ import { useColorScheme } from "../../../shared/hooks/useColorScheme";
 import { useLockOverscroll } from "../../../shared/hooks/useLockOverscroll";
 import { copyText } from "../../../platform/tauri/clipboard";
 import { openPathWithDefaultApp, revealPath } from "../../../platform/tauri/fs";
-import { INBOX_MEDIA_PREFIXES, isInboxMediaUrl } from "../../inbox/model/inboxMedia";
+import { INBOX_MEDIA_PREFIXES, isInboxMediaUrl } from "../../github/model/inboxMedia";
 import { IS_MAC, IS_WIN } from "../../../platform/tauri/platform";
-import { InboxMedia } from "../../inbox/ui/InboxMedia";
+import { InboxMedia } from "../../github/ui/InboxMedia";
 import { rehypeHardBreaks } from "./hardBreaks";
 import { rehypeWordFade, usePacedText, useWordFading } from "./wordFade";
 

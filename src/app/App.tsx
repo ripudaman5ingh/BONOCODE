@@ -101,7 +101,7 @@ import {
 } from "../features/source-control/model/worktrees";
 import { UsageFooter } from "./shell/UsageFooter";
 import { useProjectBranches } from "../features/source-control/hooks/useProjectBranches";
-import { useInboxActivity } from "../features/inbox/hooks/useInboxUnseen";
+import { useLinkedWorkItemActivity } from "./hooks/useLinkedWorkItemActivity";
 import {
   loadProjectRailOpen,
   loadSessionSidebarOpen,
@@ -438,9 +438,7 @@ import { exhaustedWindowResetAt } from "../features/providers/model/rateLimits";
 import { dropContextWindow } from "../features/sessions/model/contextUsage";
 import {
   discardDraftSessionRecord,
-  deleteSession,
   getSession,
-  listLinkedSessions,
   listSessionsByProject,
   persistFingerprint,
   rebaseProjectSessions,
@@ -517,11 +515,8 @@ import {
 } from "../features/sessions/model/secondOpinion";
 
 import { PaneTree } from "../features/workspace/ui/PaneTree";
-import { SessionPane } from "../features/sessions/ui/SessionPane";
-import { SessionSurface } from "../features/sessions/ui/SessionSurface";
 import { ProjectTerminalDock } from "../features/terminal/ui/ProjectTerminalDock";
 import { lazySurface } from "../shared/ui/lazySurface";
-import { preloadNavigationWhenIdle } from "./model/preloadNavigation";
 import { requestTranscriptJump } from "../features/sessions/model/transcriptJump";
 import type { SettingsAnchor } from "../features/settings/ui/SettingsView";
 import {
@@ -540,14 +535,10 @@ import { remoteSessionState } from "../features/connections/model/remoteSessionS
 import { remotePath, remoteProjectFor } from "../features/connections/model/remoteProjects";
 import type { HostSession } from "../features/connections/model/protocol";
 import { AddRemoteProjectDialog } from "../features/connections/ui/AddRemoteProjectDialog";
-import type { ConnectableInboxSource } from "../features/inbox/model/inboxFilters";
-import type { InboxSessionPortal } from "../features/inbox/ui/InboxDiscussionPanel";
-import { inboxAskKey, inboxAskPrompt } from "../features/inbox/model/inboxAsk";
 import {
   githubWorkItemThread,
-  inboxComposerCard,
   type InboxItem,
-} from "../features/inbox/model/githubTasks";
+} from "../features/github/model/githubTasks";
 import {
   linkedWorkItemFromInboxItem,
   resolveLinkedWorkItem,
@@ -557,9 +548,9 @@ import {
   failLinkedWorkItemUpdateCard,
   pendingLinkedWorkItemUpdateCard,
   type LinkedWorkItemUpdateCard,
-} from "../features/inbox/model/linkedWorkItemActivity";
-import type { LinkedSessionUpdate } from "../features/inbox/model/linkedSessionUpdates";
-import { markLinkedSessionUpdateSeen } from "../features/inbox/model/linkedSessionSeen";
+} from "../features/github/model/linkedWorkItemActivity";
+import type { LinkedSessionUpdate } from "../features/github/model/linkedSessionUpdates";
+import { markLinkedSessionUpdateSeen } from "../features/github/model/linkedSessionSeen";
 import {
   loadCloseToTray,
   loadAutosave,
@@ -641,15 +632,8 @@ const SettingsView = lazySurface(
   },
   { suspense: false },
 );
-const InboxView = lazySurface(
-  async () => {
-    const module = await import("../features/inbox/ui/InboxView");
-    return { default: module.InboxView };
-  },
-  { suspense: false },
-);
 const LinkedWorkItemPanel = lazySurface(async () => {
-  const module = await import("../features/inbox/ui/InboxView");
+  const module = await import("../features/github/ui/WorkItemDetail");
   return { default: module.LinkedWorkItemPanel };
 });
 
@@ -937,7 +921,6 @@ function Workspace({
   const [searchFocusToken, setSearchFocusToken] = useState(0);
   const [searchViewOpen, setSearchViewOpen] = useState(false);
   const [searchViewFocusToken, setSearchViewFocusToken] = useState(0);
-  const [inboxViewOpen, setInboxViewOpen] = useState(false);
   const [linkedWorkItemPanels, setLinkedWorkItemPanels] = useState<
     ReadonlyMap<string, LinkedWorkItemPanelState>
   >(() => new Map());
@@ -951,9 +934,6 @@ function Workspace({
       return next;
     });
   }, []);
-  const [inboxAskPortal, setInboxAskPortal] =
-    useState<InboxSessionPortal | null>(null);
-  const openingInboxSessions = useRef(new Map<string, Promise<string>>());
   const [inspectedWorkerId, setInspectedWorkerId] = useState<string | null>(
     null,
   );
@@ -978,7 +958,6 @@ function Workspace({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const settingsReturnViewRef = useRef({
     search: false,
-    inbox: false,
   });
   const [updateNotice, setUpdateNotice] = useState(installedUpdate);
   const [whatsNewVersion, setWhatsNewVersion] = useState<string | null>(null);
@@ -1032,9 +1011,6 @@ function Workspace({
     window.addEventListener(REMOTE_HISTORY_UPDATED, updated);
     return () => window.removeEventListener(REMOTE_HISTORY_UPDATED, updated);
   }, []);
-  const [storedLinkedSessions, setStoredLinkedSessions] = useState<
-    SessionSummary[]
-  >(() => bootHistory.filter((session) => session.linkedWorkItem));
   /**
    * Projects whose rows are already in `history`. This has to be state, not a
    * ref: `sidebarCwd` is derived during render, so the frame that first shows
@@ -1077,18 +1053,11 @@ function Workspace({
   projectCwdRef.current = projectCwd;
   const searchViewOpenRef = useRef(searchViewOpen);
   searchViewOpenRef.current = searchViewOpen;
-  const inboxViewOpenRef = useRef(inboxViewOpen);
-  inboxViewOpenRef.current = inboxViewOpen;
-  const foregroundSurfaceRef = useRef<{
-    workspaceVisible: boolean;
-    inboxSessionId?: string;
-  }>({ workspaceVisible: true });
+  const foregroundSurfaceRef = useRef<{ workspaceVisible: boolean }>({
+    workspaceVisible: true,
+  });
   foregroundSurfaceRef.current = {
-    workspaceVisible:
-      !searchViewOpen &&
-      !inboxViewOpen &&
-      !settingsOpen,
-    inboxSessionId: inboxViewOpen ? inboxAskPortal?.sessionId : undefined,
+    workspaceVisible: !searchViewOpen && !settingsOpen,
   };
   const settingsOpenRef = useRef(settingsOpen);
   settingsOpenRef.current = settingsOpen;
@@ -1116,8 +1085,6 @@ function Workspace({
     },
     [],
   );
-
-  useEffect(() => preloadNavigationWhenIdle([InboxView.preload]), []);
 
   const projectReturnRef = useRef<ProjectReturnMemory>(
     resumed?.projectReturnMemory ?? new Map(),
@@ -1268,18 +1235,16 @@ function Workspace({
       );
       const foreground =
         !document.hidden &&
-        // Inbox owns its session surfaces outside the workspace tab tree.
-        (foregroundSurfaceRef.current.inboxSessionId === sessionId ||
-          (foregroundSurfaceRef.current.workspaceVisible &&
-            !!tab &&
-            (leafIds(tab.layout).includes(sessionId) ||
-              tab.editorPanes.some((pane) =>
-                pane.files.some(
-                  (file) =>
-                    file.id === pane.activeFileId &&
-                    file.agent?.sessionId === sessionId,
-                ),
-              ))));
+        foregroundSurfaceRef.current.workspaceVisible &&
+        !!tab &&
+        (leafIds(tab.layout).includes(sessionId) ||
+          tab.editorPanes.some((pane) =>
+            pane.files.some(
+              (file) =>
+                file.id === pane.activeFileId &&
+                file.agent?.sessionId === sessionId,
+            ),
+          ));
       // A visible stream must not wait for a background-only timer.
       if (foreground && harnessFlush.current?.kind === "timeout") {
         cancelScheduledFlush(harnessFlush.current);
@@ -1448,7 +1413,7 @@ function Workspace({
     saveProjectSidebarTab(cwd, tab);
     setSidebarTabSelection({
       project: pathKey(cwd),
-      tab: tab === "inbox" ? "sessions" : tab,
+      tab,
     });
   }, []);
   const sidebarCwdKey =
@@ -1609,9 +1574,7 @@ function Workspace({
   }
   const approvalSessionIds = approvalSessionIdsRef.current;
 
-  const activeSessionId = inboxViewOpen
-    ? inboxAskPortal?.sessionId
-    : active?.id;
+  const activeSessionId = active?.id;
   const activeSessionIdRef = useRef(activeSessionId);
   activeSessionIdRef.current = activeSessionId;
 
@@ -1669,7 +1632,6 @@ function Workspace({
             document.activeElement === document.body &&
             !projectTerminalFocusedRef.current &&
             !searchViewOpenRef.current &&
-            !inboxViewOpenRef.current &&
             !settingsOpenRef.current
           ) {
             setComposerFocused(true);
@@ -1701,8 +1663,6 @@ function Workspace({
     flushHarnessEvents();
   }, [
     activeTabId,
-    inboxViewOpen,
-    inboxAskPortal?.sessionId,
     searchViewOpen,
     settingsOpen,
     flushHarnessEvents,
@@ -1787,21 +1747,6 @@ function Workspace({
   useEffect(() => {
     void refreshHistory(sidebarCwd);
   }, [sidebarCwd, refreshHistory]);
-
-  useEffect(() => {
-    if (!inboxViewOpen) return;
-    let cancelled = false;
-    void listLinkedSessions()
-      .then((rows) => {
-        if (!cancelled) setStoredLinkedSessions(rows);
-      })
-      .catch(() => {
-        // Already-loaded and live sessions still provide a useful fallback.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [inboxViewOpen]);
 
   useEffect(() => {
     prefetchProjectFiles(gitCwd);
@@ -1992,11 +1937,6 @@ function Workspace({
     const sessions = sessionsRef.current;
     const { orchestrationRuns, liveAgentsEnabled } = detachInputs.current;
     const visibleIds = openSessionIds(tabsRef.current);
-    // Inbox owns these panes independently of project tabs. Keep their drafts
-    // and attachments mounted when the panel closes or switches items.
-    for (const session of sessions) {
-      if (session.inboxAsk) visibleIds.add(session.id);
-    }
     // Internal workers stay attached to the lead, even while idle between
     // turns. They must not be discarded merely because they have no tab.
     for (const session of sessions) {
@@ -2209,7 +2149,6 @@ function Workspace({
 
   const onNew = useCallback(() => {
     setSearchViewOpen(false);
-    setInboxViewOpen(false);
     const cwd = active?.cwd ?? sessionDefaults?.cwd ?? projectCwd;
     const session = newDefaultSession(cwd, sessionDefaults?.runtimeMode);
     const tab = newTab(session.id);
@@ -2229,7 +2168,6 @@ function Workspace({
   const onSelectRemoteSession = useCallback(
     (project: string, remoteSessionId: string) => {
       setSearchViewOpen(false);
-      setInboxViewOpen(false);
       const existing = tabsRef.current
         .map((tab) => ({
           tab,
@@ -2253,44 +2191,6 @@ function Workspace({
     },
     [activateTab, appendTab, sessionDefaults?.runtimeMode],
   );
-
-  const onStartInboxItem = useCallback(
-    (item: InboxItem) => {
-      setInboxViewOpen(false);
-      const cwd =
-        item.projectPath || active?.cwd || sessionDefaults?.cwd || projectCwd;
-      setSidebarTab("sessions", cwd);
-      const linkedWorkItem = linkedWorkItemFromInboxItem(item);
-      const session = {
-        ...newDefaultSession(cwd, sessionDefaults?.runtimeMode),
-        title: `#${item.number} ${item.title}`,
-        inboxCard: inboxComposerCard(item),
-        ...(linkedWorkItem ? { linkedWorkItem } : {}),
-      };
-      const tab = newTab(session.id);
-      setSessions((prev) => [...prev, session]);
-      appendTab(tab, cwd);
-      setActiveTabId(tab.id);
-      setComposerFocused(true);
-    },
-    [
-      active?.cwd,
-      appendTab,
-      sessionDefaults?.cwd,
-      sessionDefaults?.runtimeMode,
-      projectCwd,
-    ],
-  );
-
-  const onInboxCardDismiss = useCallback((sessionId: string) => {
-    setSessions((prev) =>
-      prev.map((session) =>
-        session.id === sessionId && session.inboxCard
-          ? { ...session, inboxCard: undefined }
-          : session,
-      ),
-    );
-  }, []);
 
   const setLinkedWorkItemUpdateCard = useCallback(
     (
@@ -3360,10 +3260,6 @@ function Workspace({
   const onFocusPane = useCallback(
     (paneId: string) => {
       setProjectTerminalFocused(false);
-      if (inboxAskPortal?.sessionId === paneId) {
-        setComposerFocused(true);
-        return;
-      }
       setTabs((prev) =>
         prev.map((t) =>
           t.id === activeTabId
@@ -3375,7 +3271,7 @@ function Workspace({
         sessionsRef.current.some((session) => session.id === paneId),
       );
     },
-    [activeTabId, inboxAskPortal],
+    [activeTabId],
   );
 
   const onOpenDiff = useCallback(
@@ -3818,102 +3714,10 @@ function Workspace({
     [setLinkedWorkItemUpdateCard],
   );
 
-  const onAskInboxItem = useCallback(
-    (item: InboxItem): Promise<string> => {
-      const key = inboxAskKey(item);
-      const pending = openingInboxSessions.current.get(key);
-      if (pending) return pending;
-      const opening = (async () => {
-        let session = sessionsRef.current.find(
-          (entry) => entry.inboxAsk?.key === key,
-        );
-        if (!session) {
-          const candidate = item.projectPath || sidebarCwd;
-          const cwd =
-            candidate && candidate !== "~"
-              ? candidate
-              : await invoke<string>("default_cwd");
-          session = {
-            ...newDefaultSession(cwd),
-            title: `Ask · ${item.title}`,
-            inboxAsk: {
-              key,
-              title: item.title,
-              url: item.url,
-              provider: item.provider,
-            },
-          };
-          sessionsRef.current = [...sessionsRef.current, session];
-          setSessions(sessionsRef.current);
-        }
-        return session.id;
-      })();
-      openingInboxSessions.current.set(key, opening);
-      void opening.then(
-        () => openingInboxSessions.current.delete(key),
-        () => openingInboxSessions.current.delete(key),
-      );
-      return opening;
-    },
-    [sidebarCwd],
-  );
-
-  const onRestartInboxAsk = useCallback(
-    async (item: InboxItem): Promise<string> => {
-      const id = await onAskInboxItem(item);
-      const current = sessionsRef.current.find((session) => session.id === id)!;
-      removingSessionIds.current.add(id);
-      try {
-        await stopSessionForRemoval(id);
-        const stopped =
-          sessionsRef.current.find((session) => session.id === id) ?? current;
-        await Promise.all(
-          sessionChildHarnesses(stopped).map((harness) =>
-            forgetHarnessSession(harness, id),
-          ),
-        );
-        const imagePaths = stopped.blocks.flatMap((block) =>
-          block.role === "image" && block.image ? [block.image.path] : [],
-        );
-        await deleteSession(id, imagePaths);
-        const fresh = {
-          ...newSession(
-            stopped.harness,
-            stopped.cwd,
-            stopped.model,
-            stopped.runtimeMode,
-            stopped.modelSettings,
-          ),
-          title: stopped.title,
-          inboxAsk: stopped.inboxAsk,
-        };
-        const next = sessionsRef.current.map((session) =>
-          session.id === id ? fresh : session,
-        );
-        sessionsRef.current = next;
-        setSessions(next);
-        setInboxAskPortal((portal) =>
-          portal?.sessionId === id
-            ? { ...portal, sessionId: fresh.id }
-            : portal,
-        );
-        return fresh.id;
-      } finally {
-        removingSessionIds.current.delete(id);
-      }
-    },
-    [onAskInboxItem, stopSessionForRemoval],
-  );
-
-  useEffect(() => {
-    if (!inboxAskPortal || !inboxViewOpen) return;
-    setComposerFocused(true);
-  }, [inboxAskPortal, inboxViewOpen]);
-
   const onSelectHistorySession = useCallback(
     async (sessionId: string) => {
       let session = await ensureOpenSession(sessionId);
-      if (!session || session.inboxAsk) return;
+      if (!session) return;
       const parentId =
         session.orchestrationLeadId ??
         orchestrator.forSession(sessionId)?.leadId;
@@ -4204,7 +4008,6 @@ function Workspace({
             ? detachSessionWorktree(entry, removed.projectCwd, path)
             : entry;
         setHistory((current) => current.map(patchSummary));
-        setStoredLinkedSessions((current) => current.map(patchSummary));
         for (const id of affected) notifyReviewChanged(id);
       } catch (error) {
         // Removal may fail after idle agent processes were stopped. Rebind
@@ -4356,9 +4159,6 @@ function Workspace({
                     ? { ...entry, orchestrationLeadId: undefined }
                     : entry;
                 setHistory((current) => current.map(releaseSummary));
-                setStoredLinkedSessions((current) =>
-                  current.map(releaseSummary),
-                );
                 return;
               }
 
@@ -4505,7 +4305,6 @@ function Workspace({
           projectTerminalFocused: projectTerminalFocusedRef.current,
           surfaceOpen: Boolean(
             searchViewOpenRef.current ||
-            inboxViewOpenRef.current ||
             settingsOpenRef.current ||
             filePickerOpenRef.current ||
             whatsNewVersionRef.current,
@@ -4562,15 +4361,6 @@ function Workspace({
           session.id === sessionId ? { ...session, linkedWorkItem } : session,
         ),
       );
-      setStoredLinkedSessions((current) =>
-        linkedWorkItem
-          ? current.map((session) =>
-              session.id === sessionId
-                ? { ...session, linkedWorkItem }
-                : session,
-            )
-          : current.filter((session) => session.id !== sessionId),
-      );
       setLinkedWorkItemPanels((current) => {
         if (!current.has(sessionId)) return current;
         const next = new Map(current);
@@ -4595,18 +4385,6 @@ function Workspace({
                 ? { ...session, linkedWorkItem: previousLinkedWorkItem }
                 : session,
             ),
-          );
-          setStoredLinkedSessions((current) =>
-            previousLinkedWorkItem
-              ? current.map((session) =>
-                  session.id === sessionId
-                    ? {
-                        ...session,
-                        linkedWorkItem: previousLinkedWorkItem,
-                      }
-                    : session,
-                )
-              : current.filter((session) => session.id !== sessionId),
           );
           void refreshHistory(sidebarCwd);
           void message(
@@ -5005,7 +4783,6 @@ function Workspace({
       // meant cancelling a folder picker shut whatever the user had open.
       // Nothing below opens a project without also leaving one of these views.
       setSearchViewOpen(false);
-      setInboxViewOpen(false);
 
       // At most one folder can take the blank session, and it keeps the
       // retargeting rules `onCwdChange` already owns.
@@ -5265,13 +5042,6 @@ function Workspace({
         }
       }
       setHistory((current) =>
-        current.map((session) =>
-          sameProjectPath(session.cwd, from)
-            ? { ...session, cwd: to }
-            : session,
-        ),
-      );
-      setStoredLinkedSessions((current) =>
         current.map((session) =>
           sameProjectPath(session.cwd, from)
             ? { ...session, cwd: to }
@@ -5585,7 +5355,6 @@ function Workspace({
         !current ||
         current.busy ||
         sessionDraftBlock(current) ||
-        current.inboxAsk ||
         current.worktreeRemoved ||
         (!text.trim() && attachments.length === 0)
       ) {
@@ -5640,9 +5409,6 @@ function Workspace({
         lastPersistedUserBlock.current.delete(sessionId);
         invalidateLoadedSession(sessionId);
         setHistory((history) =>
-          history.filter((session) => session.id !== sessionId),
-        );
-        setStoredLinkedSessions((history) =>
           history.filter((session) => session.id !== sessionId),
         );
         void discardDraftSessionRecord(sessionId).catch(() => undefined);
@@ -5817,7 +5583,6 @@ function Workspace({
         operatorCommand.matched &&
         (intent !== "default" ||
           current.orchestrationLeadId ||
-          current.inboxAsk ||
           orchestrator.run(sessionId))
       ) {
         enqueueHarnessEvent(sessionId, {
@@ -5877,7 +5642,6 @@ function Workspace({
               s.id === sessionId
                 ? {
                     ...s,
-                    inboxCard: rawCommand ? s.inboxCard : undefined,
                     handoffCard: rawCommand ? s.handoffCard : undefined,
                     queuedMessages: [
                       ...(s.queuedMessages ?? []),
@@ -5917,7 +5681,6 @@ function Workspace({
           if (s.id !== sessionId) return s;
           let next: Session = {
             ...s,
-            inboxCard: rawCommand ? s.inboxCard : undefined,
             handoffCard: rawCommand ? s.handoffCard : undefined,
           };
           if (options?.queuedMessageId) {
@@ -5941,10 +5704,7 @@ function Workspace({
               cwd: initialWorkCwd,
               model: current.model,
               modelSettings: current.modelSettings,
-              text: inboxAskPrompt(
-                rawCommand ? undefined : current.inboxAsk,
-                prompt,
-              ),
+              text: prompt,
               attachments: prepared,
             });
           } catch (error: unknown) {
@@ -6051,7 +5811,6 @@ function Workspace({
         ) || !!draftBlock;
       const titleSeed =
         isFirstTurn &&
-        !current.inboxCard &&
         placeholderTitle
           ? titleFromPrompt(
               operatorCommand.matched ? promptText : submittedText,
@@ -6111,8 +5870,6 @@ function Workspace({
               worktreePreparing: createDraftWorktree
                 ? true
                 : selected.worktreePreparing,
-              inboxCard:
-                rawCommand || options?.ciRepair ? s.inboxCard : undefined,
               handoffCard:
                 rawCommand || options?.ciRepair ? s.handoffCard : undefined,
             };
@@ -6495,7 +6252,7 @@ function Workspace({
           });
         };
 
-        if (!current.inboxAsk && !orchestrator.forSession(sessionId)) {
+        if (!orchestrator.forSession(sessionId)) {
           await beginSessionTurn(sessionId, workCwd).catch(() => undefined);
         }
         if (turnGen.current.get(sessionId) !== gen) return;
@@ -6600,17 +6357,14 @@ function Workspace({
             });
           let sendText = orchestrator.prompt(
             sessionId,
-            inboxAskPrompt(
-              rawCommand ? undefined : current.inboxAsk,
-              wrap && !rawCommand
-                ? wrapHandoffPrompt(
-                    wrap.text,
-                    wrap.from,
-                    turnPrompt.trim() || CONTINUE_PROMPT,
-                    earlier,
-                  )
-                : turnPrompt,
-            ),
+            wrap && !rawCommand
+              ? wrapHandoffPrompt(
+                  wrap.text,
+                  wrap.from,
+                  turnPrompt.trim() || CONTINUE_PROMPT,
+                  earlier,
+                )
+              : turnPrompt,
           );
           if (operatorCommand.matched) {
             const cli = `${shellPath(await invoke<string>("app_cli_path"))} app`;
@@ -6850,7 +6604,6 @@ function Workspace({
           setActiveTabId(id);
           setComposerFocused(false);
           setSearchViewOpen(false);
-          setInboxViewOpen(false);
           setSidebarTab("sessions", cwd);
         },
         submit: submitSession,
@@ -8435,7 +8188,6 @@ function Workspace({
               ? detachSessionWorktree(entry, removed.projectCwd, path)
               : entry;
           setHistory((current) => current.map(detachSummary));
-          setStoredLinkedSessions((current) => current.map(detachSummary));
           if (session)
             await Promise.allSettled(
               sessionChildHarnesses(session).map((harness) =>
@@ -8576,7 +8328,6 @@ function Workspace({
         );
         if (
           !source ||
-          source.inboxAsk ||
           source.orchestrationLeadId ||
           orchestrator.run(source.id)
         )
@@ -8962,7 +8713,6 @@ function Workspace({
   const onSelectLiveAgent = useCallback(
     (sessionId: string) => {
       setSearchViewOpen(false);
-      setInboxViewOpen(false);
       onOpenApprovalSession(sessionId);
     },
     [onOpenApprovalSession],
@@ -9005,41 +8755,9 @@ function Workspace({
       ),
     [history, projectBranches, sessions, sidebarCwd, orchestrationRuns],
   );
-  const {
-    unseen: inboxUnseen,
-    linkedSessionUpdateIds,
-    linkedSessionUpdates,
-  } = useInboxActivity(recents, sidebarCwd, sidebarHistory);
+  const { linkedSessionUpdateIds, linkedSessionUpdates } =
+    useLinkedWorkItemActivity(sidebarCwd, sidebarHistory);
   linkedSessionUpdatesRef.current = linkedSessionUpdates;
-  const inboxRelatedSessions = useMemo(() => {
-    const byId = new Map<string, SessionSummary>();
-    for (const session of storedLinkedSessions) byId.set(session.id, session);
-    for (const session of history) {
-      if (session.linkedWorkItem) byId.set(session.id, session);
-    }
-    for (const session of sessions) {
-      if (session.inboxAsk || !session.linkedWorkItem) continue;
-      const current = byId.get(session.id);
-      const summary = summaryFromSession(session);
-      byId.set(
-        session.id,
-        current
-          ? {
-              ...current,
-              harness: summary.harness,
-              model: summary.model,
-              runtimeMode: summary.runtimeMode,
-              title: summary.title,
-              cwd: summary.cwd,
-              linkedWorkItem: summary.linkedWorkItem,
-            }
-          : summary,
-      );
-    }
-    return [...byId.values()].sort(
-      (a, b) => b.updatedAt - a.updatedAt || a.id.localeCompare(b.id),
-    );
-  }, [history, sessions, storedLinkedSessions]);
   const repairSessions = useMemo(
     () => ciRepairSessions(history, sessions),
     [history, sessions],
@@ -9049,7 +8767,6 @@ function Workspace({
       sessions
         .filter(
           (session) =>
-            !session.inboxAsk &&
             !session.orchestrationLeadId &&
             sameProjectPath(session.cwd, sidebarCwd),
         )
@@ -9092,14 +8809,12 @@ function Workspace({
 
   const onGoToFile = useCallback(() => {
     setSearchViewOpen(false);
-    setInboxViewOpen(false);
     setFilePickerInitialQuery("");
     setFilePickerResetToken((token) => token + 1);
     setFilePickerOpen(true);
   }, []);
   const onOpenCommandPalette = useCallback(() => {
     setSearchViewOpen(false);
-    setInboxViewOpen(false);
     setFilePickerInitialQuery(">");
     setFilePickerResetToken((token) => token + 1);
     setFilePickerOpen(true);
@@ -9113,7 +8828,6 @@ function Workspace({
 
   const onFindInProject = useCallback(() => {
     setSearchViewOpen(false);
-    setInboxViewOpen(false);
     setSidebarTab("files");
     setFilesSearchOpen(true);
     setSearchFocusToken((token) => token + 1);
@@ -9123,7 +8837,6 @@ function Workspace({
     startTransition(() => {
       setFilePickerOpen(false);
       setSettingsOpen(false);
-      setInboxViewOpen(false);
       setSearchViewOpen(true);
       setSearchViewFocusToken((token) => token + 1);
     });
@@ -9133,15 +8846,6 @@ function Workspace({
     setSearchViewOpen(false);
   }, []);
 
-  const onOpenInbox = useCallback(() => {
-    startTransition(() => {
-      setFilePickerOpen(false);
-      setSettingsOpen(false);
-      setSearchViewOpen(false);
-      setInboxViewOpen(true);
-    });
-  }, []);
-
   const onOpenLinkedWorkItem = useCallback(
     (item: LinkedWorkItem, sessionId: string) => {
       const request = linkedWorkItemPanelRequest.current + 1;
@@ -9149,7 +8853,6 @@ function Workspace({
       setFilePickerOpen(false);
       setSettingsOpen(false);
       setSearchViewOpen(false);
-      setInboxViewOpen(false);
       const cwd =
         sessionsRef.current.find((session) => session.id === sessionId)?.cwd ??
         history.find((session) => session.id === sessionId)?.cwd ??
@@ -9172,13 +8875,8 @@ function Workspace({
     [history, onSelectHistorySession, sidebarCwd],
   );
 
-  const onLeaveInbox = useCallback(() => {
-    setInboxViewOpen(false);
-  }, []);
-
-  const onOpenInboxSession = useCallback(
+  const onOpenLinkedSession = useCallback(
     (sessionId: string) => {
-      setInboxViewOpen(false);
       const cwd =
         sessionsRef.current.find((session) => session.id === sessionId)?.cwd ??
         history.find((session) => session.id === sessionId)?.cwd;
@@ -9205,7 +8903,6 @@ function Workspace({
       if (
         sessionId &&
         (!session ||
-          session.inboxAsk ||
           session.orchestrationLeadId ||
           !sameProjectPath(session.cwd, cwd))
       ) {
@@ -9237,7 +8934,6 @@ function Workspace({
           onSettled: (outcome) => settle(outcome.status),
         }),
       );
-      setInboxViewOpen(false);
       setSearchViewOpen(false);
       setSidebarTab("sessions", cwd);
       await onSelectHistorySession(session.id);
@@ -9270,13 +8966,11 @@ function Workspace({
       if (!settingsOpenRef.current) {
         settingsReturnViewRef.current = {
           search: searchViewOpenRef.current,
-          inbox: inboxViewOpenRef.current,
         };
       }
       startTransition(() => {
         setFilePickerOpen(false);
         setSearchViewOpen(false);
-        setInboxViewOpen(false);
         if (section) {
           setSettingsSection(section);
           saveSettingsSection(section);
@@ -9318,15 +9012,9 @@ function Workspace({
     [openSettings],
   );
 
-  const onOpenInboxIntegrations = useCallback(
-    (source: ConnectableInboxSource) => openSettings("inbox", source),
-    [openSettings],
-  );
-
   const onCloseSettings = useCallback(() => {
     const returnView = settingsReturnViewRef.current;
     setSearchViewOpen(returnView.search);
-    setInboxViewOpen(returnView.inbox);
     setSettingsOpen(false);
   }, []);
 
@@ -9352,29 +9040,19 @@ function Workspace({
       setSearchViewOpen(false);
       return;
     }
-    if (inboxViewOpen) {
-      setInboxViewOpen(false);
-      return;
-    }
     onVisitBack();
   }, [
     onCloseSettings,
     onVisitBack,
     searchViewOpen,
     settingsOpen,
-    inboxViewOpen,
   ]);
 
   const onRailForward = useCallback(() => {
     setSearchViewOpen(false);
     setSettingsOpen(false);
-    setInboxViewOpen(false);
     onVisitForward();
   }, [onVisitForward]);
-
-  useEffect(() => {
-    if (sidebarTab === "inbox") setSidebarTab("sessions");
-  }, [sidebarTab]);
 
   useEffect(() => {
     if (!dockVisible) setProjectTerminalFocused(false);
@@ -9455,7 +9133,7 @@ function Workspace({
       const focusedId = current.id;
       void ensureOpenSession(next).then((session) => {
         prefetchAhead();
-        if (!session || session.inboxAsk) return;
+        if (!session) return;
         if (activeTabIdRef.current !== activeTabId) return;
         const currentTab = tabsRef.current.find(
           (tab) => tab.id === activeTabId,
@@ -9512,7 +9190,6 @@ function Workspace({
     onReload,
     onFindInProject,
     onOpenSearch,
-    onOpenInbox,
     pickProject,
     onNewTerminal,
     onNewTerminalTab,
@@ -9542,7 +9219,6 @@ function Workspace({
     onReload,
     onFindInProject,
     onOpenSearch,
-    onOpenInbox,
     pickProject,
     onNewTerminal,
     onNewTerminalTab,
@@ -9631,7 +9307,6 @@ function Workspace({
           );
           const surfaceOpen =
             searchViewOpenRef.current ||
-            inboxViewOpenRef.current ||
             settingsOpenRef.current ||
             filePickerOpenRef.current ||
             Boolean(whatsNewVersionRef.current);
@@ -9712,7 +9387,6 @@ function Workspace({
       }
       if (
         !searchViewOpenRef.current &&
-        !inboxViewOpenRef.current &&
         !(
           e.target instanceof Element &&
           e.target.closest("[data-session-drop], [data-agent-tab]")
@@ -9825,7 +9499,6 @@ function Workspace({
       ),
       listen("reload", () => run("reload", actions.current.onReload)),
       listen("open_search", () => actions.current.onOpenSearch()),
-      listen("open_inbox", () => actions.current.onOpenInbox()),
       listen("open_settings", () => actions.current.openSettings()),
       listen("check_for_updates", () => {
         void runUpdateFlow(true);
@@ -9957,7 +9630,6 @@ function Workspace({
     onUsageLimitResume,
     onUsageLimitResumeAtReset,
     onUsageLimitDismiss,
-    onInboxCardDismiss,
     onLinkedWorkItemUpdateCardDismiss,
     onHandoffCardDismiss,
     onOpenLinkedWorkItem,
@@ -9980,7 +9652,7 @@ function Workspace({
     onNewTerminal: onNewTerminalInSession,
   };
 
-  const chromeSurfaceOpen = searchViewOpen || settingsOpen || inboxViewOpen;
+  const chromeSurfaceOpen = searchViewOpen || settingsOpen;
   const compactProjectRail = collapsedProjectRailMode === "compact";
   const compactRailActive = compactProjectRail && !projectRailOpen;
   const compactTitleBar = IS_MAC && compactRailActive && !chromeSurfaceOpen;
@@ -10002,7 +9674,6 @@ function Workspace({
       onNew={onNew}
       onNewTerminal={onNewTerminal}
       onOpenSettings={onOpenSettings}
-      onOpenInbox={onOpenInbox}
       onClose={onCloseTitleTab}
       onCloseMany={onCloseTabs}
       onArchiveTab={onArchiveTitleTab}
@@ -10038,7 +9709,7 @@ function Workspace({
               onOpenFilesSearch={onFindInProject}
               ciRepair={{
                 sessions: repairSessions,
-                onOpenSession: onOpenInboxSession,
+                onOpenSession: onOpenLinkedSession,
                 onStart: startCiRepair,
               }}
               searchFocusToken={searchFocusToken}
@@ -10069,8 +9740,7 @@ function Workspace({
               canGoBack={
                 tabVisitNav.canBack ||
                 searchViewOpen ||
-                settingsOpen ||
-                inboxViewOpen
+                settingsOpen
               }
               canGoForward={tabVisitNav.canForward}
               onGoBack={onRailBack}
@@ -10101,17 +9771,14 @@ function Workspace({
               openSessions={openProjectSessions}
               onNewTerminal={onNewTerminal}
               onSearch={onOpenSearch}
-              onOpenInbox={onOpenInbox}
-              onOpenInboxItem={onOpenLinkedWorkItem}
+              onOpenLinkedWorkItem={onOpenLinkedWorkItem}
               onGoToFile={onGoToFile}
               searchActive={searchViewOpen}
-              inboxActive={inboxViewOpen}
               projectRailOpen={projectRailOpen}
               compactProjectRail={compactProjectRail}
               titleBarAbove={compactTitleBar}
               onToggleProjectRail={onToggleProjectRail}
               unseenFinishedIds={unseenFinishedIds}
-              inboxUnseen={inboxUnseen}
               linkedSessionUpdateIds={linkedSessionUpdateIds}
               settingsOpen={settingsOpen}
               settingsSection={settingsSection}
@@ -10128,22 +9795,12 @@ function Workspace({
               <div
                 className={
                   searchViewOpen ||
-                  settingsOpen ||
-                  inboxViewOpen
+                  settingsOpen
                     ? "hidden"
                     : "flex min-h-0 min-w-0 flex-1 flex-col"
                 }
-                aria-hidden={
-                  searchViewOpen ||
-                  settingsOpen ||
-                  inboxViewOpen
-                }
-                inert={
-                  searchViewOpen ||
-                  settingsOpen ||
-                  inboxViewOpen ||
-                  undefined
-                }
+                aria-hidden={searchViewOpen || settingsOpen}
+                inert={searchViewOpen || settingsOpen || undefined}
               >
                 {!IS_MAC ? (
                   <MenuBar
@@ -10162,7 +9819,6 @@ function Workspace({
                     onPickProject={pickProject}
                     onFindInProject={onFindInProject}
                     onSearch={onOpenSearch}
-                    onOpenInbox={onOpenInbox}
                     onZoomIn={() => {
                       const next = saveUiScale(zoomInUiScale(loadUiScale()));
                       void applyUiScale(next);
@@ -10235,9 +9891,7 @@ function Workspace({
                             <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
                               <PaneTree
                                 {...sessionPaneProps}
-                                visible={
-                                  tab.id === activeTabId && !inboxViewOpen
-                                }
+                                visible={tab.id === activeTabId}
                                 layout={tab.layout}
                                 sessions={sessions}
                                 editorPanes={[
@@ -10248,7 +9902,6 @@ function Workspace({
                                 fileErrorCounts={fileErrorCounts}
                                 focusedId={
                                   tab.id === activeTabId &&
-                                  !inboxViewOpen &&
                                   !tab.diffFocused &&
                                   !projectTerminalFocused
                                     ? tab.focusedId
@@ -10292,7 +9945,7 @@ function Workspace({
                       onRepairChecks={onRepairChecks}
                       onOpenSession={(sessionId) => {
                         closeLinkedWorkItemPanel(panel.sessionId);
-                        onOpenInboxSession(sessionId);
+                        onOpenLinkedSession(sessionId);
                       }}
                       key={panel.sessionId}
                       target={panel.item}
@@ -10300,7 +9953,6 @@ function Workspace({
                       visible={
                         !searchViewOpen &&
                         !settingsOpen &&
-                        !inboxViewOpen &&
                         activeLinkedWorkItemPanel?.sessionId === panel.sessionId
                       }
                       onClose={() => closeLinkedWorkItemPanel(panel.sessionId)}
@@ -10314,7 +9966,7 @@ function Workspace({
                   cwd={gitCwd}
                   recents={recents}
                   history={projectHistory}
-                  sessions={sessions.filter((session) => !session.inboxAsk)}
+                  sessions={sessions}
                   focusToken={searchViewFocusToken}
                   besideRail={projectRailOpen || compactProjectRail}
                   compactRail={compactRailActive}
@@ -10327,49 +9979,6 @@ function Workspace({
                     void onSelectHistorySession(sessionId);
                   }}
                   onOpenProject={onSelectProject}
-                />
-              ) : null}
-              <div className="hidden" aria-hidden>
-                {sessions
-                  .filter((session) => session.inboxAsk)
-                  .map((session) => {
-                    const visible =
-                      inboxViewOpen && inboxAskPortal?.sessionId === session.id;
-                    return (
-                      <SessionSurface
-                        key={session.id}
-                        host={visible ? inboxAskPortal.host : undefined}
-                      >
-                        <SessionPane
-                          {...sessionPaneProps}
-                          session={session}
-                          visible={visible}
-                          focused={visible}
-                          inSplit={false}
-                          composerFocused={composerFocused}
-                          composerFocusToken={composerFocusToken}
-                        />
-                      </SessionSurface>
-                    );
-                  })}
-              </div>
-              {inboxViewOpen ? (
-                <InboxView
-                  cwd={sidebarCwd}
-                  recents={recents}
-                  besideRail={projectRailOpen || compactProjectRail}
-                  compactRail={compactRailActive}
-                  onClose={onLeaveInbox}
-                  onToggleSidebar={onToggleSidebar}
-                  onStart={onStartInboxItem}
-                  onAsk={onAskInboxItem}
-                  onAskRestart={onRestartInboxAsk}
-                  onAskMount={setInboxAskPortal}
-                  sessions={inboxRelatedSessions}
-                  repairSessions={repairSessions}
-                  onRepairChecks={onRepairChecks}
-                  onOpenSession={onOpenInboxSession}
-                  onOpenIntegrations={onOpenInboxIntegrations}
                 />
               ) : null}
               {settingsOpen ? (
@@ -10400,9 +10009,7 @@ function Workspace({
                   onCollapsedProjectRailModeChange={setCollapsedProjectRailMode}
                 />
               ) : null}
-              {searchViewOpen ||
-              inboxViewOpen ||
-              settingsOpen ? null : (
+              {searchViewOpen || settingsOpen ? null : (
                 <UsageFooter
                   providers={usageProviders}
                   session={usageSession}

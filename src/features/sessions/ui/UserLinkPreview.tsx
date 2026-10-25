@@ -27,7 +27,7 @@ import {
   peekGithubWorkItemDetails,
   type GithubWorkItem,
   type GithubWorkItemDetails,
-} from "../../inbox/model/githubTasks";
+} from "../../github/model/githubTasks";
 import {
   fetchLinkPreviewMetadata,
   type GithubWorkItemLink,

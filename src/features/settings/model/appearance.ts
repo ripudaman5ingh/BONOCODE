@@ -102,11 +102,10 @@ export const SHOW_EXCLUDED_FILES_DEFAULT = false;
 export const SHOW_EXCLUDED_FILES_CHANGE_EVENT =
   "bonocode:showexcludedfileschange";
 
-export type SidebarTabId = "files" | "sessions" | "changes" | "inbox";
+export type SidebarTabId = "files" | "sessions" | "changes";
 
 const DEFAULT_SIDEBAR_TAB_ORDER: SidebarTabId[] = [
   "sessions",
-  "inbox",
   "files",
   "changes",
 ];
@@ -720,8 +719,7 @@ function isSidebarTabId(value: unknown): value is SidebarTabId {
   return (
     value === "files" ||
     value === "sessions" ||
-    value === "changes" ||
-    value === "inbox"
+    value === "changes"
   );
 }
 

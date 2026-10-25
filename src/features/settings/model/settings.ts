@@ -115,9 +115,9 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   {
     id: "inbox",
     group: "workspace",
-    label: "Inbox",
+    label: "GitHub & notifications",
     description:
-      "Manage Inbox services and notification preferences for each project.",
+      "Notification preferences for each project, and the GitHub connection that linked chats use.",
     keywords: "github connect token integration",
   },
   {

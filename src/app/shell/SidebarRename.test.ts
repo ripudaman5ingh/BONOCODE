@@ -1032,7 +1032,7 @@ describe("sidebar orchestration card", () => {
 describe("sidebar linked work item updates", () => {
   it("opens a linked item beside the session that owns it", () => {
     props.busySessionIds = new Set();
-    props.onOpenInboxItem = vi.fn();
+    props.onOpenLinkedWorkItem = vi.fn();
     const linkedWorkItem = {
       kind: "pr" as const,
       repo: "acme/app",
@@ -1047,7 +1047,7 @@ describe("sidebar linked work item updates", () => {
     )!;
     expect(pullRequest.title).toContain("beside this session");
     act(() => pullRequest.click());
-    expect(props.onOpenInboxItem).toHaveBeenCalledExactlyOnceWith(
+    expect(props.onOpenLinkedWorkItem).toHaveBeenCalledExactlyOnceWith(
       linkedWorkItem,
       "session-1",
     );
@@ -1211,7 +1211,7 @@ describe("sidebar session GitHub links", () => {
   });
 });
 
-describe("collapsed rail Inbox actions", () => {
+describe("collapsed rail actions", () => {
   it("restores the hidden rail layout when compact mode is disabled", async () => {
     props.projectRailOpen = false;
     props.compactProjectRail = false;
@@ -1219,7 +1219,6 @@ describe("collapsed rail Inbox actions", () => {
     props.onOpenProject = vi.fn();
     props.onNew = vi.fn();
     props.onSearch = vi.fn();
-    props.onOpenInbox = vi.fn();
     props.onOpenSettings = vi.fn();
     props.onToggleProjectRail = vi.fn();
     await act(async () => render());
@@ -1264,7 +1263,6 @@ describe("collapsed rail Inbox actions", () => {
     props.onOpenProject = vi.fn();
     props.onNew = vi.fn();
     props.onSearch = vi.fn();
-    props.onOpenInbox = vi.fn();
     props.onOpenSettings = vi.fn();
     props.onToggleProjectRail = vi.fn();
     await act(async () => render());
@@ -1296,7 +1294,6 @@ describe("collapsed rail Inbox actions", () => {
       "Explorer",
       "Changes",
       "Search",
-      "Inbox",
       "Settings",
     ]);
     const workspaceTabs = rail.querySelector<HTMLElement>(
@@ -1322,9 +1319,6 @@ describe("collapsed rail Inbox actions", () => {
         .click(),
     );
     expect(props.onTabChange).toHaveBeenCalledWith("files");
-    expect(
-      container.querySelector('button[aria-label="Inbox"]')?.closest("nav"),
-    ).toBe(rail);
     const projectPicker = rail.querySelector<HTMLButtonElement>(
       'button[aria-label^="Switch project"]',
     )!;
@@ -1608,86 +1602,6 @@ describe("collapsed rail Inbox actions", () => {
     expect(changes.querySelector("span.bg-accent")).not.toBeNull();
   });
 
-  it("uses an active compact shortcut to return to the workspace", async () => {
-    props.projectRailOpen = false;
-    props.onSelectProject = vi.fn();
-    props.onOpenProject = vi.fn();
-    props.onOpenInbox = vi.fn();
-    props.onGoBack = vi.fn();
-    props.inboxActive = true;
-    await act(async () => render());
-
-    const inbox = container.querySelector<HTMLButtonElement>(
-      'button[aria-label="Inbox"]',
-    )!;
-    expect(inbox.getAttribute("aria-pressed")).toBe("true");
-    act(() => inbox.click());
-    expect(props.onGoBack).toHaveBeenCalledOnce();
-    expect(props.onOpenInbox).not.toHaveBeenCalled();
-
-    props.inboxActive = false;
-    act(() => render());
-    act(() =>
-      container
-        .querySelector<HTMLButtonElement>('button[aria-label="Inbox"]')!
-        .click(),
-    );
-    expect(props.onOpenInbox).toHaveBeenCalledOnce();
-  });
-
-  it.each(["mouse", "ContextMenu", "Shift+F10"])(
-    "opens the shared Inbox menu via %s",
-    async (input) => {
-      props.projectRailOpen = false;
-      props.onSelectProject = vi.fn();
-      props.onOpenProject = vi.fn();
-      props.onOpenInbox = vi.fn();
-      props.onOpenNotificationSettings = vi.fn();
-      props.recents = [{ path: "/workspace/other", openedAt: 1 }];
-      await act(async () => render());
-      const inbox = container.querySelector<HTMLButtonElement>(
-        'button[aria-label="Inbox"]',
-      )!;
-      expect(inbox).not.toBeNull();
-      await act(async () => {
-        inbox.dispatchEvent(
-          input === "mouse"
-            ? new MouseEvent("contextmenu", {
-                bubbles: true,
-                cancelable: true,
-                clientX: 150,
-                clientY: 60,
-              })
-            : new KeyboardEvent("keydown", {
-                bubbles: true,
-                cancelable: true,
-                key: input === "Shift+F10" ? "F10" : input,
-                shiftKey: input === "Shift+F10",
-              }),
-        );
-      });
-      const menu = document.querySelector(
-        '[role="menu"][aria-label="Inbox actions"]',
-      );
-      expect(menu).not.toBeNull();
-      expect(menu!.textContent).toContain("Mark all as read");
-      expect(menu!.textContent).toContain("Mute all projects");
-      expect(menu!.textContent).toContain("Resume muted projects");
-      expect(menu!.textContent).toContain("2 projects");
-      const settings = [...menu!.querySelectorAll("button")].find((button) =>
-        button.textContent?.startsWith("Notification settings"),
-      )!;
-      act(() => settings.click());
-      expect(
-        props.onOpenNotificationSettings,
-      ).toHaveBeenCalledExactlyOnceWith();
-      expect(props.onOpenInbox).not.toHaveBeenCalled();
-      expect(document.activeElement).toBe(inbox);
-      expect(
-        document.querySelector('[role="menu"][aria-label="Inbox actions"]'),
-      ).toBeNull();
-    },
-  );
 });
 
 describe("sidebar working agents", () => {

@@ -16,8 +16,7 @@ import {
   orchestrator,
   sameCheckout,
 } from "../../orchestration/model/orchestration";
-import { DiscussionEmpty } from "./DiscussionEmpty";
-import { LinkedWorkItemUpdateNotice } from "../../inbox/ui/LinkedWorkItemUpdateNotice";
+import { LinkedWorkItemUpdateNotice } from "../../github/ui/LinkedWorkItemUpdateNotice";
 import { SessionReview } from "./SessionReview";
 import { PromptOutline } from "./PromptOutline";
 import {
@@ -85,7 +84,7 @@ import {
   subscribeChatBackgroundPath,
 } from "../../settings/model/appearance";
 import type { SessionFolderTarget } from "../model/sessionFolders";
-import { markLinkedSessionUpdateSeen } from "../../inbox/model/linkedSessionSeen";
+import { markLinkedSessionUpdateSeen } from "../../github/model/linkedSessionSeen";
 import { RemoteSession } from "../../connections/ui/RemoteSession";
 import { isRemoteProjectPath } from "../../projects/model/recents";
 import type { HostSession } from "../../connections/model/protocol";
@@ -150,7 +149,6 @@ export type SessionPaneProps = {
   onUsageLimitResume: (sessionId: string) => void;
   onUsageLimitResumeAtReset: (sessionId: string, enabled: boolean) => void;
   onUsageLimitDismiss: (sessionId: string) => void;
-  onInboxCardDismiss?: (sessionId: string) => void;
   onLinkedWorkItemUpdateCardDismiss?: (sessionId: string) => void;
   onHandoffCardDismiss?: (sessionId: string) => void;
   onOpenLinkedWorkItem?: (item: LinkedWorkItem, sessionId: string) => void;
@@ -279,7 +277,6 @@ const LocalSessionPane = memo(function LocalSessionPane({
   onUsageLimitResume,
   onUsageLimitResumeAtReset,
   onUsageLimitDismiss,
-  onInboxCardDismiss,
   onLinkedWorkItemUpdateCardDismiss,
   onHandoffCardDismiss,
   onOpenLinkedWorkItem,
@@ -400,16 +397,15 @@ const LocalSessionPane = memo(function LocalSessionPane({
   }, [visible]);
   // Restore a saved run for this lead; its agents render on the sidebar card.
   useEffect(() => {
-    if (!remote && !session.inboxAsk && !session.worktreeRemoved)
+    if (!remote && !session.worktreeRemoved)
       void orchestrator.hydrate(session.id).catch(console.error);
-  }, [remote, session.id, session.inboxAsk, session.worktreeRemoved]);
+  }, [remote, session.id, session.worktreeRemoved]);
   const [quoteRequest, setQuoteRequest] = useState<QuoteRequest>();
   const btw = useBtwConversation({
     available:
       !remote &&
       !isEmpty &&
       !managed &&
-      !session.inboxAsk &&
       !session.worktreeRemoved &&
       !!onBtwSubmit &&
       !!onBtwRetry &&
@@ -502,7 +498,7 @@ const LocalSessionPane = memo(function LocalSessionPane({
   const showDeckProjectPicker = isEmpty && !looksLikeProject(session.cwd);
   const dockComposer =
     remoteSessionLoading ||
-    (!draftBlock && (!isEmpty || inSplit || !!session.inboxAsk));
+    (!draftBlock && (!isEmpty || inSplit));
   const composerDockMotion = useComposerDockMotion(dockComposer);
   const draftRef = useRef<string | undefined>(getComposerDraft(session.id));
   const composer = (
@@ -525,29 +521,21 @@ const LocalSessionPane = memo(function LocalSessionPane({
       sessionId={session.id}
       compactSupported={canCompactHarnessContext(session.harness)}
       recents={recents}
-      hideProjectPicker={
-        !!session.inboxAsk ||
-        (hideProjectPicker ? !showDeckProjectPicker : false)
-      }
-      hideBranchPicker={!!session.inboxAsk || managed}
-      hideTopBar={!!session.inboxAsk}
+      hideProjectPicker={hideProjectPicker ? !showDeckProjectPicker : false}
+      hideBranchPicker={managed}
       context={session.context}
       quoteRequest={quoteRequest}
       initialDraft={
         draftRef.current ??
-        (session.inboxCard || session.handoffCard
-          ? undefined
-          : session.composerSeed)
+        (session.handoffCard ? undefined : session.composerSeed)
       }
       onDraftChange={(text) => {
         draftRef.current = text;
         setComposerDraft(session.id, text);
       }}
-      inboxCard={session.inboxCard}
       handoffCard={session.handoffCard}
       question={session.pendingQuestion}
       onQuoteRequestConsumed={acknowledgeQuote}
-      onInboxCardDismiss={() => onInboxCardDismiss?.(session.id)}
       onHandoffCardDismiss={() => onHandoffCardDismiss?.(session.id)}
       onQuestionReply={replyQuestion}
       onQuestionInteraction={(id) => onQuestionInteraction?.(session.id, id)}
@@ -560,7 +548,6 @@ const LocalSessionPane = memo(function LocalSessionPane({
           : undefined
       }
       draftWorkspace={
-        !session.inboxAsk &&
         !session.worktreeRemoved &&
         !managed &&
         (remote
@@ -595,8 +582,6 @@ const LocalSessionPane = memo(function LocalSessionPane({
         (!remote || !!remoteFeatures?.draft) &&
         !session.busy &&
         !draftBlock &&
-        !session.inboxAsk &&
-        !session.inboxCard &&
         !session.handoffCard
       }
       onSaveDraft={(text, attachments) =>
@@ -718,7 +703,7 @@ const LocalSessionPane = memo(function LocalSessionPane({
           ref={transcriptScope}
           className="@container relative min-h-0 flex-1"
         >
-          {visible && focused && !session.inboxAsk ? (
+          {visible && focused ? (
             <LinkedWorkItemUpdateNotice
               sessionId={session.id}
               card={session.linkedWorkItemUpdateCard}
@@ -746,25 +731,19 @@ const LocalSessionPane = memo(function LocalSessionPane({
             />
           ) : null}
           {remoteSessionLoading ? null : isEmpty ? (
-            session.inboxAsk ? (
-              <div className="scrollbar-none h-full min-h-0 overflow-y-auto">
-                <DiscussionEmpty message="Explore this item with your agent." />
-              </div>
-            ) : (
-              <EmptySession
-                cwd={session.cwd}
-                composer={
-                  dockComposer ? undefined : (
-                    <div
-                      ref={composerDockMotion.centeredRef}
-                      data-session-composer
-                    >
-                      {composer}
-                    </div>
-                  )
-                }
-              />
-            )
+            <EmptySession
+              cwd={session.cwd}
+              composer={
+                dockComposer ? undefined : (
+                  <div
+                    ref={composerDockMotion.centeredRef}
+                    data-session-composer
+                  >
+                    {composer}
+                  </div>
+                )
+              }
+            />
           ) : (
             <>
               <PooledTranscript
@@ -811,7 +790,6 @@ const LocalSessionPane = memo(function LocalSessionPane({
                   onBuildPlan={session.worktreeRemoved ? undefined : buildPlan}
                   planBuildTargets={!remote}
                   onSecondOpinion={
-                    !session.inboxAsk &&
                     !session.worktreeRemoved &&
                     onSecondOpinion
                       ? (target, turn) =>
@@ -819,7 +797,7 @@ const LocalSessionPane = memo(function LocalSessionPane({
                       : undefined
                   }
                   onHandoff={
-                    !session.inboxAsk && !session.worktreeRemoved && onHandoff
+                    !session.worktreeRemoved && onHandoff
                       ? (target, turn) => onHandoff(session.id, target, turn)
                       : undefined
                   }
@@ -839,7 +817,6 @@ const LocalSessionPane = memo(function LocalSessionPane({
                   }
                   latestTurnAccessory={
                     remote ||
-                    session.inboxAsk ||
                     session.worktreeRemoved ||
                     draftBlock ? undefined : (
                       <SessionReview
@@ -865,20 +842,18 @@ const LocalSessionPane = memo(function LocalSessionPane({
                   }
                 />
               </PooledTranscript>
-              {!session.inboxAsk ? (
-                <TranscriptFind
-                  blocks={session.blocks}
-                  visible={visible}
-                  focused={focused}
-                  onNavigate={navigateBlock}
-                  side={
-                    session.linkedWorkItemUpdateCard &&
-                    session.linkedWorkItemUpdateCard.status !== "loading"
-                      ? "left"
-                      : "right"
-                  }
-                />
-              ) : null}
+              <TranscriptFind
+                blocks={session.blocks}
+                visible={visible}
+                focused={focused}
+                onNavigate={navigateBlock}
+                side={
+                  session.linkedWorkItemUpdateCard &&
+                  session.linkedWorkItemUpdateCard.status !== "loading"
+                    ? "left"
+                    : "right"
+                }
+              />
               <PromptOutline
                 blocks={session.blocks}
                 scope={transcriptScope}

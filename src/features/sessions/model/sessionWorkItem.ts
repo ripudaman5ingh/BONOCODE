@@ -1,10 +1,9 @@
 import { gitPrStatus } from "../../../platform/tauri/fs";
 import {
   githubRepo,
-  inboxIdentityKey,
   type InboxItem,
   type GithubTaskKind,
-} from "../../inbox/model/githubTasks";
+} from "../../github/model/githubTasks";
 import type { LinkedWorkItem } from "./session";
 import type { GeneratedWorkItemHint } from "./sessionTitle";
 
@@ -115,31 +114,3 @@ export function linkedWorkItemFromInboxItem(
   };
 }
 
-export function inboxItemMatchesLinkedWorkItem(
-  item: InboxItem,
-  linked: LinkedWorkItem,
-): boolean {
-  return (
-    item.provider === "github" &&
-    item.kind === linked.kind &&
-    item.number === linked.number &&
-    item.repo.trim().toLowerCase() === linked.repo.trim().toLowerCase()
-  );
-}
-
-/** Same key used by Inbox selection, without synthesizing a full Inbox item. */
-export function linkedWorkItemInboxKey(linked: LinkedWorkItem): string {
-  return `github:${inboxIdentityKey(linked)}`;
-}
-
-/** Find local sessions whose persisted GitHub identity matches an Inbox row. */
-export function relatedSessionsForInboxItem<
-  T extends { linkedWorkItem?: LinkedWorkItem },
->(item: InboxItem, sessions: readonly T[]): T[] {
-  if (item.provider !== "github") return [];
-  return sessions.filter(
-    (session) =>
-      session.linkedWorkItem != null &&
-      inboxItemMatchesLinkedWorkItem(item, session.linkedWorkItem),
-  );
-}

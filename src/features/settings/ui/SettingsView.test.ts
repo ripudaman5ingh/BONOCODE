@@ -778,7 +778,7 @@ describe("settings search", () => {
     await render("general");
     await type("project notifications");
     expect(options().map((item) => item.textContent)).toEqual([
-      "Project notificationsInbox",
+      "Project notificationsGitHub & notifications",
     ]);
 
     await act(async () => options()[0]!.click());
@@ -808,9 +808,9 @@ describe("settings search", () => {
     ).toEqual([
       "Notifications",
       "Project notifications",
+      "GitHub & notifications",
       "Claude Code hooks",
       "General",
-      "Inbox",
     ]);
   });
 

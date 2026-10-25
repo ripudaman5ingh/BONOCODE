@@ -4,7 +4,6 @@ import {
   ChevronRight,
   FolderPlus,
   Internet,
-  Inbox,
   MoreHorizontal,
   Pin,
   PinOff,
@@ -74,11 +73,9 @@ import type { InstalledUpdate } from "../model/updateNotice";
 import { SettingsNav } from "./SettingsRail";
 import { Shimmer } from "../../shared/ui/Shimmer";
 import type { SettingsSectionId } from "../../features/settings/model/settings";
-import { InboxNotificationMenu } from "../../features/inbox/ui/InboxNotificationMenu";
 import { notificationMuteStatus } from "../../features/notifications/ui/notificationMuteActions";
 import { useProjectNotificationPreferences } from "../../features/notifications/hooks/useProjectNotificationPreferences";
 import { useNotificationProjects } from "../../features/notifications/hooks/useNotificationProjects";
-import { GithubStarPrompt } from "./GithubStarPrompt";
 import { Popover } from "../../shared/ui/Popover";
 import { OPEN_REMOTE_PROJECT_EVENT } from "../../features/connections/model/connections";
 import {
@@ -92,7 +89,6 @@ type Props = {
   visible?: boolean;
   cwd: string;
   recents: RecentProject[];
-  inboxUnseen?: boolean;
   busyPaths?: Iterable<string>;
   canGoBack?: boolean;
   canGoForward?: boolean;
@@ -100,8 +96,6 @@ type Props = {
   onGoForward?: () => void;
   onSearch?: () => void;
   searchActive?: boolean;
-  onOpenInbox?: () => void;
-  inboxActive?: boolean;
   onTogglePanel?: () => void;
   onSelectProject: (path: string) => void;
   onOpenProject: () => void;
@@ -124,7 +118,6 @@ export function ProjectRail({
   visible = true,
   cwd,
   recents,
-  inboxUnseen = false,
   busyPaths,
   canGoBack = false,
   canGoForward = false,
@@ -132,8 +125,6 @@ export function ProjectRail({
   onGoForward,
   onSearch,
   searchActive = false,
-  onOpenInbox,
-  inboxActive = false,
   onTogglePanel,
   onSelectProject,
   onOpenProject,
@@ -185,19 +176,13 @@ export function ProjectRail({
       }),
     [],
   );
-  const [inboxMenu, setInboxMenu] = useState<{
-    x: number;
-    y: number;
-  } | null>(null);
   const projectMenu = useProjectMenu({
     onRemoveProject,
     onOpenNotificationSettings,
-    onOpen: () => setInboxMenu(null),
   });
   useEffect(() => {
     if (visible) return;
     projectMenu.dismiss();
-    setInboxMenu(null);
   }, [visible]);
   const notificationPreferences = useProjectNotificationPreferences();
   const allProjects = useMemo(
@@ -205,7 +190,6 @@ export function ProjectRail({
     [cwd, recents],
   );
   const notificationProjects = useNotificationProjects([...allProjects.keys()]);
-  const menuTrigger = useRef<HTMLElement | null>(null);
   const lockOverscroll = useLockOverscroll<HTMLDivElement>();
   const scrollRef = useRef<HTMLDivElement>(null);
   const groupLogos = useTabGroupLogos();
@@ -356,23 +340,6 @@ export function ProjectRail({
               shortcut={`${MOD}K`}
               ariaLabel={`Search (${MOD}K)`}
             />
-            <div className="mt-0.5" />
-            <RailAction
-              label="Inbox"
-              icon={Inbox}
-              onClick={onOpenInbox}
-              onOpenContextMenu={(x, y) => {
-                menuTrigger.current =
-                  document.activeElement instanceof HTMLElement
-                    ? document.activeElement
-                    : null;
-                projectMenu.close();
-                setInboxMenu({ x, y });
-              }}
-              active={inboxActive}
-              dot={inboxUnseen}
-              ariaLabel={inboxUnseen ? "Inbox, new items" : "Inbox"}
-            />
           </div>
 
           <div
@@ -392,7 +359,7 @@ export function ProjectRail({
                 statsEnabled={visible}
                 sortable={pinnedSortable}
                 pinned
-                searchActive={searchActive || inboxActive}
+                searchActive={searchActive}
                 onSelect={onSelectProject}
                 onTogglePin={toggleProjectPin}
                 onContextMenu={onProjectContextMenu}
@@ -421,7 +388,7 @@ export function ProjectRail({
                       cwd={cwd}
                       busy={busy}
                       statsEnabled={visible}
-                      searchActive={searchActive || inboxActive}
+                      searchActive={searchActive}
                       onSelect={onSelectProject}
                       onTogglePin={toggleProjectPin}
                       onContextMenu={onProjectContextMenu}
@@ -462,7 +429,7 @@ export function ProjectRail({
               statsEnabled={visible}
               sortable={projectSortable}
               pinned={false}
-              searchActive={searchActive || inboxActive}
+              searchActive={searchActive}
               onSelect={onSelectProject}
               onTogglePin={toggleProjectPin}
               onContextMenu={onProjectContextMenu}
@@ -489,7 +456,6 @@ export function ProjectRail({
             onDismissUpdate={onDismissUpdate}
           />
           <div className="flex shrink-0 flex-col gap-px p-2">
-            <GithubStarPrompt />
             <RailAction
               label="Settings"
               icon={Settings}
@@ -501,17 +467,6 @@ export function ProjectRail({
         </>
       )}
       {visible ? projectMenu.element : null}
-      {visible && inboxMenu ? (
-        <InboxNotificationMenu
-          {...inboxMenu}
-          projectPaths={[...allProjects.keys()]}
-          onOpenSettings={onOpenNotificationSettings}
-          onClose={() => {
-            setInboxMenu(null);
-            menuTrigger.current?.focus();
-          }}
-        />
-      ) : null}
       <div
         role="separator"
         aria-orientation="vertical"

@@ -65,7 +65,7 @@ import {
   type GitPr,
 } from "../../../platform/tauri/fs";
 import type { HarnessId } from "../../sessions/model/session";
-import { recordInboxSelfActivity } from "../../inbox/model/inboxSelfActivity";
+import { recordInboxSelfActivity } from "../../github/model/inboxSelfActivity";
 import {
   loadChangesView,
   saveChangesView,

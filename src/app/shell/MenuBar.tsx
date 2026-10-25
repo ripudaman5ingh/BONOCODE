@@ -31,7 +31,6 @@ type Props = {
   onPickProject?: () => void;
   onFindInProject?: () => void;
   onSearch?: () => void;
-  onOpenInbox?: () => void;
   onZoomIn?: () => void;
   onZoomOut?: () => void;
   onZoomReset?: () => void;
@@ -51,7 +50,6 @@ export function MenuBar({
   onPickProject,
   onFindInProject,
   onSearch,
-  onOpenInbox,
   onZoomIn,
   onZoomOut,
   onZoomReset,
@@ -154,9 +152,6 @@ export function MenuBar({
         case "open_search":
           onSearch?.();
           break;
-        case "open_inbox":
-          onOpenInbox?.();
-          break;
         case "go_to_file":
           onGoToFile?.();
           break;
@@ -216,7 +211,6 @@ export function MenuBar({
       onToggleTerminal,
       onPickProject,
       onSearch,
-      onOpenInbox,
           onShowSourceControl,
       onToggleSidebar,
       onToggleSessionSidebar,
@@ -323,7 +317,6 @@ export function MenuBar({
               `${MOD}${SHIFT}B`,
             ),
           },
-          { kind: "item", id: "open_inbox", label: "Inbox" },
           {
             kind: "item",
             id: "toggle_terminal",

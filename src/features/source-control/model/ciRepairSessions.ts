@@ -19,9 +19,7 @@ export function ciRepairSessions(
     ...new Map(
       [
         ...history,
-        ...sessions
-          .filter((session) => !session.inboxAsk)
-          .map((session) => summaryFromSession(session)),
+        ...sessions.map((session) => summaryFromSession(session)),
       ].map((session) => [session.id, session]),
     ).values(),
   ].filter((session) => !unavailable.has(session.id) && !session.worktreeRemoved);

@@ -81,7 +81,7 @@ it("saves only the selected project's categories while preserving its mute deadl
   }
 
   expect(
-    checkbox("Pull requests / Merge requests for me/private").checked,
+    checkbox("Pull requests for me/private").checked,
   ).toBe(true);
   expect(checkbox("Issues for me/private").checked).toBe(
     false,
@@ -118,7 +118,7 @@ it("keeps local projects while offering only local notification categories", asy
   expect(checkbox("Agent approvals and questions for fun").checked).toBe(true);
   expect(
     container.querySelector(
-      'input[aria-label="Pull requests / Merge requests for fun"]',
+      'input[aria-label="Pull requests for fun"]',
     ),
   ).toBeNull();
   expect(
@@ -260,7 +260,7 @@ it.each(["manual", "expiry"])(
     expect(categoriesButton("me/private").textContent).toContain(
       "All notifications paused",
     );
-    const pr = checkbox("Pull requests / Merge requests for me/private");
+    const pr = checkbox("Pull requests for me/private");
     const description = document.getElementById(
       pr.getAttribute("aria-describedby") ?? "",
     );
