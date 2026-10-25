@@ -947,7 +947,6 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
                         linked_work_item_json, worktree_cwd, worktree_removed,
                         is_draft, automation_id);",
     )?;
-    crate::automations::ensure_tables(conn)?;
     ensure_orchestration_history(conn)?;
     Ok(())
 }

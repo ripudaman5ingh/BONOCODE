@@ -11,7 +11,6 @@ import {
   Plus,
   Search,
   Settings,
-  Zap,
 } from "../../shared/ui/icons";
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { useDragResize } from "../../shared/hooks/useDragResize";
@@ -103,8 +102,6 @@ type Props = {
   searchActive?: boolean;
   onOpenInbox?: () => void;
   inboxActive?: boolean;
-  onOpenAutomations?: () => void;
-  automationsActive?: boolean;
   onTogglePanel?: () => void;
   onSelectProject: (path: string) => void;
   onOpenProject: () => void;
@@ -137,8 +134,6 @@ export function ProjectRail({
   searchActive = false,
   onOpenInbox,
   inboxActive = false,
-  onOpenAutomations,
-  automationsActive = false,
   onTogglePanel,
   onSelectProject,
   onOpenProject,
@@ -378,13 +373,6 @@ export function ProjectRail({
               dot={inboxUnseen}
               ariaLabel={inboxUnseen ? "Inbox, new items" : "Inbox"}
             />
-            <RailAction
-              label="Automations"
-              icon={Zap}
-              onClick={onOpenAutomations}
-              active={automationsActive}
-              ariaLabel="Automations"
-            />
           </div>
 
           <div
@@ -404,9 +392,7 @@ export function ProjectRail({
                 statsEnabled={visible}
                 sortable={pinnedSortable}
                 pinned
-                searchActive={
-                  searchActive || inboxActive || automationsActive
-                }
+                searchActive={searchActive || inboxActive}
                 onSelect={onSelectProject}
                 onTogglePin={toggleProjectPin}
                 onContextMenu={onProjectContextMenu}
@@ -435,9 +421,7 @@ export function ProjectRail({
                       cwd={cwd}
                       busy={busy}
                       statsEnabled={visible}
-                      searchActive={
-                        searchActive || inboxActive || automationsActive
-                      }
+                      searchActive={searchActive || inboxActive}
                       onSelect={onSelectProject}
                       onTogglePin={toggleProjectPin}
                       onContextMenu={onProjectContextMenu}
@@ -478,9 +462,7 @@ export function ProjectRail({
               statsEnabled={visible}
               sortable={projectSortable}
               pinned={false}
-              searchActive={
-                searchActive || inboxActive || automationsActive
-              }
+              searchActive={searchActive || inboxActive}
               onSelect={onSelectProject}
               onTogglePin={toggleProjectPin}
               onContextMenu={onProjectContextMenu}

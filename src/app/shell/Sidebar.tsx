@@ -22,7 +22,6 @@ import {
   Search,
   Share,
   Settings,
-  Zap,
 } from "../../shared/ui/icons";
 import {
   memo,
@@ -273,11 +272,9 @@ type Props = {
   onSearch?: () => void;
   onOpenInbox?: () => void;
   onOpenInboxItem?: (item: LinkedWorkItem, sessionId: string) => void;
-  onOpenAutomations?: () => void;
   onGoToFile?: () => void;
   searchActive?: boolean;
   inboxActive?: boolean;
-  automationsActive?: boolean;
   onToggleProjectRail?: () => void;
   projectRailOpen?: boolean;
   compactProjectRail?: boolean;
@@ -355,11 +352,9 @@ function SidebarComponent({
   onSearch,
   onOpenInbox,
   onOpenInboxItem,
-  onOpenAutomations,
   onGoToFile,
   searchActive = false,
   inboxActive = false,
-  automationsActive = false,
   onToggleProjectRail,
   projectRailOpen = true,
   compactProjectRail = true,
@@ -701,7 +696,6 @@ function SidebarComponent({
   const sidebarAvailable =
     !searchActive &&
     !inboxActive &&
-    !automationsActive &&
     !settingsOpen &&
     inProject;
   const sidebarVisible = open && sidebarAvailable;
@@ -1554,10 +1548,8 @@ function SidebarComponent({
               onSearch={onSearch}
               onOpenInbox={onOpenInbox}
               onOpenNotificationSettings={onOpenNotificationSettings}
-              onOpenAutomations={onOpenAutomations}
               searchActive={searchActive}
               inboxActive={inboxActive}
-              automationsActive={automationsActive}
               inboxUnseen={inboxUnseen}
             />
           ) : null}
@@ -2035,8 +2027,6 @@ function SidebarComponent({
           onOpenInbox={onOpenInbox}
           inboxActive={inboxActive}
           onOpenNotificationSettings={onOpenNotificationSettings}
-          onOpenAutomations={onOpenAutomations}
-          automationsActive={automationsActive}
           onOpenSettings={onOpenSettings}
           onTogglePanel={onToggleProjectRail}
           onLeaveActive={onGoBack}
@@ -2061,8 +2051,6 @@ function SidebarComponent({
           searchActive={searchActive}
           onOpenInbox={onOpenInbox}
           inboxActive={inboxActive}
-          onOpenAutomations={onOpenAutomations}
-          automationsActive={automationsActive}
           onTogglePanel={onToggleProjectRail}
           onSelectProject={onSelectProject}
           onOpenProject={onOpenProject}
@@ -2137,10 +2125,8 @@ function SidebarProjectPicker({
   onSearch,
   onOpenInbox,
   onOpenNotificationSettings,
-  onOpenAutomations,
   searchActive = false,
   inboxActive = false,
-  automationsActive = false,
   inboxUnseen = false,
 }: {
   cwd: string;
@@ -2153,10 +2139,8 @@ function SidebarProjectPicker({
   onSearch?: () => void;
   onOpenInbox?: () => void;
   onOpenNotificationSettings?: (projectPath?: string) => void;
-  onOpenAutomations?: () => void;
   searchActive?: boolean;
   inboxActive?: boolean;
-  automationsActive?: boolean;
   inboxUnseen?: boolean;
 }) {
   const [inboxMenu, setInboxMenu] = useState<{ x: number; y: number } | null>(
@@ -2217,15 +2201,6 @@ function SidebarProjectPicker({
             </span>
           </IconButton>
         ) : null}
-        {onOpenAutomations ? (
-          <IconButton
-            label="Automations"
-            active={automationsActive}
-            onClick={onOpenAutomations}
-          >
-            <Zap className="size-3.5" strokeWidth={1.75} />
-          </IconButton>
-        ) : null}
       </div>
       {inboxMenu ? (
         <InboxNotificationMenu
@@ -2261,8 +2236,6 @@ function CompactProjectRail({
   onOpenInbox,
   inboxActive,
   onOpenNotificationSettings,
-  onOpenAutomations,
-  automationsActive,
   onOpenSettings,
   onTogglePanel,
   onLeaveActive,
@@ -2286,8 +2259,6 @@ function CompactProjectRail({
   onOpenInbox?: () => void;
   inboxActive: boolean;
   onOpenNotificationSettings?: (projectPath?: string) => void;
-  onOpenAutomations?: () => void;
-  automationsActive: boolean;
   onOpenSettings?: () => void;
   onTogglePanel?: () => void;
   onLeaveActive?: () => void;
@@ -2299,8 +2270,7 @@ function CompactProjectRail({
   const inboxTrigger = useRef<HTMLElement | null>(null);
   const action = (active: boolean, open?: () => void) =>
     active && onLeaveActive ? onLeaveActive : open;
-  const workspaceActive =
-    !searchActive && !inboxActive && !automationsActive;
+  const workspaceActive = !searchActive && !inboxActive;
   const openWorkspaceTab = (nextTab: SidebarTab) => {
     if (!workspaceActive) onLeaveActive?.();
     onTabChange(nextTab);
@@ -2384,12 +2354,6 @@ function CompactProjectRail({
                 : null;
             setInboxMenu({ x, y });
           }}
-        />
-        <CompactRailAction
-          label="Automations"
-          icon={Zap}
-          active={automationsActive}
-          onClick={action(automationsActive, onOpenAutomations)}
         />
       </div>
       <div className="min-h-2 flex-1" />
@@ -3237,17 +3201,6 @@ const SessionCard = memo(function SessionCard({
               </button>
             ) : null}
             {workItemBadge}
-            {session.automationId ? (
-              <span
-                data-automation-icon
-                role="img"
-                title="Started by an automation"
-                aria-label="Started by an automation"
-                className="grid size-5 -mr-1 shrink-0 place-items-center text-amber-400"
-              >
-                <Zap className="size-3" strokeWidth={1.75} />
-              </span>
-            ) : null}
             {orchestration ? (
               <div
                 ref={orchestrationTooltipRootRef}
