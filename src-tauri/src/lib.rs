@@ -1,7 +1,6 @@
 use tauri::Manager;
 
 mod account_identity;
-mod azure_devops;
 mod chat_background;
 mod checkpoint;
 mod control;
@@ -9,12 +8,9 @@ pub mod control_cli;
 mod cursor_store;
 mod external_editor;
 mod fs;
-mod gitlab;
 mod harness;
 mod harness_updates;
 mod inbox_media;
-mod jira;
-mod linear;
 mod link_preview;
 #[cfg(target_os = "macos")]
 mod macos;
@@ -314,38 +310,6 @@ pub fn run() {
             fs::git_github_pr_checks,
             fs::git_github_check_details,
             inbox_media::fetch_inbox_media,
-            gitlab::gitlab_status,
-            gitlab::gitlab_set_config,
-            gitlab::gitlab_repo,
-            gitlab::gitlab_list_work_items,
-            gitlab::gitlab_list_todos,
-            gitlab::gitlab_work_item_details,
-            gitlab::gitlab_work_item_thread,
-            gitlab::gitlab_work_item_comment,
-            gitlab::gitlab_mr_diff,
-            azure_devops::azure_devops_status,
-            azure_devops::azure_devops_set_config,
-            azure_devops::azure_devops_repo,
-            azure_devops::azure_devops_list_work_items,
-            azure_devops::azure_devops_list_todos,
-            azure_devops::azure_devops_work_item_details,
-            azure_devops::azure_devops_work_item_thread,
-            azure_devops::azure_devops_work_item_comment,
-            azure_devops::azure_devops_mr_diff,
-            linear::linear_status,
-            linear::linear_set_token,
-            linear::linear_list_teams,
-            linear::linear_list_issues,
-            linear::linear_issue_details,
-            linear::linear_issue_thread,
-            linear::linear_issue_comment,
-            jira::jira_status,
-            jira::jira_set_config,
-            jira::jira_list_projects,
-            jira::jira_list_issues,
-            jira::jira_issue_details,
-            jira::jira_issue_thread,
-            jira::jira_issue_comment,
             link_preview::fetch_link_preview,
             fs::git_branches,
             fs::git_checkout,
