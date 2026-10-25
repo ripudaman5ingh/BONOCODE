@@ -792,7 +792,6 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
         )?;
     }
     if current < 10 {
-        crate::notes::ensure_notes_table(conn)?;
         conn.execute(
             "INSERT INTO schema_migrations (version, applied_at) VALUES (10, ?1)",
             params![now_millis()],
@@ -833,7 +832,6 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
         )?;
     }
     if current < 13 {
-        crate::notes::ensure_notes_table(conn)?;
         conn.execute(
             "INSERT INTO schema_migrations (version, applied_at) VALUES (13, ?1)",
             params![now_millis()],
@@ -950,7 +948,6 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
                         linked_work_item_json, worktree_cwd, worktree_removed,
                         is_draft, automation_id);",
     )?;
-    crate::notes::ensure_notes_table(conn)?;
     crate::reminders::ensure_table(conn)?;
     crate::automations::ensure_tables(conn)?;
     ensure_orchestration_history(conn)?;

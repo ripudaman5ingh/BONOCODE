@@ -82,7 +82,7 @@ const ACTIONS: [&str; 12] = [
     "list", "delegate", "get", "steer", "message", "retry", "cancel", "wait", "review", "finish",
     "respond", "answer",
 ];
-const APP_ACTIONS: [&str; 13] = [
+const APP_ACTIONS: [&str; 10] = [
     "models.list",
     "sessions.list",
     "sessions.read",
@@ -93,9 +93,6 @@ const APP_ACTIONS: [&str; 13] = [
     "worktrees.create",
     "folders.list",
     "folders.move",
-    "notes.list",
-    "notes.read",
-    "notes.write",
 ];
 const APP_USAGE: &str = r#"MonoCode app access — use in a thread enabled by /operator.
 
@@ -146,13 +143,6 @@ Actions:
   folders.list   {}  Folders in your current project.
   folders.move   {"sessionId":"...","folderId":"..."}
                   Or use "newFolderName":"Research" to create a folder.
-  notes.list     {"limit":30,"offset":0}  Titles and short previews only.
-  notes.read     {"id":"..."}  Full body of one note.
-  notes.write    {"title":"Plan","body":"Markdown","tags":["work"]}
-                  Create a note linked to this session and project. Omit title
-                  to derive it from the body. Use {"id":"...","body":"..."}
-                  to edit an existing note; title and tags are also optional.
-                  Omitted fields stay unchanged. Reuse --request-id on retries.
 
 The output is one JSON line: {"ok":true,"result":...} or {"ok":false,"error":"..."}.
 Use --input - to pass JSON on stdin. Never print MonoCode credentials.
@@ -522,7 +512,7 @@ mod tests {
     #[test]
     fn app_mode_exposes_only_app_actions_and_safe_request_ids() {
         assert!(matches!(
-            parse_args_for(&args(&["notes.list"]), true),
+            parse_args_for(&args(&["folders.list"]), true),
             Ok(Parsed::Call(_, _, _))
         ));
         for action in ["sessions.read", "sessions.send", "sessions.draft"] {
@@ -538,8 +528,6 @@ mod tests {
         assert!(
             parse_args_for(&args(&["sessions.start", "--request-id", "bad/id"]), true).is_err()
         );
-        assert!(app_help().contains("notes.read"));
-        assert!(app_help().contains("notes.write"));
         for action in ["worktrees.list", "worktrees.create"] {
             assert!(matches!(
                 parse_args_for(&args(&[action]), true),

@@ -23,7 +23,6 @@ mod macos;
 mod macos_background;
 mod mcp;
 mod menu;
-mod notes;
 mod notifications;
 mod pasteboard;
 mod pi_usage;
@@ -464,12 +463,6 @@ pub fn run() {
             session_store::session_take_in_flight,
             session_store::workspace_set_snapshot,
             session_store::workspace_get_snapshot,
-            notes::notes_list,
-            notes::notes_get,
-            notes::notes_upsert,
-            notes::notes_delete,
-            notes::notes_save_image,
-            notes::notes_image_path,
             checkpoint::session_checkpoint_ensure,
             checkpoint::session_checkpoint_prepare,
             checkpoint::session_checkpoint_capture,
