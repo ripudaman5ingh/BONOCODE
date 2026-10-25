@@ -70,7 +70,7 @@ describe("editLastTurn", () => {
       {
         id: "internal",
         role: "user",
-        text: "hidden orchestration prompt",
+        text: "hidden managed prompt",
         internal: true,
       },
     ];

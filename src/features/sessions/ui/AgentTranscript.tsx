@@ -32,13 +32,11 @@ import { flushSync } from "react-dom";
 import { AttachmentChip } from "./AttachmentChip";
 import { GeneratedImage } from "./GeneratedImage";
 import { MonocodeSparkles } from "./MonocodeSparkles";
-import { OrchestratorConstellation } from "./OrchestratorConstellation";
 import { PlanStepsBurst } from "./PlanStepsBurst";
 import { FilePreview } from "../../files/ui/FilePreview";
 import { FileTypeIcon } from "../../files/ui/FileTypeIcon";
 import { ToolDiffPreview } from "./ToolDiffPreview";
 import { PlanPreview } from "./PlanPreview";
-import { OrchestrationPreview } from "../../orchestration/ui/OrchestrationPreview";
 import { TaskListPreview } from "./TaskListPreview";
 import { HandoffButton, SecondOpinionButton } from "./SecondOpinionButton";
 import { SecondOpinionCard } from "./SecondOpinionCard";
@@ -59,7 +57,6 @@ import {
 } from "../../../integrations/harness/core/preview";
 import { copyMessage } from "../../../platform/tauri/clipboard";
 import type { Attachment } from "../model/session";
-import { visibleUserPrompt } from "../../orchestration/model/orchestration";
 import { playCue } from "../../settings/model/sounds";
 import { legacyTaskListFromText } from "../model/taskList";
 import { resolveModel } from "../model/models";
@@ -197,7 +194,7 @@ type Props = {
   /** Kept mounted after its pane closed. Showing it again counts as a new visit. */
   parked?: boolean;
   onScrollerChange?: (el: HTMLDivElement | null) => void;
-  /** A worker's transcript: show the orchestrator's turns instead of hiding them. */
+  /** Show the app-written turns instead of hiding them. */
   managed?: boolean;
 };
 
@@ -662,13 +659,7 @@ function AgentTranscriptComponent({
           const userBlock = turnUserBlock(turn, managed);
           const durationMs = userBlock?.durationMs;
           const settled = !(busy && isLastTurn);
-          const proposals = turn.filter((block) => block.orchestration);
-          // Proposals are turn results, like the changes card. Keep them out
-          // of the live work and append them after all of the lead's output.
-          const items = groupTurnItems(
-            turn.filter((block) => !block.orchestration),
-            { settled },
-          );
+          const items = groupTurnItems(turn, { settled });
           // Earlier activity groups have already been followed by prose or
           // more work. Only the last one can still be the live group.
           const foldedAt = lastActivityIndex(items);
@@ -710,13 +701,7 @@ function AgentTranscriptComponent({
             <LiveFoldTitle
               startedAt={startedAt}
               paused={waitingForApproval}
-              waitingLabel={
-                managed && waitingForApproval
-                  ? "Waiting for orchestrator"
-                  : pendingQuestion
-                    ? "Waiting for answers"
-                    : undefined
-              }
+              waitingLabel={pendingQuestion ? "Waiting for answers" : undefined}
               background={backgroundTasks}
               modelName={turnModelName}
             />
@@ -924,18 +909,6 @@ function AgentTranscriptComponent({
                 return [foldLineRow, row];
               })}
               {foldLineAt >= items.length ? foldLineRow : null}
-              {settled &&
-                proposals
-                  .filter((block) => block.orchestration?.status !== "planning")
-                  .map((block) => (
-                    <div
-                      key={block.id}
-                      className="px-4 pt-1 pb-2"
-                      data-orchestration-result
-                    >
-                      <OrchestrationPreview block={block} busy={!!busy} />
-                    </div>
-                  ))}
               {/* The accessory keeps the pane's props, which go stale once parked. */}
               {isLastTurn && latestTurnAccessory && !parked
                 ? latestTurnAccessory
@@ -1431,7 +1404,6 @@ const TranscriptBlock = memo(function TranscriptBlock({
   }
 
   if (block.role === "plan") {
-    if (block.orchestration) return null;
     const legacyTasks = legacyTaskListFromText(block.text);
     if (legacyTasks) {
       return (
@@ -1536,7 +1508,7 @@ function UserMessageBlock({
   const text =
     card && card.kind !== "handoff"
       ? ""
-      : visibleUserPrompt(monocode ? operatorUserPrompt(block) : block.text);
+      : monocode ? operatorUserPrompt(block) : block.text;
   const messageLink = text ? parseUserMessageLink(text) : null;
   const displayText = messageLink
     ? `${messageLink.beforeText}${messageLink.afterText}`
@@ -1721,11 +1693,6 @@ function UserMessageBlock({
             <MonocodeSparkles blockId={block.id} startedAt={block.startedAt} />
           ) : block.intent === "plan" ? (
             <PlanStepsBurst blockId={block.id} startedAt={block.startedAt} />
-          ) : block.intent === "orchestrate" ? (
-            <OrchestratorConstellation
-              blockId={block.id}
-              startedAt={block.startedAt}
-            />
           ) : null}
         </div>
         {text ||

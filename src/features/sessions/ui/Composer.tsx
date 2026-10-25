@@ -11,7 +11,6 @@ import {
   Pencil,
   Play,
   Plus,
-  Share,
   Square,
   Trash2,
   X,
@@ -140,10 +139,6 @@ import {
   consumeOperatorCommand,
   OPERATOR_COMMAND,
 } from "../model/operatorCommand";
-import {
-  consumeOrchestratorCommand,
-  ORCHESTRATOR_COMMAND,
-} from "../model/orchestratorCommand";
 import { consumeDraftCommand, DRAFT_COMMAND } from "../model/draftCommand";
 import {
   leadingModeCommand,
@@ -609,7 +604,6 @@ export function Composer({
   const [plusOpen, setPlusOpen] = useState(false);
   const [planSelected, setPlanSelected] = useState(false);
   const [operatorSelected, setOperatorSelected] = useState(false);
-  const [orchestrationSelected, setOrchestrationSelected] = useState(false);
   const [draftSelected, setDraftSelected] = useState(false);
   const [slash, setSlash] = useState<SlashToken | null>(null);
   const [skillActive, setSkillActive] = useState(0);
@@ -675,7 +669,6 @@ export function Composer({
             SESSION_FOLDER_COMMAND,
             MCP_COMMAND,
             OPERATOR_COMMAND,
-            ...(hideTopBar ? [] : [ORCHESTRATOR_COMMAND]),
             PLAN_COMMAND,
             ...(canSaveDraft && onSaveDraft ? [DRAFT_COMMAND] : []),
             COMPACT_COMMAND,
@@ -690,7 +683,6 @@ export function Composer({
                     skill.name !== COMPACT_COMMAND.name &&
                     skill.name !== SESSION_FOLDER_COMMAND.name &&
                     skill.name !== MCP_COMMAND.name &&
-                    skill.name !== ORCHESTRATOR_COMMAND.name &&
                     skill.name !== DRAFT_COMMAND.name &&
                     skill.name !== BTW_COMMAND.name)),
             ),
@@ -746,8 +738,6 @@ export function Composer({
   // A leading mode command in the text shows the same pill as picking the mode.
   const operatorActive =
     operatorSelected || leadingMode?.name === OPERATOR_COMMAND.name;
-  const orchestrationActive =
-    orchestrationSelected || leadingMode?.name === ORCHESTRATOR_COMMAND.name;
   const draftActive = draftSelected || leadingMode?.name === DRAFT_COMMAND.name;
   const planActive = planSelected || leadingMode?.name === PLAN_COMMAND.name;
 
@@ -975,7 +965,6 @@ export function Composer({
     onDraftChange?.("");
     setDraftSelected(false);
     setPlanSelected(false);
-    setOrchestrationSelected(false);
     setSessionFolderSelected(false);
     setSessionFolderOpen(false);
     setMcpPickerOpen(false);
@@ -1545,11 +1534,7 @@ export function Composer({
         ? folderCommand.text
         : value,
     );
-    const orchestratorCommand =
-      !remote && !hideTopBar && !command.planning
-        ? consumeOrchestratorCommand(command.text)
-        : { text: command.text, matched: false };
-    const text = orchestratorCommand.text;
+    const text = command.text;
     const submittedText =
       operatorSelected && !consumeOperatorCommand(text).matched
         ? `/operator ${text}`
@@ -1573,12 +1558,7 @@ export function Composer({
       ),
       files,
       {
-        intent:
-          planSelected || command.planning
-            ? "plan"
-            : orchestrationSelected || orchestratorCommand.matched
-              ? "orchestrate"
-              : "default",
+        intent: planSelected || command.planning ? "plan" : "default",
         ...(resendEdited
           ? {
               resendEdited: true,
@@ -1593,9 +1573,9 @@ export function Composer({
           : {}),
       },
     );
-    // The app can reject a turn before it is recorded (for example while an
-    // orchestration is paused). Keep the user's text, files and selected mode
-    // intact so resolving the blocker never destroys their work.
+    // The app can reject a turn before it is recorded. Keep the user's text,
+    // files and selected mode intact so resolving the blocker never destroys
+    // their work.
     if (accepted === false) {
       restoreDraft(text, files);
       return;
@@ -1615,7 +1595,6 @@ export function Composer({
     onEditingLastTurnChange?.(false);
     setPlanSelected(false);
     setOperatorSelected(false);
-    setOrchestrationSelected(false);
     setSessionFolderSelected(false);
     setSessionFolderOpen(false);
     setPlusOpen(false);
@@ -2319,7 +2298,6 @@ export function Composer({
                         setPlanSelected(!planActive);
                         if (planActive) clearLeadingMode(PLAN_COMMAND.name);
                         setOperatorSelected(false);
-                        setOrchestrationSelected(false);
                         setDraftSelected(false);
                         setPlusOpen(false);
                         ref.current?.focus();
@@ -2349,7 +2327,6 @@ export function Composer({
                           clearLeadingMode(OPERATOR_COMMAND.name);
                         }
                         setPlanSelected(false);
-                        setOrchestrationSelected(false);
                         setDraftSelected(false);
                         setPlusOpen(false);
                         ref.current?.focus();
@@ -2368,41 +2345,6 @@ export function Composer({
                       ) : null}
                     </button>
                   ) : null}
-                  {!remote && !hideTopBar && (
-                    <button
-                      type="button"
-                      aria-pressed={orchestrationActive}
-                      onMouseDown={(event) => event.preventDefault()}
-                      onClick={() => {
-                        setOrchestrationSelected(!orchestrationActive);
-                        if (orchestrationActive) {
-                          clearLeadingMode(ORCHESTRATOR_COMMAND.name);
-                        }
-                        setPlanSelected(false);
-                        setOperatorSelected(false);
-                        setDraftSelected(false);
-                        setPlusOpen(false);
-                        ref.current?.focus();
-                      }}
-                      className="flex w-full items-start gap-2.5 rounded-lg px-2 py-2 text-left text-content hover:bg-content/10"
-                    >
-                      <Share className="mt-0.5 size-4 shrink-0 text-fuchsia-300/65" />
-                      <span className="min-w-0 flex-1">
-                        <span className="flex items-center gap-1.5">
-                          <span className="text-[13px]">Orchestrator</span>
-                          <span className="rounded-full bg-fuchsia-300/10 px-1.5 py-0.5 text-[9px] font-medium leading-none tracking-wide text-fuchsia-200/55 mb-px">
-                            v1
-                          </span>
-                        </span>
-                        <span className="block truncate whitespace-nowrap text-[11px] leading-4 text-content/45">
-                          Plan and coordinate agent work
-                        </span>
-                      </span>
-                      {orchestrationActive && (
-                        <Check className="mt-0.5 size-3.5 shrink-0 text-fuchsia-300/80" />
-                      )}
-                    </button>
-                  )}
                   {canSaveDraft && onSaveDraft ? (
                     <button
                       type="button"
@@ -2413,7 +2355,6 @@ export function Composer({
                         if (draftActive) clearLeadingMode(DRAFT_COMMAND.name);
                         setPlanSelected(false);
                         setOperatorSelected(false);
-                        setOrchestrationSelected(false);
                         setPlusOpen(false);
                         ref.current?.focus();
                       }}
@@ -2440,16 +2381,6 @@ export function Composer({
                 onClear={() => {
                   setOperatorSelected(false);
                   clearLeadingMode(OPERATOR_COMMAND.name);
-                  ref.current?.focus();
-                }}
-              />
-            ) : null}
-            {!compact && orchestrationActive ? (
-              <ModeCommandPill
-                name={ORCHESTRATOR_COMMAND.name}
-                onClear={() => {
-                  setOrchestrationSelected(false);
-                  clearLeadingMode(ORCHESTRATOR_COMMAND.name);
                   ref.current?.focus();
                 }}
               />

@@ -893,63 +893,7 @@ describe("Composer question focus", () => {
     });
   });
 
-  it("offers /orchestrator in the slash picker and submits with the orchestrate intent", async () => {
-    const onSubmit = vi.fn(() => true);
-    await act(async () =>
-      root.render(
-        createElement(Composer, {
-          focused: true,
-          harness: "claude",
-          model: "claude-sonnet",
-          runtimeMode: "supervised",
-          executionCwd: "/repo",
-          initialDraft: "/orch",
-          hideProjectPicker: true,
-          hideBranchPicker: true,
-          onFocus: vi.fn(),
-          onCwdChange: vi.fn(),
-          onModelChange: vi.fn(),
-          onRuntimeModeChange: vi.fn(),
-          onSubmit,
-        }),
-      ),
-    );
-    const textarea = container.querySelector("textarea")!;
-    await act(async () =>
-      textarea.dispatchEvent(new Event("input", { bubbles: true })),
-    );
-    const command = Array.from(
-      container.querySelectorAll<HTMLButtonElement>('[role="option"]'),
-    ).find((button) => button.textContent?.includes("/orchestrator"));
-    expect(command).toBeDefined();
-    await act(async () => command!.click());
-    expect(textarea.value).toBe("/orchestrator ");
-    expect(
-      container.querySelector('[aria-label="Turn off Orchestrator mode"]'),
-    ).not.toBeNull();
-    await act(async () => {
-      textarea.value += "ship the release";
-      textarea.dispatchEvent(new Event("input", { bubbles: true }));
-    });
-    const send = container.querySelector<HTMLButtonElement>(
-      '[aria-label="Send"]',
-    )!;
-    await act(async () => send.click());
-    expect(onSubmit).toHaveBeenLastCalledWith("ship the release", [], {
-      intent: "orchestrate",
-    });
-
-    await act(async () => {
-      textarea.value = "/orchestrator fix the build";
-      textarea.dispatchEvent(new Event("input", { bubbles: true }));
-    });
-    await act(async () => send.click());
-    expect(onSubmit).toHaveBeenLastCalledWith("fix the build", [], {
-      intent: "orchestrate",
-    });
-  });
-
-  it("offers Operator above Orchestrator and sends the /operator command", async () => {
+  it("offers Operator and sends the /operator command", async () => {
     const onSubmit = vi.fn().mockReturnValueOnce(false).mockReturnValue(true);
     await act(async () =>
       root.render(
@@ -986,11 +930,6 @@ describe("Composer question focus", () => {
       button.textContent?.includes("Operator"),
     )!;
     expect(operator).toBeDefined();
-    expect(options.indexOf(operator)).toBeLessThan(
-      options.findIndex((button) =>
-        button.textContent?.includes("Orchestrator"),
-      ),
-    );
     await act(async () => operator.click());
     const textarea = container.querySelector("textarea")!;
     expect(textarea.value).toBe("List my notes");
@@ -1081,7 +1020,7 @@ describe("Composer question focus", () => {
   });
 
   it("restores the draft when submit is rejected", async () => {
-    let parentDraft = "Blocked while orchestration is paused";
+    let parentDraft = "Blocked while the app is busy";
     const onDraftChange = vi.fn((text: string) => {
       parentDraft = text;
     });
@@ -1113,8 +1052,8 @@ describe("Composer question focus", () => {
         .click(),
     );
 
-    expect(textarea.value).toBe("Blocked while orchestration is paused");
-    expect(parentDraft).toBe("Blocked while orchestration is paused");
+    expect(textarea.value).toBe("Blocked while the app is busy");
+    expect(parentDraft).toBe("Blocked while the app is busy");
   });
 
   it("does not restore a failed resend over newer composer text", async () => {

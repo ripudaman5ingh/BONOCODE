@@ -23,8 +23,8 @@ describe("runtimeModeToCodexConfig", () => {
     });
   });
 
-  it("opens loopback for a lead, since every sandbox denies network by default", () => {
-    // Without this an orchestration lead cannot reach its own control CLI.
+  it("opens loopback for a controlling thread, since every sandbox denies network by default", () => {
+    // Without this a controlling thread cannot reach its own control CLI.
     for (const mode of ["supervised", "auto-accept-edits", "auto"] as const)
       expect(
         runtimeModeToCodexConfig(mode, true).sandboxPolicy,

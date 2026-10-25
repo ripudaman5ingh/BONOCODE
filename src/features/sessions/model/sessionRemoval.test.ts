@@ -68,7 +68,6 @@ function fixture(mode: "archive" | "delete") {
         workspace: {
           snapshot: () => state,
           apply: (change) => {
-            if (change.type === "orchestrationReleased") return;
             if (change.type === "removed") {
               commit(change.removal);
               return;

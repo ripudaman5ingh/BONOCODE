@@ -11,11 +11,6 @@ import {
 } from "react";
 import { Composer } from "./Composer";
 import type { Worktree } from "../../source-control/model/worktrees";
-import {
-  orchestrationCheckoutCwd,
-  orchestrator,
-  sameCheckout,
-} from "../../orchestration/model/orchestration";
 import { LinkedWorkItemUpdateNotice } from "../../github/ui/LinkedWorkItemUpdateNotice";
 import { SessionReview } from "./SessionReview";
 import { PromptOutline } from "./PromptOutline";
@@ -300,16 +295,6 @@ const LocalSessionPane = memo(function LocalSessionPane({
   onPaneDragStart,
   transcriptPool,
 }: Props) {
-  const orchestrationRuns = useSyncExternalStore(
-    orchestrator.subscribe,
-    orchestrator.snapshot,
-    orchestrator.snapshot,
-  );
-  const managed = orchestrationRuns.some(
-    (run) =>
-      (run.status === "active" || run.status === "paused") &&
-      sameCheckout(orchestrationCheckoutCwd(run), sessionWorkCwd(session)),
-  );
   const title = sessionDisplayTitle(session.title, session.harness);
   const isEmpty = session.blocks.length === 0;
   const recallLastTurnRef = useRef<(() => void) | null>(null);
@@ -395,17 +380,11 @@ const LocalSessionPane = memo(function LocalSessionPane({
   useEffect(() => {
     if (!visible) setModelWelcome(null);
   }, [visible]);
-  // Restore a saved run for this lead; its agents render on the sidebar card.
-  useEffect(() => {
-    if (!remote && !session.worktreeRemoved)
-      void orchestrator.hydrate(session.id).catch(console.error);
-  }, [remote, session.id, session.worktreeRemoved]);
   const [quoteRequest, setQuoteRequest] = useState<QuoteRequest>();
   const btw = useBtwConversation({
     available:
       !remote &&
       !isEmpty &&
-      !managed &&
       !session.worktreeRemoved &&
       !!onBtwSubmit &&
       !!onBtwRetry &&
@@ -413,7 +392,6 @@ const LocalSessionPane = memo(function LocalSessionPane({
         sessionHasBtwThreads(session.blocks)),
     blocks: session.blocks,
     harness: session.harness,
-    managed,
     model: session.model,
     modelSettings: session.modelSettings,
     onSubmit: (turn, threadId, messageId, text, model, modelSettings) =>
@@ -522,7 +500,6 @@ const LocalSessionPane = memo(function LocalSessionPane({
       compactSupported={canCompactHarnessContext(session.harness)}
       recents={recents}
       hideProjectPicker={hideProjectPicker ? !showDeckProjectPicker : false}
-      hideBranchPicker={managed}
       context={session.context}
       quoteRequest={quoteRequest}
       initialDraft={
@@ -549,7 +526,6 @@ const LocalSessionPane = memo(function LocalSessionPane({
       }
       draftWorkspace={
         !session.worktreeRemoved &&
-        !managed &&
         (remote
           ? !remoteSessionStarted
           : (isEmpty || !!session.workspaceMode) && !session.worktreeCwd)
@@ -824,18 +800,7 @@ const LocalSessionPane = memo(function LocalSessionPane({
                         cwd={workCwd}
                         enabled={visible}
                         busy={!!session.busy}
-                        undoLocked={
-                          reviewUndoLocked ||
-                          orchestrationRuns.some(
-                            (run) =>
-                              (run.status === "active" ||
-                                run.status === "paused") &&
-                              (run.leadId === session.id ||
-                                run.tasks.some(
-                                  (task) => task.sessionId === session.id,
-                                )),
-                          )
-                        }
+                        undoLocked={reviewUndoLocked}
                         onOpenDiff={onOpenDiff}
                       />
                     )

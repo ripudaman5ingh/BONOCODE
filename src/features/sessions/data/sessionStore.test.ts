@@ -402,11 +402,8 @@ describe("sanitizeSessionForPersist", () => {
     });
   });
 
-  it("preserves an internal worker's lead, hidden turns, and token metrics", () => {
-    const session = {
-      ...newSession("claude", "/repo"),
-      orchestrationLeadId: "lead",
-    };
+  it("preserves hidden managed turns and token metrics", () => {
+    const session = newSession("claude", "/repo");
     session.blocks = [
       {
         id: "u",
@@ -418,17 +415,11 @@ describe("sanitizeSessionForPersist", () => {
     ];
     const saved = sanitizeSessionForPersist(session);
     expect(saved.blocks[0]).toMatchObject({
-      orchestrationLeadId: "lead",
       internal: true,
       turnMetrics: { inputTokens: 100, outputTokens: 20 },
     });
-    expect(session.blocks[0].orchestrationLeadId).toBeUndefined();
     expect(
-      sanitizeSessionForPersist({
-        ...session,
-        orchestrationLeadId: undefined,
-        blocks: saved.blocks,
-      }).blocks[0],
+      sanitizeSessionForPersist({ ...session, blocks: saved.blocks }).blocks[0],
     ).toEqual(saved.blocks[0]);
   });
   it("persists model provenance recorded on a user turn", () => {

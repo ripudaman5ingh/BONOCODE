@@ -880,8 +880,7 @@ function ChangedFiles({
                         sessions: ciRepair.sessions.filter(
                           (session) =>
                             !session.archived &&
-                            !session.orchestrationLeadId &&
-                            sameProjectPath(session.cwd, cwd),
+                                                        sameProjectPath(session.cwd, cwd),
                         ),
                         onStart: (request, sessionId) =>
                           ciRepair.onStart(

@@ -1,7 +1,6 @@
 import { dropContextWindow, type ContextUsage } from "./contextUsage";
 import type { UserQuestionPrompt } from "./userQuestion";
 import type { HandoffComposerCard } from "./handoff";
-import type { OrchestrationProposal } from "../../orchestration/model/orchestrationPlan";
 import type { LinkedWorkItemUpdateCard } from "../../github/model/linkedWorkItemActivity";
 import {
   defaultSessionChoice,
@@ -69,7 +68,7 @@ export type TaskListMeta = {
 };
 
 /** One-shot behavior selected in the composer for the next harness turn. */
-export type TurnIntent = "default" | "plan" | "build" | "orchestrate";
+export type TurnIntent = "default" | "plan" | "build";
 export type EditedResendRejection = {
   /** The provider removed the old turn, so retry as a normal unsent prompt. */
   providerRewound: boolean;
@@ -301,8 +300,8 @@ export type Block = {
   draft?: boolean;
   /** This user turn activated MonoCode app access for its thread. */
   monocode?: boolean;
-  /** The Plan or Orchestrator mode this user turn was sent in. */
-  intent?: Extract<TurnIntent, "plan" | "orchestrate">;
+  /** The Plan mode this user turn was sent in. */
+  intent?: Extract<TurnIntent, "plan">;
   /** Stable CLI request that submitted this turn, for safe retries. */
   appRequestId?: string;
   /** Provider-reported token metrics for this user turn, when available. */
@@ -325,13 +324,9 @@ export type Block = {
   agentRun?: AgentRunMeta;
   taskList?: TaskListMeta;
   plan?: PlanBlockMeta;
-  orchestration?: OrchestrationProposal;
-  /** Parent conversation for an internal orchestration worker. */
-  orchestrationLeadId?: string;
   /**
-   * A turn the app wrote on the user's behalf to keep an orchestration moving.
-   * The harness needs it; the transcript hides it, so a run reads as one
-   * conversation rather than the user narrating their own agents.
+   * A turn the app wrote on the user's behalf for a managed run.
+   * The harness needs it; the transcript hides it.
    */
   internal?: boolean;
   handoff?: HandoffMeta;
@@ -387,8 +382,6 @@ export const RUNTIME_MODE_HINT: Record<RuntimeMode, string> = {
 export type WorkspaceMode = "current" | "worktree";
 
 export type Session = {
-  /** Internal worker: displayed in its lead's panel rather than a workspace tab. */
-  orchestrationLeadId?: string;
   id: string;
   harness: HarnessId;
   model: string;

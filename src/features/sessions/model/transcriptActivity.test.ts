@@ -349,7 +349,7 @@ describe("turnCopyText", () => {
 });
 
 describe("groupTurns", () => {
-  it("folds an orchestration turn the app wrote into the turn above", () => {
+  it("folds an app-written turn into the turn above", () => {
     const turns = groupTurns([
       { id: "u1", role: "user", text: "Review the changes" },
       { id: "a1", role: "assistant", text: "Delegating." },
