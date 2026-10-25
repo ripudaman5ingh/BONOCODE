@@ -28,7 +28,6 @@ type Options = {
   blocks: Block[];
   /** The session's current harness; each tab resolves its own from its turn. */
   harness: HarnessId;
-  managed?: boolean;
   model?: string;
   modelSettings?: Record<string, string>;
   onSubmit: (
@@ -87,7 +86,6 @@ export function useBtwConversation({
   available,
   blocks,
   harness,
-  managed = false,
   model = "",
   modelSettings = {},
   onSubmit,
@@ -116,11 +114,8 @@ export function useBtwConversation({
   // Unsent text the side composer starts from; a new key remounts it.
   const [seed, setSeed] = useState({ key: 0, text: "" });
 
-  const turns = useMemo(() => groupTurns(blocks, managed), [blocks, managed]);
-  const entries = useMemo(
-    () => sessionBtwThreads(blocks, managed),
-    [blocks, managed],
-  );
+  const turns = useMemo(() => groupTurns(blocks), [blocks]);
+  const entries = useMemo(() => sessionBtwThreads(blocks), [blocks]);
   const tabs = useMemo(() => {
     const next: BtwTab[] = entries.map(({ thread, turn }) => ({
       id: thread.id,
@@ -249,7 +244,7 @@ export function useBtwConversation({
 
   // A new tab reads from the latest finished turn at the moment it opens.
   const startDraft = (): BtwTab | null => {
-    const turnId = btwOpenTargetTurnId(turns, blocks, harness, managed);
+    const turnId = btwOpenTargetTurnId(turns, blocks, harness);
     const turn = turnId
       ? turns.find((entry) => entry[0]?.id === turnId)
       : undefined;
@@ -289,7 +284,7 @@ export function useBtwConversation({
     seed,
     model: selectedModel,
     modelSettings: selectedModelSettings,
-    canStartDraft: btwOpenTargetTurnId(turns, blocks, harness, managed) != null,
+    canStartDraft: btwOpenTargetTurnId(turns, blocks, harness) != null,
     finishClose,
     selectTab,
     /**
@@ -299,7 +294,7 @@ export function useBtwConversation({
     openWith(text: string, options?: { draft?: boolean }): boolean {
       if (!available) return false;
       const question = text.trim();
-      if (!question && !btwOpenTargetTurnId(turns, blocks, harness, managed)) {
+      if (!question && !btwOpenTargetTurnId(turns, blocks, harness)) {
         const existing =
           tabs.find((tab) => tab.id === activeTabId) ?? tabs[tabs.length - 1];
         if (!existing) return false;

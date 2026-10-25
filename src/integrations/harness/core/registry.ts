@@ -4,7 +4,6 @@ import type {
   TaskListMeta,
   TurnIntent,
 } from "../../../features/sessions/model/session";
-import { invoke, isTauri } from "@tauri-apps/api/core";
 import type { GeneratedSessionTitle } from "../../../features/sessions/model/sessionTitle";
 import type { PrContent } from "../../../features/source-control/model/gitText";
 import { hasLiveCatalog } from "../../../features/sessions/model/models";
@@ -217,20 +216,11 @@ export function sendHarnessTurn(input: SendTurnInput & { harness: HarnessId }) {
       throw new Error(`${input.harness} is not connected yet`);
     }
     cancelIdlePark(input.sessionId);
-    const controlled = typeof isTauri === "function" && isTauri();
-    if (controlled)
-      await invoke("control_authorize_turn", {
-        sessionId: input.sessionId,
-        cwd: input.cwd,
-        appAccess: input.appAccess === true,
-      });
     activeTurnSessions.add(input.sessionId);
     try {
       await adapter.sendTurn(input);
     } finally {
       activeTurnSessions.delete(input.sessionId);
-      if (controlled)
-        await invoke("control_turn_finished", { sessionId: input.sessionId });
       scheduleIdlePark(input.harness, input.sessionId);
     }
   });

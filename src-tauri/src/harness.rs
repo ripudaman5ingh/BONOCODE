@@ -858,8 +858,6 @@ pub fn harness_spawn(
     prepare_child(&mut cmd, &command);
     apply_provider_account(&app, &mut cmd, account.as_ref())?;
 
-    crate::control::configure_child(&app, &session_id, &mut cmd);
-
     let mut child =
         spawn_managed(&mut cmd).map_err(|e| format!("Failed to start {command}: {e}"))?;
     let pid = child.id();

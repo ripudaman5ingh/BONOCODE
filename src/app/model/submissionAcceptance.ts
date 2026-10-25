@@ -4,6 +4,13 @@ import { ProjectNotFoundError } from "../../features/projects/model/projectLocat
 /** Resolves when the user turn is accepted, not when the agent finishes. */
 export type SubmissionAcceptance = boolean | Promise<boolean>;
 
+/** How a submitted turn ended, reported once through `onSettled`. */
+export type SubmissionOutcome = {
+  status: "completed" | "failed" | "cancelled";
+  text: string;
+  error?: string;
+};
+
 export async function submitAfterProjectSync(options: {
   cwd: string;
   sync: Promise<ProjectLocationSync | null>;

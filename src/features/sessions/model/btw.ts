@@ -45,13 +45,10 @@ export type BtwSessionThread = {
 };
 
 /** Every side thread in a session, oldest first. */
-export function sessionBtwThreads(
-  blocks: Block[],
-  managed = false,
-): BtwSessionThread[] {
+export function sessionBtwThreads(blocks: Block[]): BtwSessionThread[] {
   if (!sessionHasBtwThreads(blocks)) return [];
   const entries: BtwSessionThread[] = [];
-  for (const turn of groupTurns(blocks, managed)) {
+  for (const turn of groupTurns(blocks)) {
     const userBlock = turn.find((block) => block.role === "user");
     for (const thread of userBlock?.btwThreads ?? []) {
       entries.push({ thread, turn });
@@ -139,10 +136,9 @@ export function btwSurfaceHarness(
 export function sessionHasBtwEligibleTurn(
   blocks: Block[],
   sessionHarness: HarnessId,
-  managed = false,
 ): boolean {
-  const turns = groupTurns(blocks, managed);
-  return btwOpenTargetTurnId(turns, blocks, sessionHarness, managed) != null;
+  const turns = groupTurns(blocks);
+  return btwOpenTargetTurnId(turns, blocks, sessionHarness) != null;
 }
 
 /** Completed turn that should receive a composer `/btw` open request. */
@@ -150,14 +146,13 @@ export function btwOpenTargetTurnId(
   turns: Block[][],
   blocks: Block[],
   sessionHarness: HarnessId,
-  managed = false,
 ): string | undefined {
   for (let index = turns.length - 1; index >= 0; index -= 1) {
     const turn = turns[index];
     let completed = false;
     for (let i = turn.length - 1; i >= 0; i -= 1) {
       const block = turn[i];
-      if (block.role !== "user" || (managed && block.internal)) continue;
+      if (block.role !== "user") continue;
       completed = block.durationMs != null;
       break;
     }
@@ -293,7 +288,6 @@ export function btwVisibleBlocks(
   const end = blocks.findIndex((block) => block.id === sourceEndBlockId);
   if (end < 0) return [];
   return blocks.slice(0, end + 1).filter((block) => {
-    if (block.internal || block.orchestration) return false;
     if (PRIVATE_ROLES[block.role]) return false;
     return !!SNAPSHOT_ROLES[block.role];
   });

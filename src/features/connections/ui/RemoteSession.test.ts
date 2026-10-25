@@ -434,7 +434,6 @@ it("uses the normal composer with the host branch in its top row", async () => {
   expect(document.body.textContent).toContain("Upload file");
   expect(document.body.textContent).toContain("Plan mode");
   expect(document.body.textContent).toContain("Draft");
-  expect(document.body.textContent).not.toContain("Operator");
   expect(byLabel("Project ")).toBeNull();
 });
 

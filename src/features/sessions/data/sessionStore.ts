@@ -40,13 +40,7 @@ import type {
 
 import { HARNESSES, RUNTIME_MODES } from "../model/session";
 
-import { restoreOrchestrationProposal } from "../../orchestration/model/orchestrationPlan";
-
-import type { OrchestrationSummary } from "../../orchestration/model/orchestrationSummary";
-
 export type SessionSummary = {
-  orchestrationLeadId?: string;
-  orchestration?: OrchestrationSummary;
   id: string;
   cwd: string;
   harness: HarnessId;
@@ -69,7 +63,6 @@ export type SessionSummary = {
 };
 
 type SessionRecord = {
-  orchestrationLeadId?: string;
   id: string;
   cwd: string;
   harness: string;
@@ -182,17 +175,10 @@ export function sanitizeLinkedWorkItem(
 export function sanitizeSessionForPersist(
   session: Session,
 ): SessionUpsertPayload {
-  const firstUser = session.blocks.findIndex((block) => block.role === "user");
   return {
     ...persistableMeta(session),
     blocks: session.blocks
-      .map((block, index) =>
-        sanitizeBlock(
-          index === firstUser && session.orchestrationLeadId
-            ? { ...block, orchestrationLeadId: session.orchestrationLeadId }
-            : block,
-        ),
-      )
+      .map((block) => sanitizeBlock(block))
       .filter((block): block is Block => block != null),
   };
 }
@@ -204,7 +190,6 @@ export function sanitizeSessionForPersist(
  * write concurrently.
  */
 const sessionWriteQueues = new Map<string, Promise<unknown>>();
-const sessionWriteLeadById = new Map<string, string>();
 const deletedSessionIds = new Set<string>();
 
 function enqueueSessionWrite<T>(
@@ -221,7 +206,6 @@ function enqueueSessionWrite<T>(
   void tail.then(() => {
     if (sessionWriteQueues.get(sessionId) === tail) {
       sessionWriteQueues.delete(sessionId);
-      sessionWriteLeadById.delete(sessionId);
     }
   });
   return run;
@@ -234,24 +218,9 @@ export async function upsertSession(
     return null;
   }
   const payload = sanitizeSessionForPersist(session);
-  if (session.orchestrationLeadId) {
-    sessionWriteLeadById.set(session.id, session.orchestrationLeadId);
-  } else {
-    sessionWriteLeadById.delete(session.id);
-  }
   const summary = await enqueueSessionWrite(session.id, async () => {
     if (deletedSessionIds.has(session.id)) return null;
-    return invoke<SessionSummary>("session_upsert", {
-      session: {
-        ...payload,
-        blocks: payload.blocks.map((block) =>
-          block.orchestrationLeadId &&
-          deletedSessionIds.has(block.orchestrationLeadId)
-            ? { ...block, orchestrationLeadId: undefined }
-            : block,
-        ),
-      },
-    });
+    return invoke<SessionSummary>("session_upsert", { session: payload });
   });
   return summary ? normalizeSummary(summary) : null;
 }
@@ -275,7 +244,7 @@ function blockToken(block: Block): number {
 }
 
 export function persistFingerprint(session: Session): string {
-  return `${JSON.stringify(persistableMeta(session))}|${session.orchestrationLeadId ?? ""}|${session.blocks
+  return `${JSON.stringify(persistableMeta(session))}|${session.blocks
     .map(blockToken)
     .join(",")}`;
 }
@@ -489,16 +458,8 @@ export async function deleteSession(
 ): Promise<void> {
   deletedSessionIds.add(sessionId);
   try {
-    // A lead with workers still has writes in flight. Finish those before
-    // the deletion transaction strips their ownership metadata.
-    const pendingWrites = [...sessionWriteQueues.entries()]
-      .filter(
-        ([queuedSessionId]) =>
-          queuedSessionId === sessionId ||
-          sessionWriteLeadById.get(queuedSessionId) === sessionId,
-      )
-      .map(([, pending]) => pending);
-    if (pendingWrites.length > 0) await Promise.all(pendingWrites);
+    // Finish in-flight writes before the deletion transaction runs.
+    await sessionWriteQueues.get(sessionId);
     await enqueueSessionWrite(sessionId, () =>
       invoke<void>("session_delete", { sessionId, imagePaths }),
     );
@@ -635,33 +596,13 @@ function sanitizeBlock(
   const turnModel = sanitizeTurnModel(block.turnModel);
   if (block.role === "user" && turnModel) next.turnModel = turnModel;
   if (block.role === "user" && block.draft) next.draft = true;
-  if (block.role === "user" && block.monocode) next.monocode = true;
-  if (
-    block.role === "user" &&
-    (block.intent === "plan" || block.intent === "orchestrate")
-  )
-    next.intent = block.intent;
-  if (
-    block.role === "user" &&
-    typeof block.appRequestId === "string" &&
-    /^[A-Za-z0-9_-]{1,512}$/.test(block.appRequestId)
-  )
-    next.appRequestId = block.appRequestId;
+  if (block.role === "user" && block.intent === "plan") next.intent = "plan";
   if (
     block.role === "user" &&
     typeof block.providerTurnId === "string" &&
     isPersistableId(block.providerTurnId)
   )
     next.providerTurnId = block.providerTurnId;
-  if (
-    block.role === "user" &&
-    typeof block.orchestrationLeadId === "string" &&
-    isPersistableId(block.orchestrationLeadId)
-  )
-    next.orchestrationLeadId = block.orchestrationLeadId;
-  // Without this the transcript would show the app's orchestration turns as
-  // the user's own after a reload.
-  if (block.role === "user" && block.internal) next.internal = true;
   const turnMetrics = sanitizeTurnMetrics(block.turnMetrics);
   if (block.role === "user" && turnMetrics) next.turnMetrics = turnMetrics;
   if (block.tool) next.tool = block.tool;
@@ -680,8 +621,6 @@ function sanitizeBlock(
   if (taskList) next.taskList = taskList;
   else if (block.role === "tasks") return null;
   const plan = sanitizePlan(block.plan, block.text);
-  if (block.orchestration)
-    next.orchestration = restoreOrchestrationProposal(block.orchestration);
   if (plan) next.plan = plan;
   else if (block.role === "plan") {
     next.plan = { status: "ready", originalText: block.text };
@@ -1108,12 +1047,6 @@ function recordToSession(record: SessionRecord): Session {
     title: record.title,
     blocks,
     busy: false,
-    orchestrationLeadId:
-      record.orchestrationLeadId ??
-      blocks.find(
-        (block) =>
-          block.orchestrationLeadId && block.orchestrationLeadId !== record.id,
-      )?.orchestrationLeadId,
     ...(record.providerSessionId
       ? { providerSessionId: record.providerSessionId }
       : {}),

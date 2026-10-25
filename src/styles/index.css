@@ -602,81 +602,6 @@ html.has-user-accent .user-message-bubble {
   border-color: color-mix(in srgb, var(--user-accent-color) 30%, transparent);
 }
 
-/*
- * A freshly sent /operator turn lights up once: the bubble blooms with a warm
- * halo, a golden sheen sweeps across it, and sparkles drift up from a glow at
- * its base, twinkling as they rise and fading out past the top edge.
- */
-.monocode-sparkles {
-  --sparkle-color: #fde68a;
-  --sparkle-glow: rgb(251 191 36 / 0.9);
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  border-radius: inherit;
-  pointer-events: none;
-  animation: monocode-halo 2400ms 150ms ease-out both;
-}
-
-html.theme-light .monocode-sparkles {
-  --sparkle-color: #f59e0b;
-  --sparkle-glow: rgb(217 119 6 / 0.55);
-}
-
-.monocode-sparkles::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    105deg,
-    transparent 30%,
-    rgb(254 243 199 / 0.5) 48%,
-    rgb(251 191 36 / 0.35) 52%,
-    transparent 70%
-  );
-  transform: translateX(-120%);
-  animation: monocode-sheen 1100ms 300ms cubic-bezier(0.4, 0, 0.2, 1) both;
-}
-
-.monocode-sparkles::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(
-    120% 70% at 50% 100%,
-    rgb(251 191 36 / 0.35),
-    transparent 70%
-  );
-  animation: monocode-ember-glow 2200ms 100ms ease-out both;
-}
-
-.monocode-sparkle {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: var(--x);
-  z-index: 1;
-  width: 0;
-  animation: monocode-rise var(--duration) var(--delay)
-    cubic-bezier(0.3, 0.6, 0.4, 1) both;
-}
-
-.monocode-sparkle-glyph {
-  position: absolute;
-  bottom: calc(var(--size) * -1);
-  left: calc(var(--size) / -2);
-  width: var(--size);
-  height: var(--size);
-  color: var(--sparkle-color);
-  filter: drop-shadow(0 0 3px var(--sparkle-glow));
-  animation: monocode-twinkle var(--duration) var(--delay) ease-in-out both;
-}
-
-.monocode-sparkle-ember {
-  border-radius: 9999px;
-  background: radial-gradient(circle, #fffbeb, var(--sparkle-color) 70%);
-}
-
 @keyframes monocode-rise {
   from {
     transform: translate(0, 0);
@@ -709,30 +634,6 @@ html.theme-light .monocode-sparkles {
   }
 }
 
-@keyframes monocode-halo {
-  0% {
-    box-shadow:
-      0 0 0 0 rgb(245 158 11 / 0),
-      0 0 0 0 rgb(245 158 11 / 0);
-  }
-  25% {
-    box-shadow:
-      0 0 0 1px rgb(245 158 11 / 0.55),
-      0 0 24px 3px rgb(245 158 11 / 0.35);
-  }
-  100% {
-    box-shadow:
-      0 0 0 0 rgb(245 158 11 / 0),
-      0 0 0 0 rgb(245 158 11 / 0);
-  }
-}
-
-@keyframes monocode-sheen {
-  to {
-    transform: translateX(120%);
-  }
-}
-
 @keyframes monocode-ember-glow {
   0% {
     opacity: 0;
@@ -745,19 +646,12 @@ html.theme-light .monocode-sparkles {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .monocode-sparkles {
-    display: none;
-  }
-}
-
 /*
- * Plan and Orchestrator turns share the /operator bloom and upward exit.
- * Numbered plan marks and a small agent network keep their own shapes and
- * colors as they travel from the bottom of the bubble past its top edge.
+ * Plan turns share the rise and twinkle keyframes. Numbered plan marks
+ * keep their own shape and color as they travel from the bottom of the bubble
+ * past its top edge.
  */
-.plan-steps,
-.orchestrator-constellation {
+.plan-steps {
   position: absolute;
   inset: 0;
   overflow: hidden;
@@ -766,8 +660,7 @@ html.theme-light .monocode-sparkles {
   animation: turn-mode-halo 2400ms 150ms ease-out both;
 }
 
-.plan-steps::before,
-.orchestrator-constellation::before {
+.plan-steps::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -781,8 +674,7 @@ html.theme-light .monocode-sparkles {
   transform: translateX(-120%);
 }
 
-.plan-steps::after,
-.orchestrator-constellation::after {
+.plan-steps::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -967,187 +859,8 @@ html.theme-light .plan-steps {
     opacity: 1;
     stroke-dashoffset: 0;
   }
-}
-
-.orchestrator-constellation {
-  --mode-color: #f0abfc;
-  --mode-glow: rgb(232 121 249 / 0.85);
-  --mode-spark: #fdf4ff;
-}
-
-html.theme-light .orchestrator-constellation {
-  --mode-color: #c026d3;
-  --mode-glow: rgb(192 38 211 / 0.5);
-  --mode-spark: #f5d0fe;
-}
-
-.orchestrator-constellation::before {
-  animation: turn-mode-sheen 1100ms 300ms cubic-bezier(0.4, 0, 0.2, 1) both;
-}
-
-.orchestrator-network {
-  position: absolute;
-  inset: 0;
-  animation: orchestrator-network-rise 2200ms 300ms
-    cubic-bezier(0.3, 0.6, 0.4, 1) both;
-}
-
-.orchestrator-edges {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  overflow: visible;
-}
-
-.orchestrator-edge,
-.orchestrator-pulse {
-  fill: none;
-  stroke-linecap: round;
-}
-
-.orchestrator-edge {
-  stroke: color-mix(in srgb, var(--mode-color) 60%, transparent);
-  stroke-width: 1.25;
-  stroke-dasharray: var(--length);
-  animation: orchestrator-edge-draw var(--draw) var(--delay)
-    cubic-bezier(0.3, 0.6, 0.4, 1) both;
-}
-
-/* A bright head rides the tip of each edge as it draws out. */
-.orchestrator-pulse {
-  stroke: var(--mode-spark);
-  stroke-width: 2.5;
-  stroke-dasharray: 6 var(--length);
-  filter: drop-shadow(0 0 3px var(--mode-glow));
-  animation: orchestrator-pulse var(--draw) var(--delay)
-    cubic-bezier(0.3, 0.6, 0.4, 1) both;
-}
-
-.orchestrator-hub,
-.orchestrator-node {
-  position: absolute;
-  z-index: 2;
-  width: var(--size);
-  height: var(--size);
-  margin: calc(var(--size) / -2) 0 0 calc(var(--size) / -2);
-  border-radius: 9999px;
-  background: radial-gradient(circle, var(--mode-spark), var(--mode-color) 70%);
-  box-shadow: 0 0 8px var(--mode-glow);
-}
-
-.orchestrator-hub::after,
-.orchestrator-node::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border: 1.5px solid var(--mode-color);
-  border-radius: inherit;
-  opacity: 0;
-}
-
-.orchestrator-hub {
-  --size: 8px;
-  animation: orchestrator-hub 600ms 120ms ease-out both;
-}
-
-.orchestrator-hub::after {
-  animation: orchestrator-ring 700ms 220ms ease-out both;
-}
-
-.orchestrator-node {
-  --size: 6px;
-  animation: orchestrator-node 600ms var(--delay) ease-out both;
-}
-
-.orchestrator-node[data-child="true"] {
-  --size: 4.5px;
-}
-
-.orchestrator-node::after {
-  animation: orchestrator-ring 500ms var(--delay) ease-out both;
-}
-
-@keyframes orchestrator-edge-draw {
-  from {
-    stroke-dashoffset: var(--length);
-  }
-  to {
-    stroke-dashoffset: 0;
-  }
-}
-
-@keyframes orchestrator-network-rise {
-  0% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  85% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(calc(-100% - 12px));
-  }
-}
-
-@keyframes orchestrator-pulse {
-  0% {
-    opacity: 1;
-    stroke-dashoffset: 6;
-  }
-  85% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-    stroke-dashoffset: calc(var(--length) * -1);
-  }
-}
-
-@keyframes orchestrator-hub {
-  0% {
-    opacity: 0;
-    transform: scale(0.3);
-  }
-  30% {
-    opacity: 1;
-    transform: scale(1.35);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-@keyframes orchestrator-node {
-  0% {
-    opacity: 0;
-    transform: scale(0.2);
-  }
-  30% {
-    opacity: 1;
-    transform: scale(1.4);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-@keyframes orchestrator-ring {
-  0% {
-    opacity: 0.8;
-    transform: scale(1);
-  }
-  100% {
-    opacity: 0;
-    transform: scale(3.5);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .plan-steps,
-  .orchestrator-constellation {
+}@media (prefers-reduced-motion: reduce) {
+  .plan-steps {
     display: none;
   }
 }
@@ -2721,7 +2434,7 @@ html.theme-light .btw-morph-frame {
 /*
  * Opening a side question: question marks drift up out of the composer into
  * the panel, wobbling as they rise, while the composer box glows and a sheen
- * crosses it. The /operator sparkles' cousin, in the accent color.
+ * crosses it, in the accent color.
  */
 .btw-burst {
   --burst-color: color-mix(

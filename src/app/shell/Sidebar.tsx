@@ -1,5 +1,4 @@
 import { NO_BRANCH_LABEL } from "../../features/source-control/model/worktrees";
-import { OrchestrationSidebarAgents } from "../../features/orchestration/ui/OrchestrationSidebarAgents";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   Archive,
@@ -19,13 +18,11 @@ import {
   Pin,
   Plus,
   Search,
-  Share,
   Settings,
 } from "../../shared/ui/icons";
 import {
   memo,
   useEffect,
-  useId,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -52,7 +49,6 @@ import { resolveModel } from "../../features/sessions/model/models";
 import type { OpenFileFn } from "../../features/search/model/search";
 import { sessionDisplayTitle } from "../../features/sessions/model/session";
 import { nextUnseenFinishedSessions } from "../../features/sessions/model/sessionDone";
-import { orchestrationTaskLabel } from "../../features/orchestration/model/orchestrationSummary";
 import {
   orderedSessionActionIds,
   pruneSessionSelection,
@@ -145,7 +141,6 @@ import { RailAction } from "./RailAction";
 import { TerminalSpinner } from "../../features/sessions/ui/TerminalSpinner";
 import { DevModeSlot, IconButton, TabVisitNav } from "./TitleBar";
 import { ProjectSearch } from "../../features/projects/ui/ProjectSearch";
-import { Popover } from "../../shared/ui/Popover";
 import { SearchableProjectPicker } from "../../features/projects/ui/SearchableProjectPicker";
 import { useProjectMenu } from "./useProjectMenu";
 import { SessionFiltersMenu } from "../../features/sessions/ui/SessionFiltersMenu";
@@ -568,7 +563,7 @@ function SidebarComponent({
     projectSessions,
     remoteProject ? [] : openSessions,
     sessionFolders,
-  ).filter((session) => !session.orchestrationLeadId);
+  );
   const visibleSessions = [
     ...filterSessionsByQuery(
       filterSessionsByStatus(
@@ -2697,27 +2692,14 @@ const SessionCard = memo(function SessionCard({
 }) {
   const skipClickUntil = useRef(0);
   const prefetchTimer = useRef<number | null>(null);
-  const orchestrationTooltipRootRef = useRef<HTMLDivElement>(null);
-  const orchestrationTooltipId = useId();
   const [dragging, setDragging] = useState(false);
-  const [orchestrationTooltipOpen, setOrchestrationTooltipOpen] =
-    useState(false);
-  const orchestration = session.orchestration;
   const draft = !!session.draft;
-  const orchestrationExpanded =
-    !!orchestration && (isActive || isSelected || busy);
-  const orchestrationDone =
-    orchestration?.tasks.filter((task) => task.status === "completed").length ??
-    0;
   const title = sessionDisplayTitle(session.title, session.harness);
   const gitLabel = session.worktreeRemoved
     ? NO_BRANCH_LABEL
     : formatGitLabel(session.repo, session.branch);
   const time = formatRelative(session.updatedAt, now);
-  const model =
-    compact && !orchestrationExpanded
-      ? null
-      : resolveModel(session.harness, session.model).name;
+  const model = compact ? null : resolveModel(session.harness, session.model).name;
   const statusClass = needsApproval
     ? "text-amber-400"
     : busy
@@ -2734,7 +2716,7 @@ const SessionCard = memo(function SessionCard({
       {needsApproval ? (
         <>
           <CircleAlert className="size-3" strokeWidth={1.75} />
-          <span>{orchestration ? "Needs input" : "Need approval"}</span>
+          <span>Need approval</span>
         </>
       ) : busy ? (
         <>
@@ -2950,23 +2932,13 @@ const SessionCard = memo(function SessionCard({
   };
 
   const archiveLabel = session.archived ? "Unarchive" : "Archive";
-  // Expanding an orchestration card must not move its existing header. Keep
-  // the collapsed top inset and give only the new detail area extra room at
-  // the bottom.
-  const cardPaddingY = orchestrationExpanded
-    ? compact
-      ? "pb-2.5 pt-1.5"
-      : "pb-2.5 pt-2"
-    : compact
-      ? "py-1.5"
-      : "py-2";
+  const cardPaddingY = compact ? "py-1.5" : "py-2";
 
   return (
     <div className="group relative">
       <div
         title={title}
         data-session-card={session.id}
-        data-orchestration-card={orchestration ? "true" : undefined}
         data-session-selected={isSelected ? "true" : undefined}
         data-tauri-drag-region="false"
         onPointerDown={onPointerDown}
@@ -2994,11 +2966,7 @@ const SessionCard = memo(function SessionCard({
                   ? `bg-selection text-content ${draft ? "border-content/30 border-dashed" : "border-transparent"}`
                   : draft
                     ? "border-content/25 border-dashed text-content/80 hover:bg-content/5 hover:text-content"
-                    : `text-content/80 hover:text-content border-transparent ${
-                        orchestrationExpanded
-                          ? "bg-content/5 hover:bg-content/10"
-                          : "hover:bg-content/5"
-                      }`
+                    : "text-content/80 hover:text-content border-transparent hover:bg-content/5"
         }`}
       >
         {dropTarget ? (
@@ -3022,7 +2990,7 @@ const SessionCard = memo(function SessionCard({
           }}
           className="rounded-sm outline-none focus-visible:ring-1 focus-visible:ring-accent/50"
         >
-          {compact && !orchestrationExpanded ? null : (
+          {compact ? null : (
             <span className="relative flex items-center gap-2">
               <span className="flex min-w-0 flex-1 items-center gap-1.5">
                 <HarnessIcon
@@ -3041,7 +3009,7 @@ const SessionCard = memo(function SessionCard({
           )}
           <span
             className={`relative flex min-w-0 items-center gap-1.5 ${
-              compact && !orchestrationExpanded ? "" : "mt-1"
+              compact ? "" : "mt-1"
             }`}
           >
             {session.pinned ? (
@@ -3053,7 +3021,7 @@ const SessionCard = memo(function SessionCard({
             <span className="min-w-0 flex-1 line-clamp-1 text-[13px] font-semibold leading-snug text-content">
               {title}
             </span>
-            {compact && !orchestrationExpanded ? (
+            {compact ? (
               <span className="flex shrink-0 items-center gap-1.5">
                 {linkedUpdateDot}
                 {status}
@@ -3061,12 +3029,6 @@ const SessionCard = memo(function SessionCard({
             ) : null}
           </span>
         </div>
-        {orchestrationExpanded ? (
-          <OrchestrationSidebarAgents
-            leadId={session.id}
-            summary={orchestration!}
-          />
-        ) : null}
         <span className="relative mt-1 flex items-center gap-2">
           {gitLabel ? (
             <span
@@ -3098,99 +3060,9 @@ const SessionCard = memo(function SessionCard({
               </button>
             ) : null}
             {workItemBadge}
-            {orchestration ? (
-              <div
-                ref={orchestrationTooltipRootRef}
-                className="relative shrink-0"
-                onMouseEnter={() => setOrchestrationTooltipOpen(true)}
-                onMouseLeave={() => setOrchestrationTooltipOpen(false)}
-              >
-                <button
-                  type="button"
-                  data-no-drag
-                  data-tauri-drag-region="false"
-                  data-orchestration-icon
-                  aria-label={`Orchestrator, ${orchestration.tasks.length} ${
-                    orchestration.tasks.length === 1 ? "subagent" : "subagents"
-                  }, ${orchestrationDone} done`}
-                  aria-describedby={
-                    orchestrationTooltipOpen
-                      ? orchestrationTooltipId
-                      : undefined
-                  }
-                  onPointerDown={(event) => event.stopPropagation()}
-                  onFocus={() => setOrchestrationTooltipOpen(true)}
-                  onBlur={() => setOrchestrationTooltipOpen(false)}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setOrchestrationTooltipOpen(false);
-                    onSelect(session.id, event);
-                  }}
-                  className="grid size-5 shrink-0 place-items-center rounded-md text-fuchsia-300/65 hover:bg-content/10 hover:text-fuchsia-200/90"
-                >
-                  <Share className="size-3" />
-                </button>
-              </div>
-            ) : null}
           </span>
         </span>
       </div>
-      {orchestration && orchestrationTooltipOpen ? (
-        <Popover
-          anchor={orchestrationTooltipRootRef}
-          side="right"
-          align="end"
-          width={248}
-          maxHeight={320}
-          role="tooltip"
-          id={orchestrationTooltipId}
-          className="pointer-events-none overflow-y-auto p-2.5"
-        >
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-[11px] font-semibold text-content/85">
-              Subagents
-            </span>
-            <span className="shrink-0 text-[10px] tabular-nums text-content/45">
-              {orchestrationDone}/{orchestration.tasks.length} done
-            </span>
-          </div>
-          <div className="mt-1.5 flex flex-col gap-0.5">
-            {orchestration.tasks.map((task) => {
-              const label = orchestrationTaskLabel(task, orchestration);
-              return (
-                <div
-                  key={task.sessionId}
-                  className="flex min-w-0 items-center gap-1.5 rounded-md px-1 py-1"
-                >
-                  <HarnessIcon
-                    harness={task.harness}
-                    className="size-3.5 shrink-0 opacity-75"
-                  />
-                  <span className="min-w-0 flex-1 truncate text-[11px] text-content/75">
-                    {task.title}
-                  </span>
-                  <span
-                    className={`shrink-0 text-[10px] ${
-                      task.needsInput ||
-                      task.status === "failed" ||
-                      task.status === "blocked" ||
-                      task.status === "interrupted"
-                        ? "text-amber-400"
-                        : label === "Working"
-                          ? "text-accent"
-                          : task.status === "completed"
-                            ? "text-emerald-400"
-                            : "text-content/45"
-                    }`}
-                  >
-                    {label}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </Popover>
-      ) : null}
     </div>
   );
 });

@@ -990,8 +990,7 @@ export function InboxDetail({
                         sessions: (repairSessions ?? []).filter(
                           (session) =>
                             !session.archived &&
-                            !session.orchestrationLeadId &&
-                            sameProjectPath(session.cwd, item.projectPath),
+                                                        sameProjectPath(session.cwd, item.projectPath),
                         ),
                         onStart: (request, sessionId) =>
                           onRepairChecks(item, request, sessionId),

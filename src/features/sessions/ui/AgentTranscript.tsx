@@ -31,14 +31,11 @@ import {
 import { flushSync } from "react-dom";
 import { AttachmentChip } from "./AttachmentChip";
 import { GeneratedImage } from "./GeneratedImage";
-import { MonocodeSparkles } from "./MonocodeSparkles";
-import { OrchestratorConstellation } from "./OrchestratorConstellation";
 import { PlanStepsBurst } from "./PlanStepsBurst";
 import { FilePreview } from "../../files/ui/FilePreview";
 import { FileTypeIcon } from "../../files/ui/FileTypeIcon";
 import { ToolDiffPreview } from "./ToolDiffPreview";
 import { PlanPreview } from "./PlanPreview";
-import { OrchestrationPreview } from "../../orchestration/ui/OrchestrationPreview";
 import { TaskListPreview } from "./TaskListPreview";
 import { HandoffButton, SecondOpinionButton } from "./SecondOpinionButton";
 import { SecondOpinionCard } from "./SecondOpinionCard";
@@ -59,7 +56,6 @@ import {
 } from "../../../integrations/harness/core/preview";
 import { copyMessage } from "../../../platform/tauri/clipboard";
 import type { Attachment } from "../model/session";
-import { visibleUserPrompt } from "../../orchestration/model/orchestration";
 import { playCue } from "../../settings/model/sounds";
 import { legacyTaskListFromText } from "../model/taskList";
 import { resolveModel } from "../model/models";
@@ -122,15 +118,6 @@ import {
   type TurnItem,
 } from "../model/transcriptActivity";
 import { lastUserTurnBlock } from "../model/editLastTurn";
-import {
-  monoCodeToolCall,
-  monoCodeWorkSummary,
-  type MonoCodeToolCall,
-} from "../model/monocodeToolCall";
-import {
-  isOperatorUserTurn,
-  operatorUserPrompt,
-} from "../model/operatorCommand";
 import {
   clearTranscriptHighlights,
   paintTranscriptHighlights,
@@ -197,8 +184,6 @@ type Props = {
   /** Kept mounted after its pane closed. Showing it again counts as a new visit. */
   parked?: boolean;
   onScrollerChange?: (el: HTMLDivElement | null) => void;
-  /** A worker's transcript: show the orchestrator's turns instead of hiding them. */
-  managed?: boolean;
 };
 
 function AgentTranscriptComponent({
@@ -232,7 +217,6 @@ function AgentTranscriptComponent({
   visible = true,
   parked = false,
   onScrollerChange,
-  managed = false,
 }: Props) {
   const blocks = useMemo(() => {
     if (!harness || !supportsHarnessLogin(harness)) return sourceBlocks;
@@ -292,7 +276,7 @@ function AgentTranscriptComponent({
   );
   const transcriptLayout = useTranscriptLayout();
   const promptAnchor = useTranscriptAnchor();
-  const lastUserId = lastUserBlockId(blocks, managed);
+  const lastUserId = lastUserBlockId(blocks);
   const seenUserId = useRef(lastUserId);
   if (lastUserId !== seenUserId.current) {
     seenUserId.current = lastUserId;
@@ -404,7 +388,7 @@ function AgentTranscriptComponent({
     introducedPromptMount.current = true;
     const { chat, anchor, visible } = introducePrompt.current;
     if (!lastUserId || !chat || !anchor || !visible) return;
-    if (mounting && !(busy && userTurnCount(blocks, managed) === 1)) return;
+    if (mounting && !(busy && userTurnCount(blocks) === 1)) return;
     return riseIntoAnchor(scroller.current, lastUserId);
     // Only a new prompt starts the motion; later renders must not replay it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -466,7 +450,7 @@ function AgentTranscriptComponent({
 
   useTurnScrollAnchor(scrollerEl, visible, stickToBottom);
 
-  const turns = groupTurns(blocks, managed);
+  const turns = groupTurns(blocks);
   const firstVisibleTurn = Math.max(0, turns.length - visibleTurnCount);
   const visibleTurns = turns.slice(firstVisibleTurn);
   const turnsRef = useRef(turns);
@@ -659,16 +643,10 @@ function AgentTranscriptComponent({
         ) : null}
         {visibleTurns.map((turn, turnIndex) => {
           const isLastTurn = firstVisibleTurn + turnIndex === turns.length - 1;
-          const userBlock = turnUserBlock(turn, managed);
+          const userBlock = turnUserBlock(turn);
           const durationMs = userBlock?.durationMs;
           const settled = !(busy && isLastTurn);
-          const proposals = turn.filter((block) => block.orchestration);
-          // Proposals are turn results, like the changes card. Keep them out
-          // of the live work and append them after all of the lead's output.
-          const items = groupTurnItems(
-            turn.filter((block) => !block.orchestration),
-            { settled },
-          );
+          const items = groupTurnItems(turn, { settled });
           // Earlier activity groups have already been followed by prose or
           // more work. Only the last one can still be the live group.
           const foldedAt = lastActivityIndex(items);
@@ -710,13 +688,7 @@ function AgentTranscriptComponent({
             <LiveFoldTitle
               startedAt={startedAt}
               paused={waitingForApproval}
-              waitingLabel={
-                managed && waitingForApproval
-                  ? "Waiting for orchestrator"
-                  : pendingQuestion
-                    ? "Waiting for answers"
-                    : undefined
-              }
+              waitingLabel={pendingQuestion ? "Waiting for answers" : undefined}
               background={backgroundTasks}
               modelName={turnModelName}
             />
@@ -924,18 +896,6 @@ function AgentTranscriptComponent({
                 return [foldLineRow, row];
               })}
               {foldLineAt >= items.length ? foldLineRow : null}
-              {settled &&
-                proposals
-                  .filter((block) => block.orchestration?.status !== "planning")
-                  .map((block) => (
-                    <div
-                      key={block.id}
-                      className="px-4 pt-1 pb-2"
-                      data-orchestration-result
-                    >
-                      <OrchestrationPreview block={block} busy={!!busy} />
-                    </div>
-                  ))}
               {/* The accessory keeps the pane's props, which go stale once parked. */}
               {isLastTurn && latestTurnAccessory && !parked
                 ? latestTurnAccessory
@@ -1431,7 +1391,6 @@ const TranscriptBlock = memo(function TranscriptBlock({
   }
 
   if (block.role === "plan") {
-    if (block.orchestration) return null;
     const legacyTasks = legacyTaskListFromText(block.text);
     if (legacyTasks) {
       return (
@@ -1532,11 +1491,7 @@ function UserMessageBlock({
   const [singleLine, setSingleLine] = useState(false);
   const textRef = useRef<HTMLElement>(null);
   const card = block.secondOpinion;
-  const monocode = isOperatorUserTurn(block);
-  const text =
-    card && card.kind !== "handoff"
-      ? ""
-      : visibleUserPrompt(monocode ? operatorUserPrompt(block) : block.text);
+  const text = card && card.kind !== "handoff" ? "" : block.text;
   const messageLink = text ? parseUserMessageLink(text) : null;
   const displayText = messageLink
     ? `${messageLink.beforeText}${messageLink.afterText}`
@@ -1611,7 +1566,6 @@ function UserMessageBlock({
       >
         <div
           data-draft={block.draft ? "true" : undefined}
-          data-monocode={monocode ? "true" : undefined}
           className={`user-message-bubble relative min-w-0 px-3 py-2 font-sans text-content transition-[background-color] duration-200 ${
             block.draft
               ? "border border-dashed border-content/30 bg-content/4"
@@ -1717,15 +1671,8 @@ function UserMessageBlock({
               </span>
             </div>
           ) : null}
-          {monocode ? (
-            <MonocodeSparkles blockId={block.id} startedAt={block.startedAt} />
-          ) : block.intent === "plan" ? (
+          {block.intent === "plan" ? (
             <PlanStepsBurst blockId={block.id} startedAt={block.startedAt} />
-          ) : block.intent === "orchestrate" ? (
-            <OrchestratorConstellation
-              blockId={block.id}
-              startedAt={block.startedAt}
-            />
           ) : null}
         </div>
         {text ||
@@ -2141,7 +2088,6 @@ function ActivityPhaseGroup({
   }, [phase.steps]);
   const turnFor = useStepQueue();
   const title = activityPhaseTitle(phase, active);
-  const monoCodePhase = !!monoCodeWorkSummary(phase.steps, active);
   // Opening a group on purpose is also how you read the line that titled it,
   // whole. The auto-open while it runs is a live view, not a reading one, and
   // a one-line note the header already shows in full has nothing to add.
@@ -2156,9 +2102,7 @@ function ActivityPhaseGroup({
   if (!phase.headline && phase.steps.length === 1) {
     return (
       <div className="flex min-w-0 items-start gap-1.5">
-        {monoCodePhase ? null : (
-          <ActivityPhaseIcon kind={phase.kind} className="mt-[7px]" />
-        )}
+        <ActivityPhaseIcon kind={phase.kind} className="mt-[7px]" />
         <div className="min-w-0 flex-1">
           <ActivityRow
             block={phase.steps[0]}
@@ -2211,14 +2155,10 @@ function ActivityPhaseGroup({
          * between them leaves both half-drawn on top of each other.
          */}
         <span className="relative flex size-3.5 shrink-0 items-center justify-center">
-          {monoCodePhase ? (
-            <MonoCodeMark className="size-3.5 group-hover:opacity-0" />
-          ) : (
-            <ActivityPhaseIcon
-              kind={phase.kind}
-              className="group-hover:opacity-0"
-            />
-          )}
+          <ActivityPhaseIcon
+            kind={phase.kind}
+            className="group-hover:opacity-0"
+          />
           <ChevronRight
             className={`absolute size-3.5 text-content/45 opacity-0 transition-transform duration-200 group-hover:opacity-100 ${
               open ? "rotate-90" : ""
@@ -3001,16 +2941,6 @@ function ActivityToolRow({
   onOpenDiff?: (path: string) => void;
 }) {
   const [errorOpen, setErrorOpen] = useState(false);
-  const appCall = monoCodeToolCall(block);
-  if (appCall) {
-    return (
-      <MonoCodeCallRow
-        block={block}
-        call={appCall}
-        onApproval={onApproval}
-      />
-    );
-  }
   const label = toolCallLabel(block, cwd);
   const state = toolCallState(block);
   const pending = needsApproval(block);
@@ -3077,86 +3007,6 @@ function ActivityToolRow({
           {errorDetail}
         </pre>
       ) : null}
-    </div>
-  );
-}
-
-function MonoCodeMark({ className = "size-4" }: { className?: string }) {
-  return <img src="/bonocode.png" alt="" className={`shrink-0 ${className}`} />;
-}
-
-/** MonoCode commands read like the other activity rows; failures expose their output. */
-function MonoCodeCallRow({
-  block,
-  call,
-  onApproval,
-}: {
-  block: Block;
-  call: MonoCodeToolCall;
-  onApproval?: (requestId: number, decision: ApprovalDecision) => void;
-}) {
-  const state = toolCallState(block);
-  const output = block.tool?.detail?.trim() || block.tool?.preview?.output?.trim();
-  const [errorOpen, setErrorOpen] = useState(false);
-  const hasError = state === "rejected" && !!output;
-  const pendingApproval = needsApproval(block);
-  const command = `monocode app ${call.action}`;
-  const verb = pendingApproval
-    ? "Run"
-    : state === "pending"
-      ? "Running"
-      : "Ran";
-  const summary = (
-    <>
-      <span
-        className={`shrink-0 font-sans text-sm ${state === "rejected" ? "text-red-400" : "text-content/50"}`}
-      >
-        {verb}
-      </span>
-      <span
-        className={`flex min-w-0 max-w-full items-center gap-1 rounded bg-content/6 px-1 font-mono text-[13px] ${state === "rejected" ? "text-red-400" : "text-content/70"}`}
-        title={command}
-      >
-        <MonoCodeMark className="size-3.5" />
-        <span className="min-w-0 truncate">{command}</span>
-      </span>
-      <ToolCallStatusIcon state={state} />
-      {hasError ? (
-        <ChevronRight
-          className={`size-3.5 shrink-0 text-red-400/60 transition-transform ${errorOpen ? "rotate-90" : ""}`}
-          strokeWidth={1.75}
-        />
-      ) : null}
-    </>
-  );
-  return (
-    <div data-bonocode-tool-call={call.action} className="min-w-0">
-      {hasError ? (
-        <button
-          type="button"
-          aria-expanded={errorOpen}
-          aria-label={`${errorOpen ? "Hide" : "Show"} error details for Bonocode: ${call.label}`}
-          onClick={() => setErrorOpen((value) => !value)}
-          className="flex w-full min-w-0 items-center gap-1.5 py-1 text-left"
-        >
-          {summary}
-        </button>
-      ) : (
-        <div className="flex min-w-0 items-center gap-1.5 py-1">
-          {summary}
-        </div>
-      )}
-      {errorOpen && hasError ? (
-        <pre className="min-w-0 whitespace-pre-wrap break-words py-1 pl-5 font-mono text-[12px] leading-5 text-red-400/80">
-          {output}
-        </pre>
-      ) : null}
-      {pendingApproval ? (
-        <pre className="max-h-32 min-w-0 overflow-auto whitespace-pre-wrap break-all py-1 pl-5 font-mono text-[12px] leading-5 text-content/70">
-          {call.command}
-        </pre>
-      ) : null}
-      <ApprovalControls block={block} onApproval={onApproval} />
     </div>
   );
 }
@@ -3293,19 +3143,6 @@ function ToolCall({
   const expandable = !compact && !!detail && detail !== label;
 
   const frame = embedded ? "py-0.5" : "px-4 py-1";
-
-  const appCall = monoCodeToolCall(block);
-  if (appCall) {
-    return (
-      <div className={frame}>
-        <MonoCodeCallRow
-          block={block}
-          call={appCall}
-          onApproval={onApproval}
-        />
-      </div>
-    );
-  }
 
   if (editTool) {
     return (
@@ -3688,22 +3525,20 @@ function InterjectionDivider({ block }: { block: Block }) {
   );
 }
 
-function lastUserBlockId(blocks: Block[], managed = false): string | undefined {
-  return turnUserBlock(blocks, managed)?.id;
+function lastUserBlockId(blocks: Block[]): string | undefined {
+  return turnUserBlock(blocks)?.id;
 }
 
-function turnUserBlock(blocks: Block[], managed = false): Block | undefined {
+function turnUserBlock(blocks: Block[]): Block | undefined {
   for (let i = blocks.length - 1; i >= 0; i--) {
     const block = blocks[i];
-    if (block.role === "user" && (managed || !block.internal)) return block;
+    if (block.role === "user") return block;
   }
   return undefined;
 }
 
-function userTurnCount(blocks: Block[], managed = false): number {
-  return blocks.filter(
-    (block) => block.role === "user" && (managed || !block.internal),
-  ).length;
+function userTurnCount(blocks: Block[]): number {
+  return blocks.filter((block) => block.role === "user").length;
 }
 
 const PROMPT_RISE_MS = 560;

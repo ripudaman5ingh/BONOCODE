@@ -29,6 +29,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Linear, Jira, GitLab and Azure DevOps integrations.
 - Inbox (work-item feed, filters, notifications and Ask chats). Chats linked to GitHub issues and pull requests stay.
 - GitHub star prompt.
+- Orchestration (lead agent that plans and spawns worker chats).
+- /operator (agent-driven app CLI).
 
 ## [0.6.0] - 2026-09-30
 
