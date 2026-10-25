@@ -29,7 +29,6 @@ mod pi_usage;
 mod project_logo;
 mod pty;
 mod rate_limits;
-mod reminders;
 mod remote;
 mod remote_ssh;
 mod search;
@@ -222,7 +221,6 @@ pub fn run() {
             harness::reap_orphaned_harness_processes();
             session_store::init(app.handle())?;
             control::init(app.handle())?;
-            reminders::init(app.handle());
             checkpoint::init(app.handle())?;
             menu::install(app.handle())?;
             #[cfg(target_os = "windows")]
@@ -273,13 +271,6 @@ pub fn run() {
             notifications::request_notification_permission,
             notifications::show_notification,
             notifications::open_notification_settings,
-            reminders::reminder_list,
-            reminders::reminder_set,
-            reminders::reminder_clear,
-            reminders::reminder_configure,
-            reminders::reminder_take_open,
-            reminders::reminder_register_window,
-            reminders::reminder_open,
             automations::automations_list,
             automations::automations_upsert,
             automations::automations_delete,
