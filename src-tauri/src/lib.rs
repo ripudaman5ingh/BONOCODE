@@ -3,8 +3,6 @@ use tauri::Manager;
 mod account_identity;
 mod chat_background;
 mod checkpoint;
-mod control;
-pub mod control_cli;
 mod cursor_store;
 mod external_editor;
 mod fs;
@@ -215,7 +213,6 @@ pub fn run() {
         .setup(|app| {
             harness::reap_orphaned_harness_processes();
             session_store::init(app.handle())?;
-            control::init(app.handle())?;
             checkpoint::init(app.handle())?;
             menu::install(app.handle())?;
             #[cfg(target_os = "windows")]
@@ -249,17 +246,6 @@ pub fn run() {
             remote::remote_ssh_poll,
             remote::remote_ssh_answer,
             remote::remote_ssh_cancel,
-            control::control_enable,
-            control::control_disable,
-            control::control_reply,
-            control::control_save,
-            control::control_load,
-            control::control_scopes,
-            control::control_write_path,
-            control::control_attach_worker,
-            control::control_authorize_turn,
-            control::control_turn_finished,
-            control::app_cli_path,
             default_cwd,
             home_dir,
             notifications::notification_permission,
@@ -313,12 +299,9 @@ pub fn run() {
             fs::git_stash,
             worktrees::git_worktrees,
             worktrees::git_worktree_create,
-            worktrees::git_orchestration_worktree_create,
             worktrees::git_worktree_rename_branch,
             worktrees::git_worktree_check_remove,
             worktrees::git_worktree_remove,
-            worktrees::git_orchestration_worktree_remove,
-            worktrees::git_orchestration_branch_remove,
             fs::create_path,
             fs::rename_path,
             fs::delete_path,
@@ -468,7 +451,6 @@ pub fn run() {
             let other_window = window::workspace_windows(handle)
                 .iter()
                 .any(|window| window.label() != label);
-            control::window_closed(handle, &label);
             if !other_window {
                 reap_harness_children(handle);
             }

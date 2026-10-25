@@ -1038,17 +1038,6 @@ fn index_orchestration(conn: &Connection, lead: &str, run: &Value) -> rusqlite::
     Ok(())
 }
 
-pub(crate) fn save_orchestration(
-    conn: &Connection,
-    lead: &str,
-    run: &Value,
-) -> rusqlite::Result<()> {
-    let tx = conn.unchecked_transaction()?;
-    tx.execute("INSERT INTO orchestration_runs(lead_id, state) VALUES (?1, ?2) ON CONFLICT(lead_id) DO UPDATE SET state = excluded.state", params![lead, run.to_string()])?;
-    index_orchestration(&tx, lead, run)?;
-    tx.commit()
-}
-
 fn worker_parent(conn: &Connection, id: &str) -> rusqlite::Result<Option<String>> {
     conn.query_row(
         "SELECT lead_id FROM orchestration_workers WHERE session_id = ?1",
@@ -1976,6 +1965,14 @@ mod tests {
     use rusqlite::hooks::{AuthAction, Authorization};
     use serde_json::{json, Value};
     use std::sync::atomic::AtomicUsize;
+
+    // Production no longer writes orchestration runs; tests seed them here.
+    fn save_orchestration(conn: &Connection, lead: &str, run: &Value) -> rusqlite::Result<()> {
+        let tx = conn.unchecked_transaction()?;
+        tx.execute("INSERT INTO orchestration_runs(lead_id, state) VALUES (?1, ?2) ON CONFLICT(lead_id) DO UPDATE SET state = excluded.state", rusqlite::params![lead, run.to_string()])?;
+        index_orchestration(&tx, lead, run)?;
+        tx.commit()
+    }
 
     #[test]
     fn startup_does_not_read_saved_transcripts() {
