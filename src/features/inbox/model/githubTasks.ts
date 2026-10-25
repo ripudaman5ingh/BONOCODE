@@ -40,10 +40,12 @@ import {
   type RecentProject,
 } from "../../projects/model/recents";
 import { recordInboxSelfActivity } from "./inboxSelfActivity";
+import {
+  githubPrAction as runGithubPrAction,
+  type GithubPrAction,
+} from "../../source-control/model/githubPr";
 
 export type GithubTaskKind = "issue" | "pr";
-export type GithubPrAction =
-  "merge" | "squash" | "rebase" | "draft" | "ready" | "close" | "reopen";
 export type InboxKind = GithubTaskKind | "linear" | "jira";
 
 export type GithubLabel = {
@@ -522,12 +524,7 @@ export async function githubPrAction(
   number: number,
   action: GithubPrAction,
 ): Promise<GithubWorkItem> {
-  const item = await invoke<GithubWorkItem>("git_github_pr_action", {
-    cwd,
-    repo,
-    number,
-    action,
-  });
+  const item = await runGithubPrAction<GithubWorkItem>(cwd, repo, number, action);
   const key = workItemLookupKey(repo, "pr", number);
   workItemByKey.set(key, item);
   if (inboxListCache) {

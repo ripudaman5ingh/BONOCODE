@@ -3,35 +3,24 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../../inbox/model/githubTasks", async (original) => ({
-  ...(await original<typeof import("../../inbox/model/githubTasks")>()),
+vi.mock("../model/githubPr", async (original) => ({
+  ...(await original<typeof import("../model/githubPr")>()),
   githubPrAction: vi.fn(),
 }));
 
-import {
-  githubPrAction,
-  type GithubWorkItem,
-  type InboxItem,
-} from "../../inbox/model/githubTasks";
-import { GithubPrActions } from "../../inbox/ui/InboxView";
+import { githubPrAction } from "../model/githubPr";
+import { GithubPrActions } from "./GithubPrActions";
 
 let container: HTMLDivElement;
 let root: Root;
 
-function pr(overrides: Partial<InboxItem> = {}): InboxItem {
+function pr(overrides: Partial<Parameters<typeof GithubPrActions>[0]["pr"]> = {}) {
   return {
-    kind: "pr",
-    title: "Ship the new inbox",
-    url: "https://github.com/acme/web/pull/42",
-    state: "open",
-    updatedAt: "2026-09-16T08:00:00Z",
-    labels: [],
-    assignees: [],
-    draft: false,
+    cwd: "/tmp/web",
     repo: "acme/web",
     number: 42,
-    projectPath: "/tmp/web",
-    provider: "github",
+    state: "open",
+    draft: false,
     ...overrides,
   };
 }
@@ -63,24 +52,13 @@ afterEach(() => {
 describe("GitHub pull request actions", () => {
   it("selects a merge method, confirms it, and publishes the fresh state", async () => {
     const item = pr();
-    const merged: GithubWorkItem = {
-      kind: "pr",
-      title: item.title,
-      url: item.url,
-      state: "merged",
-      updatedAt: "2026-09-16T08:05:00Z",
-      labels: [],
-      assignees: [],
-      draft: false,
-      repo: item.repo,
-      number: item.number,
-    };
+    const merged = { state: "merged", draft: false };
     vi.mocked(githubPrAction).mockResolvedValue(merged);
     const onChange = vi.fn();
     act(() =>
       root.render(
         createElement(GithubPrActions, {
-          item,
+          pr: item,
           baseRef: "main",
           headRef: "feature/inbox",
           onChange,
@@ -123,10 +101,8 @@ describe("GitHub pull request actions", () => {
       "squash",
     );
     expect(onChange).toHaveBeenCalledWith({
-      ...item,
-      ...merged,
-      projectPath: "/tmp/web",
-      provider: "github",
+      state: "merged",
+      draft: false,
     });
   });
 
@@ -137,7 +113,7 @@ describe("GitHub pull request actions", () => {
     act(() =>
       root.render(
         createElement(GithubPrActions, {
-          item: pr(),
+          pr: pr(),
           baseRef: "main",
           headRef: "feature/inbox",
         }),
