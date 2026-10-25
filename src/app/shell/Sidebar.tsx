@@ -10,7 +10,6 @@ import {
   CircleAlert,
   CircleDashed,
   CircleDot,
-  Clock,
   FileScript,
   Folder,
   GitBranch,
@@ -82,7 +81,6 @@ import {
   folderContaining,
   folderShellFill,
   loadPinnedSessionsCollapsed,
-  loadReminderSessionsCollapsed,
   loadSessionFolders,
   mergeFolderSessionSummaries,
   pruneSessionFolders,
@@ -90,7 +88,6 @@ import {
   renameFolder,
   reorderSessionFolders,
   savePinnedSessionsCollapsed,
-  saveReminderSessionsCollapsed,
   saveSessionFolders,
   sessionListNavigationIds,
   setFolderCollapsed,
@@ -157,12 +154,6 @@ import { SearchableProjectPicker } from "../../features/projects/ui/SearchablePr
 import { useProjectMenu } from "./useProjectMenu";
 import { SessionFiltersMenu } from "../../features/sessions/ui/SessionFiltersMenu";
 import { LinkSessionWorkItemDialog } from "../../features/sessions/ui/LinkSessionWorkItemDialog";
-import { sessionReminderPresets } from "../../features/sessions/ui/sessionReminderPresets";
-import {
-  formatReminderTime,
-  reminderTime,
-  type SessionReminder,
-} from "../../features/sessions/model/sessionReminders";
 import { SessionsEmpty } from "../../features/sessions/ui/SessionsEmpty";
 import { SidebarUpdateFooter } from "./SidebarUpdate";
 import { SourceControl } from "../../features/source-control/ui/SourceControl";
@@ -179,7 +170,6 @@ import { parseRemotePath, remotePath, remoteProjectFor } from "../../features/co
 const MIN_WIDTH = 260;
 const MAX_WIDTH = 560;
 const DEFAULT_WIDTH = 260;
-const REMINDERS_COLOR = "#f59e0b";
 
 let rememberedWidth = DEFAULT_WIDTH;
 
@@ -248,9 +238,6 @@ type Props = {
     sessionId: string,
     item: LinkedWorkItem | undefined,
   ) => void;
-  reminders?: readonly SessionReminder[];
-  onSetReminders?: (sessionIds: readonly string[], dueAt: number) => void;
-  onCancelReminders?: (sessionIds: readonly string[]) => void;
   onDeleteSession?: (sessionId: string) => void;
   onDeleteSessions?: (sessionIds: readonly string[]) => void;
   onOpenFile: OpenFileFn;
@@ -334,9 +321,6 @@ function SidebarComponent({
   onPinSession: onPinLocalSession,
   onPinSessions: onPinLocalSessions,
   onSetSessionLinkedWorkItem: onSetLocalSessionLinkedWorkItem,
-  reminders = [],
-  onSetReminders,
-  onCancelReminders,
   onDeleteSession: onDeleteLocalSession,
   onDeleteSessions: onDeleteLocalSessions,
   onOpenFile,
@@ -556,9 +540,6 @@ function SidebarComponent({
   const [pinnedSessionsCollapsed, setPinnedSessionsCollapsed] = useState(() =>
     loadPinnedSessionsCollapsed(cwd),
   );
-  const [reminderSessionsCollapsed, setReminderSessionsCollapsed] = useState(
-    () => loadReminderSessionsCollapsed(cwd),
-  );
   const [sessionDrop, setSessionDrop] = useState<SessionListDropTarget | null>(
     null,
   );
@@ -628,17 +609,7 @@ function SidebarComponent({
   // Summaries for the whole project stay in `sessions` so filters still work.
   // Folders sit above the ungrouped list. Only a page of ungrouped cards
   // mounts; the sentinel below asks for the next page.
-  const reminderIds = new Set(reminders.map((reminder) => reminder.sessionId));
-  const reminderGroup = {
-    sessionIds: [...reminders]
-      .sort((a, b) => a.dueAt - b.dueAt)
-      .map((reminder) => reminder.sessionId),
-    collapsed: reminderSessionsCollapsed,
-  };
-  const ungroupedVisible = ungroupedSessions(
-    visibleSessions,
-    sessionFolders,
-  ).filter((session) => !reminderIds.has(session.id));
+  const ungroupedVisible = ungroupedSessions(visibleSessions, sessionFolders);
   const activeUngroupedIndex = ungroupedVisible.findIndex(
     (session) => session.id === activeListedSessionId,
   );
@@ -653,14 +624,12 @@ function SidebarComponent({
     sessionFolders,
     ungroupedVisible,
     pinnedSessionsCollapsed,
-    reminderGroup,
   );
   const sessionListEntries = buildSessionList(
     visibleSessions,
     sessionFolders,
     shownUngrouped,
     pinnedSessionsCollapsed,
-    reminderGroup,
   );
   const sessionNavigationIds = sessionListNavigationIds(
     fullSessionListEntries,
@@ -856,7 +825,6 @@ function SidebarComponent({
   useEffect(() => {
     setSessionFolders(loadSessionFolders(cwd));
     setPinnedSessionsCollapsed(loadPinnedSessionsCollapsed(cwd));
-    setReminderSessionsCollapsed(loadReminderSessionsCollapsed(cwd));
     setRenamingFolderId(null);
     setFolderMenu(null);
     setSessionDrop(null);
@@ -1002,13 +970,6 @@ function SidebarComponent({
     return session ? [session] : [];
   });
   const multipleMenuSessions = menuSessionIds.length > 1;
-  const menuReminderTimes = [
-    ...new Set(
-      reminders
-        .filter((reminder) => menuSessionIds.includes(reminder.sessionId))
-        .map((reminder) => reminder.dueAt),
-    ),
-  ];
   const allMenuSessionsPinned =
     menuSessions.length > 0 && menuSessions.every((session) => session.pinned);
   const allMenuSessionsArchived =
@@ -1033,20 +994,6 @@ function SidebarComponent({
     { kind: "item", id: "ungroup", label: "Ungroup" },
   ];
   const sessionMenuItems: ExplorerMenuItem[] = [
-    ...(onCancelReminders && menuReminderTimes.length > 0
-      ? [
-          {
-            kind: "item" as const,
-            id: "reminder:cancel",
-            label: "Cancel reminder",
-            description:
-              menuReminderTimes.length === 1
-                ? formatReminderTime(menuReminderTimes[0])
-                : "Multiple reminder times",
-          },
-          { kind: "sep" as const },
-        ]
-      : []),
     ...(onPinSession || onPinSessions
       ? [
           {
@@ -1099,13 +1046,6 @@ function SidebarComponent({
           },
         ]
       : []),
-    {
-      kind: "item",
-      id: "reminder",
-      label: "Remind me",
-      disabled: !onSetReminders,
-      submenu: sessionReminderPresets(),
-    },
     { kind: "sep" as const },
     { kind: "item" as const, id: "folder-new", label: "New folder" },
     ...(sessionFolders.length > 0 ? [{ kind: "sep" as const }] : []),
@@ -1202,19 +1142,6 @@ function SidebarComponent({
     const archived = allMenuSessionsArchived;
     const pinned = allMenuSessionsPinned;
     closeSessionMenu();
-    if (id === "reminder:cancel") {
-      onCancelReminders?.(sessionIds);
-      return;
-    }
-    if (id.startsWith("reminder:")) {
-      const dueAt = reminderTime(id);
-      if (dueAt != null) {
-        setReminderSessionsCollapsed(false);
-        saveReminderSessionsCollapsed(cwd, false);
-        onSetReminders?.(sessionIds, dueAt);
-      }
-      return;
-    }
     if (id === "pin") {
       if (sessionIds.length > 1 && onPinSessions) {
         onPinSessions(sessionIds, !pinned);
@@ -1455,9 +1382,7 @@ function SidebarComponent({
         onPlaceOnPane={
           onPlaceSessionOnPane ? cardActions.placeOnPane : undefined
         }
-        onListDrop={
-          reminderIds.has(session.id) ? undefined : cardActions.listDrop
-        }
+        onListDrop={cardActions.listDrop}
         onListDropTargetChange={setSessionDrop}
         onContextMenu={cardActions.contextMenu}
         onArchive={onArchiveSession ? cardActions.archive : undefined}
@@ -1744,30 +1669,21 @@ function SidebarComponent({
               ) : (
                 <ul className="flex flex-col gap-0.5 p-1.5">
                   {sessionListEntries.map((entry, index) => {
-                    if (entry.kind === "pinned" || entry.kind === "reminders") {
-                      const isReminders = entry.kind === "reminders";
+                    if (entry.kind === "pinned") {
                       const expanded = searchNarrowed || !entry.collapsed;
                       const beforeUngrouped =
                         sessionListEntries[index + 1]?.kind === "session";
                       return (
                         <li
                           key={`${entry.kind}-sessions`}
-                          data-pinned-sessions={isReminders ? undefined : ""}
-                          data-reminder-sessions={isReminders ? "" : undefined}
+                          data-pinned-sessions=""
                           className={`relative ${
                             expanded || beforeUngrouped ? "mb-1.5" : ""
                           }`}
                         >
                           <div className="overflow-hidden rounded-md bg-content/5">
                             <FolderRow
-                              folder={
-                                isReminders
-                                  ? {
-                                      name: "Reminders",
-                                      customColor: REMINDERS_COLOR,
-                                    }
-                                  : { name: "Pinned" }
-                              }
+                              folder={{ name: "Pinned" }}
                               sessions={entry.sessions}
                               expanded={expanded}
                               dropTarget={false}
@@ -1781,26 +1697,14 @@ function SidebarComponent({
                                 listedApprovalSessionIds.has(session.id),
                               )}
                               groupIcon={
-                                isReminders ? (
-                                  <Clock
-                                    className="size-3.5"
-                                    strokeWidth={1.75}
-                                  />
-                                ) : (
-                                  <Pin
-                                    className="size-3.5 text-content"
-                                    strokeWidth={1.75}
-                                  />
-                                )
+                                <Pin
+                                  className="size-3.5 text-content"
+                                  strokeWidth={1.75}
+                                />
                               }
                               onToggle={() => {
                                 if (searchNarrowed) return;
                                 const collapsed = !entry.collapsed;
-                                if (isReminders) {
-                                  setReminderSessionsCollapsed(collapsed);
-                                  saveReminderSessionsCollapsed(cwd, collapsed);
-                                  return;
-                                }
                                 setPinnedSessionsCollapsed(collapsed);
                                 savePinnedSessionsCollapsed(cwd, collapsed);
                               }}
@@ -2651,7 +2555,6 @@ function sessionListDropFromPoint(
 ): SessionListDropTarget | null {
   const el = document.elementFromPoint(x, y);
   if (!el) return null;
-  if (el.closest("[data-reminder-sessions]")) return null;
   const card = el.closest("[data-session-card]") as HTMLElement | null;
   const cardId = card?.dataset.sessionCard;
   if (cardId === draggedId) return null;

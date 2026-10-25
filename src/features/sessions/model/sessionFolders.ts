@@ -8,7 +8,6 @@ import { TAB_GROUP_COLORS } from "../../workspace/model/tabGroups";
 const KEY = "bonocode.sessionFolders";
 const CHANGE_EVENT = "bonocode:session-folders-change";
 const PINNED_COLLAPSED_KEY = "bonocode.pinnedSessionsCollapsed";
-const REMINDERS_COLLAPSED_KEY = "bonocode.reminderSessionsCollapsed";
 
 export type SessionFolder = {
   id: string;
@@ -35,11 +34,6 @@ export type SessionListEntry =
     }
   | {
       kind: "pinned";
-      collapsed: boolean;
-      sessions: SessionSummary[];
-    }
-  | {
-      kind: "reminders";
       collapsed: boolean;
       sessions: SessionSummary[];
     }
@@ -103,44 +97,26 @@ export function mergeFolderSessionSummaries(
   return [...visible, ...extra];
 }
 
-/**
- * Reminders always lead, followed by folders, pins, and loose sessions.
- * Reminder membership only changes this view, preserving saved folders/pins.
- */
 export function buildSessionList(
   visible: SessionSummary[],
   folders: SessionFolder[],
   ungrouped: SessionSummary[],
   pinnedCollapsed = false,
-  reminderGroup?: { sessionIds: readonly string[]; collapsed: boolean },
 ): SessionListEntry[] {
   const byId = new Map(visible.map((session) => [session.id, session]));
-  const reminderIds = new Set(reminderGroup?.sessionIds);
   const entries: SessionListEntry[] = [];
-  const reminderSessions = [...reminderIds].flatMap((id) => {
-    const session = byId.get(id);
-    return session ? [session] : [];
-  });
-  if (reminderSessions.length) {
-    entries.push({
-      kind: "reminders",
-      collapsed: reminderGroup?.collapsed ?? false,
-      sessions: reminderSessions,
-    });
-  }
   for (const folder of folders) {
     const members: SessionSummary[] = [];
     for (const id of folder.sessionIds) {
       const session = byId.get(id);
-      if (session && !reminderIds.has(id)) members.push(session);
+      if (session) members.push(session);
     }
     if (members.length === 0) continue;
     members.sort(compareSessionSummaries);
     entries.push({ kind: "folder", folder, sessions: members });
   }
 
-  const remaining = ungrouped.filter((session) => !reminderIds.has(session.id));
-  const pinned = remaining.filter((session) => session.pinned);
+  const pinned = ungrouped.filter((session) => session.pinned);
   if (pinned.length > 0) {
     entries.push({
       kind: "pinned",
@@ -148,7 +124,7 @@ export function buildSessionList(
       sessions: pinned,
     });
   }
-  for (const session of remaining) {
+  for (const session of ungrouped) {
     if (!session.pinned) entries.push({ kind: "session", session });
   }
   return entries;
@@ -164,7 +140,7 @@ export function sessionListNavigationIds(
       ids.push(entry.session.id);
       continue;
     }
-    if (entry.kind === "pinned" || entry.kind === "reminders") {
+    if (entry.kind === "pinned") {
       if (!entry.collapsed || expandCollapsed) {
         ids.push(...entry.sessions.map((session) => session.id));
       }
@@ -476,15 +452,15 @@ export function rebaseSessionFolderSettings(from: string, to: string): void {
       delete folders[oldKey];
       localStorage.setItem(KEY, JSON.stringify(folders));
     }
-    for (const storeKey of [PINNED_COLLAPSED_KEY, REMINDERS_COLLAPSED_KEY]) {
-      const raw = localStorage.getItem(storeKey);
-      const parsed: unknown = raw ? JSON.parse(raw) : {};
-      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) continue;
+    const raw = localStorage.getItem(PINNED_COLLAPSED_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : {};
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
       const state = { ...(parsed as Record<string, unknown>) };
-      if (!(oldKey in state)) continue;
-      if (!(newKey in state)) state[newKey] = state[oldKey];
-      delete state[oldKey];
-      localStorage.setItem(storeKey, JSON.stringify(state));
+      if (oldKey in state) {
+        if (!(newKey in state)) state[newKey] = state[oldKey];
+        delete state[oldKey];
+        localStorage.setItem(PINNED_COLLAPSED_KEY, JSON.stringify(state));
+      }
     }
   } catch {
     // private mode / quota
@@ -493,10 +469,6 @@ export function rebaseSessionFolderSettings(from: string, to: string): void {
 
 export function loadPinnedSessionsCollapsed(cwd: string): boolean {
   return loadGroupCollapsed(cwd, PINNED_COLLAPSED_KEY);
-}
-
-export function loadReminderSessionsCollapsed(cwd: string): boolean {
-  return loadGroupCollapsed(cwd, REMINDERS_COLLAPSED_KEY);
 }
 
 function loadGroupCollapsed(cwd: string, storeKey: string): boolean {
@@ -522,13 +494,6 @@ export function savePinnedSessionsCollapsed(
   collapsed: boolean,
 ): void {
   saveGroupCollapsed(cwd, collapsed, PINNED_COLLAPSED_KEY);
-}
-
-export function saveReminderSessionsCollapsed(
-  cwd: string,
-  collapsed: boolean,
-): void {
-  saveGroupCollapsed(cwd, collapsed, REMINDERS_COLLAPSED_KEY);
 }
 
 function saveGroupCollapsed(
