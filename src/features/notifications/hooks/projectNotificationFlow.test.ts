@@ -127,7 +127,7 @@ it("honors category choices before and after a project mute while another projec
   act(() =>
     projectRow("one")
       .querySelector<HTMLInputElement>(
-        '[aria-label="Issues and Linear tasks for acme/one"]',
+        '[aria-label="Issues for acme/one"]',
       )!
       .click(),
   );

@@ -6,7 +6,7 @@ import {
 } from "./inboxMedia";
 
 describe("isInboxMediaUrl", () => {
-  it("allows GitHub and Linear attachment hosts", () => {
+  it("allows GitHub attachment hosts", () => {
     expect(
       isInboxMediaUrl(
         "https://github.com/user-attachments/assets/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
@@ -17,9 +17,6 @@ describe("isInboxMediaUrl", () => {
     ).toBe(true);
     expect(
       isInboxMediaUrl("https://user-images.githubusercontent.com/1/shot.png"),
-    ).toBe(true);
-    expect(
-      isInboxMediaUrl("https://uploads.linear.app/org/uuid/file.png"),
     ).toBe(true);
   });
 

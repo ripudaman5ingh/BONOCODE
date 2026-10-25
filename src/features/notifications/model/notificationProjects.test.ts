@@ -10,22 +10,6 @@ import {
 
 beforeEach(() => localStorage.clear());
 
-it("groups Jira notification preferences by site and stable project ID", () => {
-  const item = {
-    provider: "jira" as const, repo: "ENG", teamId: "10000",
-    teamName: "Engineering", url: "https://acme.atlassian.net/browse/ENG-42",
-  };
-  const project = inboxNotificationProject(item);
-  expect(project).toEqual({
-    id: "jira:acme.atlassian.net:project:10000", name: "Engineering",
-    detail: "Jira · acme.atlassian.net", kind: "jira", paths: [],
-  });
-  expect(inboxNotificationProject({ ...item, repo: "RENAMED", url: "https://acme.atlassian.net/browse/RENAMED-1" }).id).toBe(project.id);
-  expect(inboxNotificationProject({ ...item, url: "https://other.atlassian.net/browse/ENG-42" }).id).not.toBe(project.id);
-  rememberNotificationProjects([project]);
-  expect(loadNotificationProjects()).toContainEqual(project);
-});
-
 it("derives local notification identity immediately from the normalized path", () => {
   expect(knownNotificationProject("C:/Work/App")).toEqual({
     id: "local:c:/work/app",
@@ -53,10 +37,10 @@ it("keeps separate checkout and worktree paths as separate projects", () => {
 it("includes requested paths and provider-only catalog projects", () => {
   rememberNotificationProjects([
     {
-      id: "linear:project:roadmap",
-      name: "Roadmap",
-      detail: "Linear",
-      kind: "linear",
+      id: "repository:github.com/acme/app",
+      name: "acme/app",
+      detail: "github.com",
+      kind: "repository",
       paths: [],
     },
     {
@@ -71,7 +55,7 @@ it("includes requested paths and provider-only catalog projects", () => {
     knownNotificationProjectSelection(["/work/app"]).projects.map(
       (project) => project.id,
     ),
-  ).toEqual(["linear:project:roadmap", "local:/work/app"]);
+  ).toEqual(["repository:github.com/acme/app", "local:/work/app"]);
 });
 
 it("uses the same local ID when Inbox enriches a path with repository metadata", () => {
@@ -90,7 +74,7 @@ it("uses the same local ID when Inbox enriches a path with repository metadata",
   expect(knownNotificationProject("/work/app")).toEqual(project);
 });
 
-it("keeps provider-only repository and Linear identities", () => {
+it("keeps provider-only repository identities", () => {
   expect(
     inboxNotificationProject({
       provider: "github",
@@ -98,17 +82,6 @@ it("keeps provider-only repository and Linear identities", () => {
       url: "git@github.com:Acme/App.git",
     }).id,
   ).toBe("repository:github.com/acme/app");
-  expect(
-    inboxNotificationProject({
-      provider: "linear",
-      repo: "PROD",
-      url: "https://linear.app/acme/issue/PROD-1",
-      projectId: "launch",
-      projectName: "Launch",
-      teamId: "product",
-      teamName: "Product",
-    }).id,
-  ).toBe("linear:project:launch");
 });
 
 it("uses a new catalog version so old Git-derived path mappings are ignored", () => {

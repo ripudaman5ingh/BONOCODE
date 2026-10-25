@@ -164,7 +164,6 @@ describe("Checks tab user behavior", () => {
           url: "https://github.com/acme/web/pull/157",
         },
         cwd: "/tmp/web",
-        recents: [],
         onClose: () => {},
       }),
     );

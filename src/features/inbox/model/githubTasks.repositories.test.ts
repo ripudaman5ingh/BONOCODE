@@ -72,14 +72,6 @@ describe("GitHub fork repositories", () => {
             : []
         ) as never;
       }
-      if (
-        command === "linear_status" ||
-        command === "jira_status" ||
-        command === "gitlab_status" ||
-        command === "azure_devops_status"
-      ) {
-        return { connected: false } as never;
-      }
       throw new Error(`Unexpected command: ${command}`);
     });
 
@@ -110,14 +102,6 @@ describe("GitHub fork repositories", () => {
     vi.mocked(invoke).mockImplementation(async (command) => {
       if (command === "git_github_repositories") {
         throw new Error("not a GitHub repository");
-      }
-      if (
-        command === "linear_status" ||
-        command === "jira_status" ||
-        command === "gitlab_status" ||
-        command === "azure_devops_status"
-      ) {
-        return { connected: false } as never;
       }
       throw new Error(`Unexpected command: ${command}`);
     });

@@ -69,7 +69,6 @@ function render(visible: boolean) {
     createElement(LinkedWorkItemPanel, {
       target,
       cwd: "/tmp/web",
-      recents: [],
       visible,
       onClose: () => {},
     }),

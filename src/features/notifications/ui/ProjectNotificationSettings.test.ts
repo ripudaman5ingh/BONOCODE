@@ -73,7 +73,7 @@ it("saves only the selected project's categories while preserving its mute deadl
 
   act(() => categoriesButton("me/private").click());
   for (const category of [
-    "Issues and Linear tasks",
+    "Issues",
     "Agent finished",
     "Agent approvals and questions",
   ]) {
@@ -83,7 +83,7 @@ it("saves only the selected project's categories while preserving its mute deadl
   expect(
     checkbox("Pull requests / Merge requests for me/private").checked,
   ).toBe(true);
-  expect(checkbox("Issues and Linear tasks for me/private").checked).toBe(
+  expect(checkbox("Issues for me/private").checked).toBe(
     false,
   );
   expect(
@@ -95,32 +95,6 @@ it("saves only the selected project's categories while preserving its mute deadl
   expect(
     loadNotificationPreferences()["repository:github.com/work/app"],
   ).toBeUndefined();
-});
-
-it("offers only issue notifications for a Linear project", async () => {
-  rememberNotificationProjects([
-    {
-      id: "linear:project:roadmap",
-      name: "Roadmap",
-      detail: "Linear",
-      kind: "linear",
-      paths: [],
-    },
-  ]);
-  await act(async () =>
-    root.render(createElement(ProjectNotificationSettings, { cwd: "" })),
-  );
-  act(() => categoriesButton("Roadmap").click());
-  const issue = checkbox("Issues and Linear tasks for Roadmap");
-  expect(
-    issue
-      .closest("fieldset")
-      ?.querySelectorAll('input[aria-label$=" for Roadmap"]'),
-  ).toHaveLength(1);
-  act(() => issue.click());
-  expect(
-    loadNotificationPreferences()["linear:project:roadmap"]?.disabled,
-  ).toEqual(["issues"]);
 });
 
 it("keeps local projects while offering only local notification categories", async () => {
@@ -149,7 +123,7 @@ it("keeps local projects while offering only local notification categories", asy
   ).toBeNull();
   expect(
     container.querySelector(
-      'input[aria-label="Issues and Linear tasks for fun"]',
+      'input[aria-label="Issues for fun"]',
     ),
   ).toBeNull();
 });
@@ -203,13 +177,13 @@ it("keeps projects collapsed until opened and preserves choices when switching p
 
   act(() => personal.click());
   expect(personalPanel.hidden).toBe(false);
-  act(() => checkbox("Issues and Linear tasks for me/private").click());
+  act(() => checkbox("Issues for me/private").click());
   expect(personal.textContent).toContain("3 of 4 enabled");
   act(() => work.click());
   expect(personalPanel.hidden).toBe(true);
   expect(workPanel.hidden).toBe(false);
   act(() => personal.click());
-  expect(checkbox("Issues and Linear tasks for me/private").checked).toBe(
+  expect(checkbox("Issues for me/private").checked).toBe(
     false,
   );
   act(() => personal.click());
@@ -279,7 +253,7 @@ it.each(["manual", "expiry"])(
     await act(async () =>
       root.render(createElement(ProjectNotificationSettings, { cwd: "" })),
     );
-    const project = checkbox("Issues and Linear tasks for me/private").closest(
+    const project = checkbox("Issues for me/private").closest(
       "fieldset",
     )!;
     act(() => categoriesButton("me/private").click());
@@ -309,7 +283,7 @@ it.each(["manual", "expiry"])(
     );
     expect(project.textContent).not.toContain("All notifications paused");
     expect(pr.hasAttribute("aria-describedby")).toBe(false);
-    expect(checkbox("Issues and Linear tasks for me/private").checked).toBe(
+    expect(checkbox("Issues for me/private").checked).toBe(
       false,
     );
     expect(
@@ -322,7 +296,7 @@ it("dismisses the mute menu and custom date picker without changing preferences"
   await act(async () =>
     root.render(createElement(ProjectNotificationSettings, { cwd: "" })),
   );
-  const project = checkbox("Issues and Linear tasks for me/private").closest(
+  const project = checkbox("Issues for me/private").closest(
     "fieldset",
   )!;
   const trigger = project.querySelector<HTMLButtonElement>(

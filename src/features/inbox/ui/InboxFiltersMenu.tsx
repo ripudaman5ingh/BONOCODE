@@ -4,14 +4,9 @@ import type { InboxKind } from "../model/githubTasks";
 import {
   DEFAULT_INBOX_FILTERS,
   hasActiveInboxFilters,
-  isTrackerSource,
   type InboxFilters,
-  type InboxSource,
   type InboxTimeFilter,
-  type LinearProjectOption,
 } from "../model/inboxFilters";
-import type { JiraProject } from "../model/jira";
-import type { LinearTeam } from "../model/linear";
 import { Popover } from "../../../shared/ui/Popover";
 import { ProjectLogoIcon } from "../../projects/ui/ProjectLogoIcon";
 
@@ -27,18 +22,8 @@ type Props = {
   x: number;
   y: number;
   projects: ProjectOption[];
-  linearProjects: LinearProjectOption[];
-  linearTeams: LinearTeam[];
-  hiddenLinearTeamIds: string[];
-  jiraProjects: JiraProject[];
-  hiddenJiraProjectIds: string[];
-  source: InboxSource;
   filters: InboxFilters;
   onChange: (filters: InboxFilters) => void;
-  /** Shared with Settings → Inbox → Linear; narrows the fetch, not just the list. */
-  onLinearTeamsChange: (ids: string[]) => void;
-  /** Shared with Settings → Inbox → Jira; narrows the fetch, not just the list. */
-  onJiraProjectsChange: (ids: string[]) => void;
   onClose: () => void;
 };
 
@@ -70,27 +55,12 @@ export function InboxFiltersMenu({
   x,
   y,
   projects,
-  linearProjects,
-  linearTeams,
-  hiddenLinearTeamIds,
-  jiraProjects,
-  hiddenJiraProjectIds,
-  source,
   filters,
   onChange,
-  onLinearTeamsChange,
-  onJiraProjectsChange,
   onClose,
 }: Props) {
   const hiddenProjects = new Set(filters.hiddenProjects);
-  const hiddenLinearProjects = new Set(filters.hiddenLinearProjects);
-  const hiddenTeams = new Set(hiddenLinearTeamIds);
   const hiddenKinds = new Set(filters.hiddenKinds);
-  const teamsActive = source === "linear" && hiddenLinearTeamIds.length > 0;
-  const hiddenJira = new Set(hiddenJiraProjectIds);
-  const jiraProjectsActive =
-    source === "jira" && hiddenJiraProjectIds.length > 0;
-  const tracker = isTrackerSource(source);
 
   const toggleAssigned = () => {
     onChange({ ...filters, assignedToMe: !filters.assignedToMe });
@@ -108,27 +78,6 @@ export function InboxFiltersMenu({
     if (next.has(path)) next.delete(path);
     else next.add(path);
     onChange({ ...filters, hiddenProjects: [...next] });
-  };
-
-  const toggleLinearTeam = (id: string) => {
-    const next = new Set(hiddenTeams);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    onLinearTeamsChange([...next]);
-  };
-
-  const toggleJiraProject = (id: string) => {
-    const next = new Set(hiddenJira);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    onJiraProjectsChange([...next]);
-  };
-
-  const toggleLinearProject = (id: string) => {
-    const next = new Set(hiddenLinearProjects);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    onChange({ ...filters, hiddenLinearProjects: [...next] });
   };
 
   const setTime = (time: InboxTimeFilter) => {
@@ -155,11 +104,7 @@ export function InboxFiltersMenu({
       className="overflow-y-auto overscroll-none p-1"
     >
       <FilterItem
-        label={
-          source === "gitlab" || source === "azuredevops"
-            ? "Needs attention"
-            : "Assigned to me"
-        }
+        label="Assigned to me"
         checked={filters.assignedToMe}
         onClick={toggleAssigned}
       />
@@ -170,25 +115,21 @@ export function InboxFiltersMenu({
         checked={filters.status.open}
         onClick={() => toggleStatus("open")}
       />
-      {!tracker ? (
-        <FilterItem
-          label="Draft"
-          checked={filters.status.draft}
-          onClick={() => toggleStatus("draft")}
-        />
-      ) : null}
+      <FilterItem
+        label="Draft"
+        checked={filters.status.draft}
+        onClick={() => toggleStatus("draft")}
+      />
       <FilterItem
         label="Closed"
         checked={filters.status.closed}
         onClick={() => toggleStatus("closed")}
       />
-      {!tracker ? (
-        <FilterItem
-          label="Merged"
-          checked={filters.status.merged}
-          onClick={() => toggleStatus("merged")}
-        />
-      ) : null}
+      <FilterItem
+        label="Merged"
+        checked={filters.status.merged}
+        onClick={() => toggleStatus("merged")}
+      />
 
       <SectionLabel>Time</SectionLabel>
       {TIME_OPTIONS.map((option) => (
@@ -200,73 +141,18 @@ export function InboxFiltersMenu({
         />
       ))}
 
-      {!tracker ? (
-        <>
-          <SectionLabel>Type</SectionLabel>
-          {KIND_OPTIONS.map((option) => (
-            <FilterItem
-              key={option.id}
-              label={
-                source === "gitlab" && option.id === "pr"
-                  ? "Merge requests"
-                  : option.label
-              }
-              checked={!hiddenKinds.has(option.id)}
-              icon={option.icon}
-              onClick={() => toggleKind(option.id)}
-            />
-          ))}
-        </>
-      ) : null}
+      <SectionLabel>Type</SectionLabel>
+      {KIND_OPTIONS.map((option) => (
+        <FilterItem
+          key={option.id}
+          label={option.label}
+          checked={!hiddenKinds.has(option.id)}
+          icon={option.icon}
+          onClick={() => toggleKind(option.id)}
+        />
+      ))}
 
-      {source === "linear" && linearTeams.length > 0 ? (
-        <>
-          <SectionLabel>Teams</SectionLabel>
-          {linearTeams.map((team) => (
-            <FilterItem
-              key={team.id}
-              label={team.name || team.key}
-              checked={!hiddenTeams.has(team.id)}
-              onClick={() => toggleLinearTeam(team.id)}
-            />
-          ))}
-        </>
-      ) : null}
-
-      {source === "linear" && linearProjects.length > 0 ? (
-        <>
-          <SectionLabel>Projects</SectionLabel>
-          {linearProjects.map((project) => (
-            <FilterItem
-              key={project.id}
-              label={project.name}
-              checked={!hiddenLinearProjects.has(project.id)}
-              onClick={() => toggleLinearProject(project.id)}
-            />
-          ))}
-        </>
-      ) : null}
-
-      {source === "jira" && jiraProjects.length > 0 ? (
-        <>
-          <SectionLabel>Projects</SectionLabel>
-          {jiraProjects.map((project) => (
-            <FilterItem
-              key={project.id}
-              label={project.name || project.key}
-              checked={!hiddenJira.has(project.id)}
-              onClick={() => toggleJiraProject(project.id)}
-            />
-          ))}
-        </>
-      ) : null}
-
-      {!tracker &&
-      !(
-        (source === "gitlab" || source === "azuredevops") &&
-        filters.assignedToMe
-      ) &&
-      projects.length > 0 ? (
+      {projects.length > 0 ? (
         <>
           <SectionLabel>Projects</SectionLabel>
           {projects.map((project) => (
@@ -289,12 +175,7 @@ export function InboxFiltersMenu({
         </>
       ) : null}
 
-      {hasActiveInboxFilters(
-        filters,
-        source,
-        hiddenLinearTeamIds,
-        hiddenJiraProjectIds,
-      ) ? (
+      {hasActiveInboxFilters(filters) ? (
         <>
           <div role="separator" className="my-1 h-px bg-content/10" />
           <button
@@ -303,8 +184,6 @@ export function InboxFiltersMenu({
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => {
               onChange(DEFAULT_INBOX_FILTERS);
-              if (teamsActive) onLinearTeamsChange([]);
-              if (jiraProjectsActive) onJiraProjectsChange([]);
             }}
             className="flex h-7 w-full items-center rounded-lg px-2 text-left text-[13px] leading-none text-content/70 hover:bg-content/5 hover:text-content"
           >

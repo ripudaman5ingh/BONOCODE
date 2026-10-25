@@ -6,7 +6,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { InboxView } from "./InboxView";
 import { inboxItemKey, type InboxItem } from "../model/githubTasks";
 import { isInboxEntryUnseen, seedInboxSeenIfNeeded } from "../model/inboxSeen";
-import { saveInboxConnections, saveInboxSource } from "../model/inboxFilters";
+import { saveInboxConnections } from "../model/inboxFilters";
 import { updateNotificationPreferences } from "../../notifications/model/notificationPreferences";
 
 const { listInboxItems } = vi.hoisted(() => ({ listInboxItems: vi.fn() }));
@@ -54,13 +54,7 @@ it("reports a failed mark-all write in Inbox and clears the error after retry", 
   };
   const entry = { key: inboxItemKey(item), updatedAt: item.updatedAt };
   seedInboxSeenIfNeeded([{ ...entry, updatedAt: "2030-01-14T12:00:00Z" }]);
-  saveInboxConnections({
-    github: true,
-    gitlab: false,
-    linear: false,
-    azuredevops: false,
-  });
-  saveInboxSource("github");
+  saveInboxConnections({ github: true });
   listInboxItems.mockResolvedValue({ items: [item], errors: {} });
   await act(async () => root.render(createElement(InboxView, {
     cwd: "/tmp/app", recents: [], onAsk: async () => "", onAskRestart: async () => "",
@@ -96,27 +90,6 @@ it.each([
     "https://github.com/acme/app/pull/42",
     "local:/tmp/app",
   ],
-  [
-    "gitlab",
-    "issue",
-    "issues",
-    "https://gitlab.example.com/acme/app/-/issues/42",
-    "local:/tmp/app",
-  ],
-  [
-    "gitlab",
-    "pr",
-    "pullRequests",
-    "https://gitlab.example.com/acme/app/-/merge_requests/42",
-    "local:/tmp/app",
-  ],
-  [
-    "linear",
-    "linear",
-    "issues",
-    "https://linear.app/acme/issue/ENG-42",
-    "linear:project:roadmap",
-  ],
 ] as const)(
   "keeps the %s %s visibly unread until opened even with its category off or project muted",
   async (provider, kind, category, url, projectId) => {
@@ -133,24 +106,10 @@ it.each([
       assignees: [],
       draft: false,
       projectPath: "/tmp/app",
-      ...(provider === "linear"
-        ? {
-            id: "linear-42",
-            identifier: "ENG-42",
-            projectId: "roadmap",
-            teamId: "engineering",
-          }
-        : {}),
     };
     const entry = { key: inboxItemKey(item), updatedAt: item.updatedAt };
     seedInboxSeenIfNeeded([{ ...entry, updatedAt: "2030-01-14T12:00:00Z" }]);
-    saveInboxConnections({
-      github: true,
-      gitlab: true,
-      linear: true,
-      azuredevops: true,
-    });
-    saveInboxSource(provider);
+    saveInboxConnections({ github: true });
     listInboxItems.mockResolvedValue({ items: [item], errors: {} });
     updateNotificationPreferences([projectId], { disabled: [category] });
     const mount = () =>

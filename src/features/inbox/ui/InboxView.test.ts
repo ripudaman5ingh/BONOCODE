@@ -79,7 +79,6 @@ describe("InboxDetail layout", () => {
       createElement(LinkedWorkItemPanel, {
         target,
         cwd: "/tmp/web",
-        recents: [],
         onClose: () => {},
       }),
     );
@@ -162,18 +161,8 @@ describe("InboxDetail layout", () => {
     );
   });
 
-  it("keeps the Checks tab off issues and GitLab merge requests", () => {
+  it("keeps the Checks tab off issues", () => {
     expect(renderDetail(item())).not.toContain('aria-label="Checks:');
-    expect(
-      renderDetail(
-        item({
-          kind: "pr",
-          provider: "gitlab",
-          repo: "acme/platform",
-          url: "https://gitlab.example.com/acme/platform/-/merge_requests/12",
-        }),
-      ),
-    ).not.toContain('aria-label="Checks:');
   });
 
   it("shows the Checks tab for linked pull requests in panel mode", () => {
@@ -214,21 +203,6 @@ describe("InboxDetail layout", () => {
     const merged = renderDetail(item({ kind: "pr", state: "merged" }));
     expect(merged).not.toContain("Reopen pull request");
     expect(merged).not.toContain('aria-label="Merge options"');
-  });
-
-  it("does not show GitHub lifecycle actions for GitLab merge requests", () => {
-    const markup = renderDetail(
-      item({
-        kind: "pr",
-        provider: "gitlab",
-        repo: "acme/platform",
-        url: "https://gitlab.example.com/acme/platform/-/merge_requests/12",
-      }),
-    );
-
-    expect(markup).not.toContain('aria-label="Merge options"');
-    expect(markup).not.toContain("Convert to draft");
-    expect(markup).not.toContain("Close pull request");
   });
 
   it("pins the linked-item identity above the panel scroller", () => {
@@ -291,55 +265,7 @@ describe("InboxDetail layout", () => {
 
   it("offers full-file diffs only for GitHub pull requests", () => {
     expect(inboxShowsFullFileDiff(item({ kind: "pr" }))).toBe(true);
-    expect(
-      inboxShowsFullFileDiff(
-        item({
-          kind: "pr",
-          provider: "gitlab",
-          repo: "acme/platform",
-          url: "https://gitlab.example.com/acme/platform/-/merge_requests/12",
-        }),
-      ),
-    ).toBe(false);
     expect(inboxShowsFullFileDiff(item({ kind: "issue" }))).toBe(false);
-  });
-
-  it("keeps the Linear project picker beside the pinned send action", () => {
-    const markup = renderDetail(
-      item({
-        provider: "linear",
-        kind: "linear",
-        id: "linear-157",
-        identifier: "ENG-157",
-        teamName: "Engineering",
-      }),
-    );
-    const headerIndex = markup.indexOf("data-inbox-detail-header");
-    const scrollIndex = markup.indexOf("data-inbox-detail-scroll");
-    const header = markup.slice(headerIndex, scrollIndex);
-
-    expect(header).toContain("Send to agent");
-    expect(header).toContain("Choose project");
-    expect(header).not.toContain("overflow-y-auto");
-  });
-
-  it("shows why a remote GitLab item needs attention and asks for a workspace", () => {
-    const markup = renderDetail(
-      item({
-        provider: "gitlab",
-        repo: "acme/platform",
-        projectPath: "",
-        url: "https://gitlab.example.com/acme/platform/-/issues/157",
-        attentionReason: "mentioned",
-      }),
-    );
-    const headerIndex = markup.indexOf("data-inbox-detail-header");
-    const scrollIndex = markup.indexOf("data-inbox-detail-scroll");
-    const header = markup.slice(headerIndex, scrollIndex);
-
-    expect(header).toContain("Mentioned you");
-    expect(header).toContain("Choose project");
-    expect(header).toContain("Open on GitLab");
   });
 
   it("keeps related threads in the pinned header", () => {

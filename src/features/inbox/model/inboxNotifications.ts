@@ -39,7 +39,7 @@ export class InboxNotificationTracker {
       const key = JSON.stringify([
         inboxNotificationProject(item).id,
         item.kind,
-        item.id || item.number,
+        item.number,
       ]);
       const updatedAt = Date.parse(item.updatedAt);
       if (!Number.isFinite(updatedAt)) continue;
@@ -56,15 +56,7 @@ export class InboxNotificationTracker {
       }
       this.revisions.set(key, Math.max(previous ?? 0, updatedAt));
     }
-    for (const provider of [
-      "github",
-      "gitlab",
-      "linear",
-      "jira",
-      "azuredevops",
-    ] as const) {
-      if (!failed.has(provider)) this.primed.add(provider);
-    }
+    if (!failed.has("github")) this.primed.add("github");
     return { changed, appeared };
   }
 }
