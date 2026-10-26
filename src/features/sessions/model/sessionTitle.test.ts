@@ -39,9 +39,9 @@ describe("session title metadata", () => {
     );
   });
 
-  it("can refresh a generated title for an event added to an existing session", () => {
-    expect(shouldGenerateSessionTitle(false, false, true)).toBe(true);
-    expect(shouldGenerateSessionTitle(false, false)).toBe(false);
+  it("generates only for a first turn with a placeholder title", () => {
     expect(shouldGenerateSessionTitle(true, true)).toBe(true);
+    expect(shouldGenerateSessionTitle(false, true)).toBe(false);
+    expect(shouldGenerateSessionTitle(true, false)).toBe(false);
   });
 });

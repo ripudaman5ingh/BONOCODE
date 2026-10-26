@@ -522,7 +522,7 @@ export function SettingsView({
                   onDeleteSessions={onDeleteWorktreeSessions}
                 />
               ) : null}
-              {section === "inbox" ? (
+              {section === "github" ? (
                 <InboxPage
                   cwd={cwd}
                   recents={recents}

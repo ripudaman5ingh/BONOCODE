@@ -589,8 +589,6 @@ type SubmitOptions = ComposerTurnOptions & {
   buildTarget?: PlanBuildTarget;
   /** Settles once with how the turn ended. CI repair tracking waits on it. */
   onSettled?: (outcome: SubmissionOutcome) => void;
-  /** Generate a fresh title even when this is not the session's first turn. */
-  refreshTitle?: boolean;
   /** Internal guard for the retry after resolving a renamed project. */
   projectLocationReady?: boolean;
 };
@@ -5600,11 +5598,7 @@ function Workspace({
       const launchTitleGeneration = (workCwd: string) => {
         if (
           !live ||
-          !shouldGenerateSessionTitle(
-            isFirstTurn,
-            placeholderTitle,
-            options?.refreshTitle,
-          )
+          !shouldGenerateSessionTitle(isFirstTurn, placeholderTitle)
         ) {
           return;
         }
@@ -5617,13 +5611,6 @@ function Workspace({
           providerAccountId,
         })
           .then(async (generated) => {
-            if (
-              options?.refreshTitle &&
-              !isFirstTurn &&
-              turnGen.current.get(sessionId) !== gen
-            ) {
-              return;
-            }
             const linkedWorkItem = await resolveLinkedWorkItem(
               titleMessage,
               workCwd,
@@ -5636,8 +5623,7 @@ function Workspace({
                 let next = s;
                 if (
                   generated &&
-                  (options?.refreshTitle ||
-                    canReplaceSessionTitle(s.title, s.harness, titleSeed))
+                  canReplaceSessionTitle(s.title, s.harness, titleSeed)
                 ) {
                   next = {
                     ...next,
@@ -7604,7 +7590,7 @@ function Workspace({
 
   const onOpenNotificationSettings = useCallback(
     (path?: string) => {
-      openSettings("inbox", "project-notifications");
+      openSettings("github", "project-notifications");
       setNotificationProjectPath(path ?? null);
       setNotificationSettingsRequest((request) => request + 1);
     },
