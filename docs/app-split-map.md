@@ -578,3 +578,35 @@ The estimated total removed is about 5,300 lines, which would leave App.tsx near
 **Tests:** `tsc --noEmit` is clean. The six listed suites pass when run one at a time: `liveSessions` 10/10, `sessionHistory` 21/21, `sessionCache` 4/4, `sessionWorkItem` 5/5, `sessionRemoval` 13/13, `bootWorkspace` 2/2.
 
 **Not done:** `App.tsx` was not run through prettier. It already had about 887 lines of prettier drift at HEAD. The new hook files were formatted with prettier, and their moved bodies were already prettier-clean.
+
+## PR 2 Part 2 — done
+
+**New hooks**
+- `useTerminalDock(deps)` in `src/features/terminal/hooks/useTerminalDock.ts`: 7 deps, 22 returns. Holds the dock state and refs, `currentProjectDock` and `dockVisible`, the 11 project-terminal dock handlers, the unfocus effect, and dock sizing (`dockGridRef`, `paintDockSize`, `commitDockSize`, the layout effect). `onProjectTerminalSize` stays internal, since only `commitDockSize` uses it.
+- `useAppSurfaces(deps)` in `src/app/hooks/useAppSurfaces.ts`: 4 deps, 44 returns. Holds the surface state and setters, the mirror refs (`searchViewOpenRef`, `settingsOpenRef`, `filePickerOpenRef`, `whatsNewVersionRef`, `foregroundSurfaceRef`), `onOpenWhatsNew`, the toggle, search, file-picker and settings handlers, and the `bonocode:open-mcp-settings` listener.
+- `useAppCommands(deps)` in `src/app/hooks/useAppCommands.ts`: 32 deps, 1 return (`actions`). Holds the `actions` mirror, the `run` debounce, the autosave/keybinding push effect, the global keydown effect and the Tauri menu listeners. It is called after every handler, just before the `return`. `actions` is returned because the file picker's `onRunAction` reads it in JSX.
+
+**Placement**
+- `useTerminalDock` is called where its first block was (`projectTerminals`).
+- `useAppSurfaces` is called where its first block was (`projectRailOpen`).
+- `setForegroundProbe` stays below the surface call. `foregroundSurfaceRef` is now returned by `useAppSurfaces`.
+- These declarations moved up, verbatim, because the two hooks need them and they need no hook output: `activeTabId`, `composerFocused`, `activeTab`, `active`, `activeFile`, `sidebarCwd`, `sidebarCwdRef`, `projectCwdRef`, `gitCwd`, and the `sidebarTabSelection`/`sidebarTab`/`setSidebarTab` group.
+
+**Ref bridges**
+- `onOpenTerminalRef` → `bridgedOpenTerminal` (dock). A real cycle: `onShowProjectTerminal` calls `onOpenTerminal`, which calls `openProjectTerminal` from the dock. App fills the ref right after `onOpenTerminal`.
+- `onVisitBackRef` / `onVisitForwardRef` → `bridgedOnVisitBack` / `bridgedOnVisitForward` (surfaces). Not a cycle: `onVisitBack` → `activateTab` and `commitTabVisit` never read surface state. Bridged because moving them up would drag `activateTab`, `commitTabVisit` and `tabVisitRef` with them. This departs from the brief's "move up only if nothing from the hook is needed" rule. App fills the refs right after the two handlers.
+
+**Effect order changes** (all listed; none changes an App effect's relative order)
+- The dock unfocus effect (was after `onRailForward`) now runs first among App's passive effects, right after the dock hook call. Safe: it only sets `projectTerminalFocused` to false when the dock is hidden. The window-focus effect reads only refs, and no effect sets the flag to true.
+- The mcp-settings listener (was after `openSettings`) now runs second, before the other App effects. Safe: it only adds a window listener.
+- The dock layout effect (`useLayoutEffect`, was last) now runs first among layout effects, before the `flushHarnessEvents` layout effect. Safe: it writes only `dockGridRef`'s style, which no other layout effect touches.
+- The keydown, menu and autosave effects keep their order. They are still the last App effects, since the hook call sits just before the `return`.
+- The App-level `useState` call order changed (`activeTabId` and `composerFocused` now come before the dock state). It is deterministic, so no behavior changes.
+
+**Proof:** 49 moved blocks, each compared with `git show HEAD:src/app/App.tsx` ignoring leading whitespace. All 49 match exactly. The 10 blocks moved up appear once in App, and no moved block remains in App.
+
+**Sizes:** `wc -l src/app/App.tsx` = 5,490 (was 6,149; net −659). Hook files: `useTerminalDock.ts` 292, `useAppSurfaces.ts` 273, `useAppCommands.ts` 488.
+
+**Verification:** `npx tsc --noEmit` is clean (run after all three hooks were written, not after each). Single-file vitest runs, one at a time, all pass: `liveSessions` 10/10, `layout` 48/48, `appLifecycle` 19/19, and the five files in `src/features/terminal/model/` (terminalChrome 2, terminalClose 3, terminalKeys 4, terminalLayout 2, terminalTab 8).
+
+**Not done:** no prettier run on App.tsx or the new hook files, so moved code stays byte-for-byte. Imports were pruned to what each file now uses, and `import type` was kept. Nothing was built, run or committed.
