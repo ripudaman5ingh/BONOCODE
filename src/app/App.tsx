@@ -1,8 +1,7 @@
 import {
-  cancelScheduledFlush,
-  scheduleHarnessFlush,
-  type ScheduledFlush,
-} from "./model/harnessFlush";
+  createLiveSessionStore,
+  useLiveSessions,
+} from "../features/sessions/model/liveSessions";
 import {
   submitAfterProjectSync,
   type SubmissionAcceptance,
@@ -185,7 +184,6 @@ import {
 } from "../features/terminal/model/terminalTab";
 import {
   applyHarnessEvent,
-  applyHarnessEvents,
   appendUser,
   appendSteerUser,
   bindHarnessSession,
@@ -793,9 +791,13 @@ function Workspace({
     const tab = newTab(session.id);
     return { session, tab };
   });
-  const [sessions, setSessions] = useState<Session[]>(
-    () => windowTransfer?.sessions ?? resumed?.sessions ?? [seed.session],
+  const [liveSessions] = useState(() =>
+    createLiveSessionStore(
+      windowTransfer?.sessions ?? resumed?.sessions ?? [seed.session],
+    ),
   );
+  const sessions = useLiveSessions(liveSessions);
+  const setSessions = liveSessions.set;
   const [sessionDeleteDialog, setSessionDeleteDialog] = useState<{
     title: string;
     unusedWorktree: string;
@@ -937,8 +939,7 @@ function Workspace({
   /** Project whose listing failed, so the error cannot leak to another one. */
   const [historyErrorCwd, setHistoryErrorCwd] = useState<string | null>(null);
 
-  const sessionsRef = useRef(sessions);
-  sessionsRef.current = sessions;
+  const sessionsRef = liveSessions.ref;
   const linkedSessionUpdatesRef = useRef<
     ReadonlyMap<string, LinkedSessionUpdate>
   >(new Map());
@@ -966,6 +967,17 @@ function Workspace({
   foregroundSurfaceRef.current = {
     workspaceVisible: !searchViewOpen && !settingsOpen,
   };
+  liveSessions.setForegroundProbe((sessionId) => {
+    const tab = tabsRef.current.find(
+      (entry) => entry.id === activeTabIdRef.current,
+    );
+    return (
+      !document.hidden &&
+      foregroundSurfaceRef.current.workspaceVisible &&
+      !!tab &&
+      leafIds(tab.layout).includes(sessionId)
+    );
+  });
   const settingsOpenRef = useRef(settingsOpen);
   settingsOpenRef.current = settingsOpen;
   const sessionNavigationIdsRef = useRef<readonly string[]>([]);
@@ -1015,7 +1027,7 @@ function Workspace({
     canBack: false,
     canForward: false,
   });
-  const turnGen = useRef(new Map<string, number>());
+  const turnGen = liveSessions.turnGen;
   const editedResends = useRef(createEditedResendCoordinator()).current;
   const lastPersisted = useRef(new Map<string, string>());
   const lastBoundProvider = useRef(new Map<string, string>());
@@ -1032,10 +1044,6 @@ function Workspace({
   const openingSessionIds = useRef(new Set<string>());
   const activeSessionPrefetch = useRef<Promise<Session | null> | null>(null);
   const [transcriptPool] = useState(() => new TranscriptPool());
-  // Tokens arrive many times per frame; apply them once so React/markdown aren't
-  // recomputed for every delta.
-  const harnessQueued = useRef(new Map<string, HarnessEvent[]>());
-  const harnessFlush = useRef<ScheduledFlush | null>(null);
   const skipForgetSessionIds = useRef(new Set<string>());
   const importedSessionsApplied = useRef(false);
   const projectLocationSyncs = useRef(
@@ -1065,22 +1073,7 @@ function Workspace({
     }
   }, [windowTransfer, resumed]);
 
-  const flushHarnessEvents = useCallback(() => {
-    cancelScheduledFlush(harnessFlush.current);
-    harnessFlush.current = null;
-    const batches = harnessQueued.current;
-    if (batches.size === 0) return;
-    harnessQueued.current = new Map();
-    const prev = sessionsRef.current;
-    const next = prev.map((session) => {
-      const events = batches.get(session.id);
-      return events ? applyHarnessEvents(session, events) : session;
-    });
-    if (!next.some((session, index) => session !== prev[index])) return;
-    sessionsRef.current = next;
-    syncDockBadge(next);
-    setSessions(next);
-  }, []);
+  const { flushHarnessEvents, enqueueHarnessEvent } = liveSessions;
 
   const stopSessionForRemoval = useCallback(
     async (sessionId: string): Promise<Session | undefined> => {
@@ -1100,63 +1093,6 @@ function Workspace({
       return sessionsRef.current.find((session) => session.id === sessionId);
     },
     [flushHarnessEvents],
-  );
-
-  const applyApprovalEvent = useCallback(
-    (sessionId: string, event: HarnessEvent) => {
-      const queued = harnessQueued.current.get(sessionId) ?? [];
-      harnessQueued.current.delete(sessionId);
-      const events = [...queued, event];
-      const prev = sessionsRef.current;
-      const next = prev.map((session) =>
-        session.id === sessionId
-          ? applyHarnessEvents(session, events)
-          : session,
-      );
-      if (!next.some((session, index) => session !== prev[index])) return;
-      sessionsRef.current = next;
-      syncDockBadge(next);
-      setSessions(next);
-    },
-    [],
-  );
-
-  const enqueueHarnessEvent = useCallback(
-    (sessionId: string, event: HarnessEvent) => {
-      if (
-        event.type === "approval.requested" ||
-        event.type === "approval.resolved" ||
-        event.type === "question.asked" ||
-        event.type === "question.resolved"
-      ) {
-        applyApprovalEvent(sessionId, event);
-        return;
-      }
-      const queued = harnessQueued.current;
-      const events = queued.get(sessionId);
-      if (events) events.push(event);
-      else queued.set(sessionId, [event]);
-      const tab = tabsRef.current.find(
-        (entry) => entry.id === activeTabIdRef.current,
-      );
-      const foreground =
-        !document.hidden &&
-        foregroundSurfaceRef.current.workspaceVisible &&
-        !!tab &&
-        leafIds(tab.layout).includes(sessionId);
-      // A visible stream must not wait for a background-only timer.
-      if (foreground && harnessFlush.current?.kind === "timeout") {
-        cancelScheduledFlush(harnessFlush.current);
-        harnessFlush.current = null;
-      }
-      if (!harnessFlush.current) {
-        harnessFlush.current = scheduleHarnessFlush(
-          flushHarnessEvents,
-          foreground,
-        );
-      }
-    },
-    [applyApprovalEvent, flushHarnessEvents],
   );
 
   useEffect(() => {
@@ -1187,8 +1123,7 @@ function Workspace({
       window.removeEventListener("pagehide", reap);
       window.removeEventListener("beforeunload", reap);
       stopBridge();
-      cancelScheduledFlush(harnessFlush.current);
-      harnessFlush.current = null;
+      liveSessions.dispose();
     };
   }, [resumed, readProjectReturnMemory]);
 
