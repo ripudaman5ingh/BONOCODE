@@ -285,12 +285,6 @@ fn rebase_project(conn: &Connection, from_cwd: &str, to_cwd: &str) -> rusqlite::
 }
 
 #[tauri::command(async)]
-pub fn session_list_linked(store: State<'_, SessionStore>) -> Result<Vec<SessionSummary>, String> {
-    let conn = store.conn.lock().map_err(|_| "Session store is locked")?;
-    list_linked(&conn).map_err(|e| e.to_string())
-}
-
-#[tauri::command(async)]
 pub fn session_get(
     store: State<'_, SessionStore>,
     session_id: String,
@@ -1596,51 +1590,6 @@ fn list_by_project(conn: &Connection, cwd: &str) -> rusqlite::Result<Vec<Session
     rows.collect()
 }
 
-fn list_linked(conn: &Connection) -> rusqlite::Result<Vec<SessionSummary>> {
-    let mut statement = conn.prepare(
-        "SELECT id, cwd, harness, model, runtime_mode, title, provider_session_id,
-                created_at, updated_at, branch, archived, pinned,
-                linked_work_item_json,
-                (SELECT summary FROM orchestration_sidebar WHERE lead_id = sessions.id), worktree_cwd,
-                worktree_removed, is_draft, automation_id
-         FROM sessions
-         WHERE has_user_message = 1
-           AND linked_work_item_json IS NOT NULL
-           AND id NOT IN (SELECT id FROM sessions WHERE inbox_ask IS NOT NULL)
-           AND id NOT IN (SELECT session_id FROM orchestration_workers)
-         ORDER BY updated_at DESC, id ASC",
-    )?;
-    let rows = statement.query_map([], |row| {
-        let archived: i64 = row.get(10)?;
-        let pinned: i64 = row.get(11)?;
-        Ok(SessionSummary {
-            id: row.get(0)?,
-            orchestration_lead_id: None,
-            orchestration: optional_json(row.get(13)?),
-            cwd: row.get(1)?,
-            harness: row.get(2)?,
-            model: row.get(3)?,
-            runtime_mode: row.get(4)?,
-            title: row.get(5)?,
-            provider_session_id: row.get(6)?,
-            created_at: row.get(7)?,
-            updated_at: row.get(8)?,
-            branch: nonempty(row.get(9)?),
-            worktree_cwd: row.get(14)?,
-            worktree_removed: row.get::<_, i64>(15)? != 0,
-            repo: None,
-            additions: 0,
-            deletions: 0,
-            archived: archived != 0,
-            pinned: pinned != 0,
-            draft: row.get::<_, i64>(16)? != 0,
-            linked_work_item: optional_json(row.get(12)?),
-            automation_id: nonempty(row.get(17)?),
-        })
-    })?;
-    rows.collect()
-}
-
 /// Mirrors the sidebar's notion of a listable session: a transcript that the
 /// user has actually said something in.
 fn has_user_block(blocks: &Value) -> bool {
@@ -2127,7 +2076,6 @@ mod tests {
         let summary = upsert_session(&conn, &worker).unwrap();
         assert_eq!(summary.orchestration_lead_id.as_deref(), Some("lead"));
         assert!(list_by_project(&conn, "/tmp/a").unwrap().is_empty());
-        assert!(list_linked(&conn).unwrap().is_empty());
         // An older renderer's next write cannot accidentally detach a worker.
         worker.blocks = json!([{"id": "u", "role": "user", "text": "Task"}]);
         upsert_session(&conn, &worker).unwrap();
@@ -2384,31 +2332,6 @@ mod tests {
     }
 
     #[test]
-    fn list_linked_finds_threads_across_projects() {
-        let store = SessionStore::open_in_memory().unwrap();
-        let conn = store.conn.lock().unwrap();
-        let linked = json!({
-            "kind": "pr",
-            "repo": "openai/codex",
-            "number": 42,
-            "url": "https://github.com/openai/codex/pull/42"
-        });
-        let mut first = sample("s1", "/tmp/a", "First");
-        first.linked_work_item = Some(linked.clone());
-        let mut second = sample("s2", "/tmp/b", "Second");
-        second.linked_work_item = Some(linked);
-        upsert_session(&conn, &first).unwrap();
-        upsert_session(&conn, &second).unwrap();
-        upsert_session(&conn, &sample("s3", "/tmp/a", "Unlinked")).unwrap();
-
-        let rows = list_linked(&conn).unwrap();
-        assert_eq!(rows.len(), 2);
-        assert!(rows.iter().any(|row| row.id == "s1"));
-        assert!(rows.iter().any(|row| row.id == "s2"));
-        assert!(rows.iter().all(|row| row.linked_work_item.is_some()));
-    }
-
-    #[test]
     fn context_usage_is_absent_until_a_harness_reports() {
         let store = SessionStore::open_in_memory().unwrap();
         let conn = store.conn.lock().unwrap();
@@ -2533,7 +2456,6 @@ mod tests {
                 .unwrap()
                 .iter()
                 .any(|row| row.id == id));
-            assert!(list_linked(&conn).unwrap().iter().any(|row| row.id == id));
         }
         assert!(orchestration_summary(&conn, "lead").unwrap().is_none());
         let count: i64 = conn
