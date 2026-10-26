@@ -602,7 +602,7 @@ html.has-user-accent .user-message-bubble {
   border-color: color-mix(in srgb, var(--user-accent-color) 30%, transparent);
 }
 
-@keyframes monocode-rise {
+@keyframes bonocode-rise {
   from {
     transform: translate(0, 0);
   }
@@ -611,7 +611,7 @@ html.has-user-accent .user-message-bubble {
   }
 }
 
-@keyframes monocode-twinkle {
+@keyframes bonocode-twinkle {
   0% {
     opacity: 0;
     transform: scale(0.2) rotate(0deg);
@@ -634,7 +634,7 @@ html.has-user-accent .user-message-bubble {
   }
 }
 
-@keyframes monocode-ember-glow {
+@keyframes bonocode-ember-glow {
   0% {
     opacity: 0;
   }
@@ -683,7 +683,7 @@ html.has-user-accent .user-message-bubble {
     color-mix(in srgb, var(--mode-glow) 35%, transparent),
     transparent 70%
   );
-  animation: monocode-ember-glow 2200ms 100ms ease-out both;
+  animation: bonocode-ember-glow 2200ms 100ms ease-out both;
 }
 
 @keyframes turn-mode-halo {
@@ -733,7 +733,7 @@ html.theme-light .plan-steps {
   left: var(--x);
   z-index: 2;
   width: 0;
-  animation: monocode-rise var(--duration) var(--delay)
+  animation: bonocode-rise var(--duration) var(--delay)
     cubic-bezier(0.3, 0.6, 0.4, 1) both;
 }
 
@@ -784,7 +784,7 @@ html.theme-light .plan-steps {
   left: var(--x);
   z-index: 1;
   width: 0;
-  animation: monocode-rise var(--duration) var(--delay)
+  animation: bonocode-rise var(--duration) var(--delay)
     cubic-bezier(0.3, 0.6, 0.4, 1) both;
 }
 
@@ -798,7 +798,7 @@ html.theme-light .plan-steps {
   border-radius: 9999px;
   background: radial-gradient(circle, #fefce8, var(--mode-color) 70%);
   box-shadow: 0 0 5px var(--mode-glow);
-  animation: monocode-twinkle var(--duration) var(--delay) ease-in-out both;
+  animation: bonocode-twinkle var(--duration) var(--delay) ease-in-out both;
 }
 
 @keyframes plan-step-dot {
@@ -956,7 +956,6 @@ input,
 .agent-transcript,
 .markdown-preview,
 .whats-new-md,
-.inbox-pr-diff,
 .unified-diff,
 .inbox-comment-md,
 .monocode-terminal,

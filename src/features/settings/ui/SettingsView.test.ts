@@ -486,7 +486,7 @@ describe("settings pages", () => {
       notificationProjectPath: "/repo",
       notificationSettingsRequest: 1,
     };
-    await render("inbox", shortcut);
+    await render("github", shortcut);
     const project = container.querySelector<HTMLButtonElement>(
       'button[aria-label="Notification categories for work/app"]',
     )!;
@@ -510,7 +510,7 @@ describe("settings pages", () => {
     expect(document.activeElement).toBe(search);
     scroll.mockClear();
 
-    await render("inbox", { ...shortcut, notificationSettingsRequest: 2 });
+    await render("github", { ...shortcut, notificationSettingsRequest: 2 });
 
     expect.soft(project.getAttribute("aria-expanded")).toBe("true");
     expect.soft(scroll).toHaveBeenCalledWith({ block: "nearest" });
@@ -535,7 +535,7 @@ describe("settings pages", () => {
         paths: ["/repo"],
       },
     ]);
-    await render("inbox", {
+    await render("github", {
       anchor: "project-notifications",
       notificationProjectPath: "/repo",
     });
@@ -782,8 +782,8 @@ describe("settings search", () => {
     ]);
 
     await act(async () => options()[0]!.click());
-    expect(onSelectSection).toHaveBeenCalledWith("inbox");
-    await render("inbox");
+    expect(onSelectSection).toHaveBeenCalledWith("github");
+    await render("github");
     const section = container.querySelector(
       '[data-setting-id="project-notifications"]',
     );

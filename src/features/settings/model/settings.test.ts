@@ -513,6 +513,11 @@ describe("saved settings section", () => {
     localStorage.setItem("bonocode.settingsSection", "connections");
     expect(loadSettingsSection()).toBe(SETTINGS_SECTION_DEFAULT);
   });
+
+  it("falls back to the default when it names the renamed inbox section", () => {
+    localStorage.setItem("bonocode.settingsSection", "inbox");
+    expect(loadSettingsSection()).toBe(SETTINGS_SECTION_DEFAULT);
+  });
 });
 
 describe("collapsed project rail setting", () => {
@@ -554,7 +559,7 @@ describe("settings navigation", () => {
       "providers",
       "mcp",
       "skills",
-      "inbox",
+      "github",
       "archive",
       "worktrees",
     ]);

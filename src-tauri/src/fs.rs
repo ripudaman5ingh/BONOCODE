@@ -1267,7 +1267,7 @@ pub async fn git_github_repo(cwd: String) -> Result<String, String> {
 }
 
 /// One issue or pull request by number, used when session navigation misses
-/// the existing Inbox cache.
+/// the linked-work-item cache.
 #[tauri::command]
 pub async fn git_github_work_item(
     cwd: String,
@@ -1293,7 +1293,7 @@ pub struct GitHubWorkItemDetails {
     pub review_decision: String,
 }
 
-/// Issue or pull request body for the inbox detail pane.
+/// Issue or pull request body for the work item detail pane.
 #[tauri::command]
 pub async fn git_github_work_item_details(
     cwd: String,
@@ -1347,7 +1347,7 @@ pub struct GitHubWorkItemThread {
     pub head_ref_name: String,
 }
 
-/// Conversation for the inbox detail pane: comments, reviews, and review threads.
+/// Conversation for the work item detail pane: comments, reviews, and review threads.
 #[tauri::command]
 pub async fn git_github_work_item_thread(
     cwd: String,

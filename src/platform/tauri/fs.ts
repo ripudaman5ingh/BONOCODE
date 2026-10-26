@@ -3,9 +3,6 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { slash } from "../../shared/lib/paths";
 import type { InterjectionMeta } from "../../features/sessions/model/session";
 
-/** Same as `invoke`; search and worktree callers still use this name. */
-export const invokeWorkspace = invoke;
-
 export type OmpInterjectionAnchor = InterjectionMeta & {
   id: string;
   afterAssistantText: string;

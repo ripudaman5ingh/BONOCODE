@@ -40,9 +40,8 @@ export type GeneratedSessionTitle = {
 export function shouldGenerateSessionTitle(
   isFirstTurn: boolean,
   placeholderTitle: boolean,
-  refreshTitle = false,
 ): boolean {
-  return refreshTitle || (isFirstTurn && placeholderTitle);
+  return isFirstTurn && placeholderTitle;
 }
 
 export function buildThreadTitlePrompt(message: string): string {

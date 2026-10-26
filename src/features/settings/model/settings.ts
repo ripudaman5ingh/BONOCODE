@@ -23,7 +23,7 @@ export type SettingsSectionId =
   | "providers"
   | "mcp"
   | "skills"
-  | "inbox"
+  | "github"
   | "worktrees"
   | "archive";
 
@@ -105,7 +105,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     keywords: "skill instructions prompt",
   },
   {
-    id: "inbox",
+    id: "github",
     group: "workspace",
     label: "GitHub & notifications",
     description:
@@ -345,13 +345,13 @@ export const SETTINGS_INDEX: SettingsEntry[] = [
   },
   {
     id: "project-notifications",
-    section: "inbox",
+    section: "github",
     label: "Project notifications",
     keywords: "mute resume sounds banners categories",
   },
   {
     id: "github",
-    section: "inbox",
+    section: "github",
     label: "GitHub",
     keywords: "gh cli connect pull request sign in",
   },

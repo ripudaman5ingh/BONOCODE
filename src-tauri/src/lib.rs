@@ -361,7 +361,6 @@ pub fn run() {
             session_store::session_upsert,
             session_store::session_list_by_project,
             session_store::session_rebase_project,
-            session_store::session_list_linked,
             session_store::session_search,
             session_store::cancel_session_search,
             session_store::session_get,
