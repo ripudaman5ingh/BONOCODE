@@ -24,6 +24,8 @@ import {
   loadFileTabMode,
   loadFollowUpBehavior,
   loadLiveAgentsEnabled,
+  loadSettingsSection,
+  SETTINGS_SECTION_DEFAULT,
   keybindingPressed,
   matchCustomKeybinding,
   loadTabAnimationsEnabled,
@@ -501,6 +503,18 @@ describe("tab animations setting", () => {
   });
 });
 
+describe("saved settings section", () => {
+  beforeEach(mockLocalStorage);
+  afterEach(() => {
+    localStorage.removeItem("bonocode.settingsSection");
+  });
+
+  it("falls back to the default when it names the removed connections section", () => {
+    localStorage.setItem("bonocode.settingsSection", "connections");
+    expect(loadSettingsSection()).toBe(SETTINGS_SECTION_DEFAULT);
+  });
+});
+
 describe("collapsed project rail setting", () => {
   beforeEach(mockLocalStorage);
   afterEach(() => {
@@ -534,7 +548,6 @@ describe("settings navigation", () => {
     ]);
     expect(groups.flatMap((group) => group.sections.map((s) => s.id))).toEqual([
       "general",
-      "connections",
       "appearance",
       "keybindings",
       "chat",

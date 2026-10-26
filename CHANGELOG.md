@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub star prompt.
 - Orchestration (lead agent that plans and spawns worker chats).
 - /operator (agent-driven app CLI).
+- Remote host (running agents on another machine over SSH).
 
 ## [0.6.0] - 2026-09-30
 

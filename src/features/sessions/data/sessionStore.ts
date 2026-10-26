@@ -7,7 +7,7 @@ import { codexCommandPresentation } from "../../../integrations/harness/provider
 import { recoverCursorSubagents } from "../../../integrations/harness/providers/cursor/cursorSubagents";
 import { persistableAttachment } from "../model/attachments";
 import type { ContextUsage } from "../model/contextUsage";
-import { isRemoteProjectPath, normalizeProjectPath } from "../../projects/model/recents";
+import { normalizeProjectPath } from "../../projects/model/recents";
 import {
   claudeShellCommands,
   ompActiveAssistantTexts,
@@ -105,9 +105,7 @@ type SessionUpsertPayload = {
 /** Only real chats belong in project history — blank tabs stay ephemeral. */
 export function shouldPersistSession(session: Session): boolean {
   return (
-    !isRemoteProjectPath(session.cwd) &&
-    session.cwd !== "~" &&
-    session.blocks.some((block) => block.role === "user")
+    session.cwd !== "~" && session.blocks.some((block) => block.role === "user")
   );
 }
 

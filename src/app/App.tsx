@@ -310,7 +310,6 @@ import {
   lastProjectPath,
   loadRecents,
   isLocalProject,
-  isRemoteProjectPath,
   looksLikeProject,
   normalizeProjectPath,
   projectRailItems,
@@ -467,22 +466,6 @@ import { ProjectTerminalDock } from "../features/terminal/ui/ProjectTerminalDock
 import { lazySurface } from "../shared/ui/lazySurface";
 import { requestTranscriptJump } from "../features/sessions/model/transcriptJump";
 import type { SettingsAnchor } from "../features/settings/ui/SettingsView";
-import {
-  OPEN_CONNECTIONS_EVENT,
-  OPEN_REMOTE_PROJECT_EVENT,
-  REMOTE_HISTORY_UPDATED,
-  cachedRemoteSessionSummary,
-  rememberRemotePendingWorktree,
-  rememberRemoteSession,
-  remotePendingWorktree,
-  remoteTabCwd,
-  remoteSessionFor,
-} from "../features/connections/model/connections";
-import { buildRemotePlan, remoteSessionActions } from "../features/connections/model/remoteSessionActions";
-import { remoteSessionState } from "../features/connections/model/remoteSessionState";
-import { remotePath, remoteProjectFor } from "../features/connections/model/remoteProjects";
-import type { HostSession } from "../features/connections/model/protocol";
-import { AddRemoteProjectDialog } from "../features/connections/ui/AddRemoteProjectDialog";
 import {
   githubWorkItemThread,
   type InboxItem,
@@ -937,12 +920,6 @@ function Workspace({
     () => new Map(),
   );
   const [history, setHistory] = useState<SessionSummary[]>(() => bootHistory);
-  const [, refreshRemoteTabTitles] = useState(0);
-  useEffect(() => {
-    const updated = () => refreshRemoteTabTitles((value) => value + 1);
-    window.addEventListener(REMOTE_HISTORY_UPDATED, updated);
-    return () => window.removeEventListener(REMOTE_HISTORY_UPDATED, updated);
-  }, []);
   /**
    * Projects whose rows are already in `history`. This has to be state, not a
    * ref: `sidebarCwd` is derived during render, so the frame that first shows
@@ -1354,24 +1331,14 @@ function Workspace({
     activeFile?.cwd ?? (active ? sessionWorkCwd(active) : sidebarCwd);
   const gitCwdBranches = useProjectBranches(
     gitCwd,
-    Boolean(gitCwd) && gitCwd !== "~" && !isRemoteProjectPath(sidebarCwd),
+    Boolean(gitCwd) && gitCwd !== "~",
   );
   const explorerRootLabel =
     active?.worktreeCwd && sameProjectPath(gitCwd, sessionWorkCwd(active))
       ? active.branch || gitCwdBranches?.current || undefined
       : undefined;
-  const remoteFilesProject = remoteProjectFor(sidebarCwd);
-  const filesCwd = remoteFilesProject
-    ? isRemoteProjectPath(gitCwd)
-      ? gitCwd
-      : remotePath(
-          remoteFilesProject.environmentId,
-          remoteTabCwd(sidebarCwd, active?.id) ??
-            (gitCwd && gitCwd !== sidebarCwd ? gitCwd : remoteFilesProject.cwd),
-        )
-    : gitCwd;
-  const gitCwdRef = useRef(filesCwd);
-  gitCwdRef.current = filesCwd;
+  const gitCwdRef = useRef(gitCwd);
+  gitCwdRef.current = gitCwd;
   const projectBranches = useProjectBranches(
     sidebarCwd,
     Boolean(sidebarCwd) && sidebarCwd !== "~",
@@ -2067,33 +2034,6 @@ function Workspace({
     projectCwd,
   ]);
 
-  const onSelectRemoteSession = useCallback(
-    (project: string, remoteSessionId: string) => {
-      setSearchViewOpen(false);
-      const existing = tabsRef.current
-        .map((tab) => ({
-          tab,
-          shellId: leafIds(tab.layout).find(
-            (shellId) => remoteSessionFor(shellId) === remoteSessionId,
-          ),
-        }))
-        .find(({ shellId }) => shellId);
-      if (existing) {
-        activateTab(existing.tab.id, existing.shellId);
-        return;
-      }
-      // Reserve a dedicated tab immediately. An apparently blank remote tab
-      // may hold composer text or a create/upload that the host has not accepted.
-      const session = newDefaultSession(project, sessionDefaults?.runtimeMode);
-      const tab = newTab(session.id);
-      rememberRemoteSession(session.id, remoteSessionId);
-      setSessions((prev) => [...prev, session]);
-      appendTab(tab, project);
-      setActiveTabId(tab.id);
-    },
-    [activateTab, appendTab, sessionDefaults?.runtimeMode],
-  );
-
   const setLinkedWorkItemUpdateCard = useCallback(
     (
       sessionId: string,
@@ -2495,8 +2435,6 @@ function Workspace({
         );
         for (const sessionId of gone) {
           persistSession(sessionsRef.current.find((s) => s.id === sessionId));
-          rememberRemoteSession(sessionId);
-          rememberRemotePendingWorktree(sessionId);
         }
         setDirtyFiles((prev) => {
           const updated = new Set(prev);
@@ -2558,8 +2496,6 @@ function Workspace({
           persistSession(
             sessionsRef.current.find((session) => session.id === sessionId),
           );
-          rememberRemoteSession(sessionId);
-          rememberRemotePendingWorktree(sessionId);
         }
         setDirtyFiles((prev) => {
           const next = new Set(prev);
@@ -2817,10 +2753,6 @@ function Workspace({
 
       const finishClear = () => {
         persistSession(oldSession);
-        for (const shellId of leafIds(tab.layout)) {
-          rememberRemoteSession(shellId);
-          rememberRemotePendingWorktree(shellId);
-        }
 
         const session = newSession(
           oldSession.harness,
@@ -2864,26 +2796,6 @@ function Workspace({
       ).then((ok) => ok && finishClear());
     },
     [tabs, persistSession, refreshHistory, sidebarCwd],
-  );
-
-  const onRemoteSessionDeleted = useCallback(
-    (remoteSessionId: string) => {
-      const tab = tabsRef.current.find((entry) =>
-        leafIds(entry.layout).some(
-          (shellId) => remoteSessionFor(shellId) === remoteSessionId,
-        ),
-      );
-      if (!tab) return;
-      const closePlan = planWorkspaceTabClose({
-        tabs: tabsRef.current,
-        sessions: sessionsRef.current,
-        closingTabId: tab.id,
-        scope: tabCloseScope,
-      });
-      if (closePlan.action === "keep") onClearTabSession(tab.id);
-      else onCloseTab(tab.id);
-    },
-    [onClearTabSession, onCloseTab, tabCloseScope],
   );
 
   const onCloseAllTabs = useCallback(() => {
@@ -4719,9 +4631,7 @@ function Workspace({
         source.cwd,
         placeSessionInFolder(
           folders,
-          isRemoteProjectPath(source.cwd)
-            ? (remoteSessionFor(sessionId) ?? sessionId)
-            : sessionId,
+          sessionId,
           target,
         ),
       );
@@ -5202,8 +5112,6 @@ function Workspace({
       const current = sessionsRef.current.find(
         (session) => session.id === sessionId,
       );
-      if (current && remoteProjectFor(current.cwd))
-        return !!remoteSessionActions(sessionId)?.saveDraft(text, attachments);
       if (
         !current ||
         current.busy ||
@@ -5285,9 +5193,6 @@ function Workspace({
       attachments: Attachment[] = [],
       options?: SubmitOptions,
     ): SubmissionAcceptance => {
-      const remote = sessionsRef.current.find((session) => session.id === sessionId);
-      if (remote && remoteProjectFor(remote.cwd))
-        return !!remoteSessionActions(sessionId)?.submit(text, attachments, options);
       if (editedResends.isActive(sessionId)) return false;
       if (
         removingSessionIds.current.has(sessionId) ||
@@ -6181,7 +6086,6 @@ function Workspace({
     (sessionId: string, blockId: string, text: string) => {
       setSessions((prev) =>
         prev.map((session) => {
-          if (remoteProjectFor(session.cwd)) return session;
           if (session.id !== sessionId || session.busy) return session;
           return {
             ...session,
@@ -6219,10 +6123,6 @@ function Workspace({
       const session = sessionsRef.current.find(
         (entry) => entry.id === sessionId,
       );
-      if (session && remoteProjectFor(session.cwd)) {
-        buildRemotePlan(sessionId, blockId, target);
-        return;
-      }
       const block = session?.blocks.find((entry) => entry.id === blockId);
       if (
         !session ||
@@ -7237,8 +7137,6 @@ function Workspace({
       const current = sessionsRef.current.find(
         (session) => session.id === sessionId,
       );
-      if (current && remoteProjectFor(current.cwd))
-        return remoteSessionActions(sessionId)?.compact() ?? false;
       if (!current || current.busy || current.worktreeRemoved) return false;
       if (!canCompactHarnessContext(current.harness)) {
         const unsupported = sessionsRef.current.map((session) =>
@@ -7320,11 +7218,6 @@ function Workspace({
 
   const onStop = useCallback(
     (sessionId: string) => {
-      const remote = sessionsRef.current.find((s) => s.id === sessionId);
-      if (remote && remoteProjectFor(remote.cwd)) {
-        remoteSessionActions(sessionId)?.stop();
-        return;
-      }
       const session = sessionsRef.current.find((s) => s.id === sessionId);
       turnGen.current.set(sessionId, (turnGen.current.get(sessionId) ?? 0) + 1);
       flushHarnessEvents();
@@ -7407,10 +7300,6 @@ function Workspace({
     (sessionId: string, requestId: number, decision: ApprovalDecision) => {
       const session = sessionsRef.current.find((s) => s.id === sessionId);
       if (!session || session.worktreeRemoved) return;
-      if (remoteProjectFor(session.cwd)) {
-        remoteSessionActions(sessionId)?.approve(requestId, decision);
-        return;
-      }
       respondHarnessApproval(session.harness, sessionId, requestId, decision);
     },
     [],
@@ -7420,10 +7309,6 @@ function Workspace({
     (sessionId: string, requestId: number, reply: UserQuestionReply) => {
       const session = sessionsRef.current.find((s) => s.id === sessionId);
       if (!session || session.worktreeRemoved) return;
-      if (remoteProjectFor(session.cwd)) {
-        remoteSessionActions(sessionId)?.answer(requestId, reply);
-        return;
-      }
       respondHarnessQuestion(session.harness, sessionId, requestId, reply);
     },
     [],
@@ -7432,7 +7317,6 @@ function Workspace({
   const onQuestionInteraction = useCallback(
     (sessionId: string, requestId: number) => {
       const session = sessionsRef.current.find((s) => s.id === sessionId);
-      if (session && remoteProjectFor(session.cwd)) return;
       if (session && !session.worktreeRemoved)
         keepHarnessQuestionOpen(session.harness, sessionId, requestId);
     },
@@ -7713,19 +7597,6 @@ function Workspace({
 
   const onOpenSettings = useCallback(() => openSettings(), [openSettings]);
   useEffect(() => {
-    const openConnections = () => openSettings("connections");
-    window.addEventListener(OPEN_CONNECTIONS_EVENT, openConnections);
-    return () =>
-      window.removeEventListener(OPEN_CONNECTIONS_EVENT, openConnections);
-  }, [openSettings]);
-  const [remoteProjectDialogOpen, setRemoteProjectDialogOpen] = useState(false);
-  useEffect(() => {
-    const open = () => setRemoteProjectDialogOpen(true);
-    window.addEventListener(OPEN_REMOTE_PROJECT_EVENT, open);
-    return () => window.removeEventListener(OPEN_REMOTE_PROJECT_EVENT, open);
-  }, []);
-
-  useEffect(() => {
     const onOpenMcp = () => openSettings("mcp");
     window.addEventListener("bonocode:open-mcp-settings", onOpenMcp);
     return () => window.removeEventListener("bonocode:open-mcp-settings", onOpenMcp);
@@ -7822,27 +7693,12 @@ function Workspace({
         (session) => session.id === activeWorkspace.focusedId,
       );
       if (!current) return;
-      const remoteProject = isRemoteProjectPath(current.cwd);
-      const navigationId = remoteProject
-        ? remoteSessionFor(current.id)
-        : current.id;
-      if (!navigationId) return;
-
       const next = adjacentItemId(
         sessionNavigationIdsRef.current,
-        navigationId,
+        current.id,
         delta,
       );
-      if (!next || next === navigationId) return;
-      if (remoteProject) {
-        if (inCurrentTab) {
-          rememberRemoteSession(current.id, next);
-          setComposerFocused(true);
-        } else {
-          onSelectRemoteSession(current.cwd, next);
-        }
-        return;
-      }
+      if (!next || next === current.id) return;
       // Stepping gives no hover to warm the transcript, so load the one a
       // further step away once this switch has its own session.
       const prefetchAhead = () => {
@@ -7880,7 +7736,6 @@ function Workspace({
       ensureOpenSession,
       onPrefetchHistorySession,
       onSelectHistorySession,
-      onSelectRemoteSession,
       revealLinkedSessionUpdate,
     ],
   );
@@ -8302,28 +8157,6 @@ function Workspace({
     );
   }, [currentProjectDock, dockVisible]);
 
-  const lastRemoteSnapshot = useRef(new Map<string, HostSession>());
-  const onRemoteSnapshot = useCallback((shellId: string, snapshot?: HostSession) => {
-    if (!snapshot) {
-      lastRemoteSnapshot.current.delete(shellId);
-      setSessions((current) => current.map((entry) => entry.id === shellId
-        ? { ...entry, title: "New remote session", blocks: [], busy: false }
-        : entry));
-      return;
-    }
-    if (lastRemoteSnapshot.current.get(shellId) === snapshot) return;
-    lastRemoteSnapshot.current.set(shellId, snapshot);
-    setSessions((current) => {
-      const shell = current.find((entry) => entry.id === shellId);
-      if (!shell) return current;
-      const project = remoteProjectFor(shell.cwd);
-      if (!project) return current;
-      return current.map((entry) => entry.id === shellId
-        ? remoteSessionState(entry, snapshot, project)
-        : entry);
-    });
-  }, []);
-
   const onManageWorktrees = useCallback(
     () => openSettings("worktrees"),
     [openSettings],
@@ -8337,7 +8170,6 @@ function Workspace({
     onCwdChange,
     onBranchChange,
     onWorktreeChange,
-    onRemoteSnapshot,
     onWorkspaceModeChange,
     onWorktreeBaseChange,
     onManageWorktrees,
@@ -8447,8 +8279,6 @@ function Workspace({
           status={historyFailed ? "error" : "idle"}
           pending={historyPending}
           onSelectSession={onSelectHistorySession}
-          onSelectRemoteSession={onSelectRemoteSession}
-          onRemoteSessionDeleted={onRemoteSessionDeleted}
           onPrefetchSession={onPrefetchHistorySession}
           onSessionNavigationOrder={onSessionNavigationOrder}
           onPlaceSessionOnPane={onPlaceSessionOnPane}
@@ -8769,7 +8599,7 @@ function Workspace({
         <FilePicker
           key={filePickerResetToken}
           open
-          cwd={filesCwd}
+          cwd={gitCwd}
           openPaths={openFilePaths}
           initialQuery={filePickerInitialQuery}
           onOpenFile={onOpenFile}
@@ -8808,15 +8638,6 @@ function Workspace({
           onClose={() => setWhatsNewVersion(null)}
         />
       ) : null}
-      {remoteProjectDialogOpen ? (
-        <AddRemoteProjectDialog
-          onCancel={() => setRemoteProjectDialogOpen(false)}
-          onOpen={(key) => {
-            setRemoteProjectDialogOpen(false);
-            onSelectProject(key);
-          }}
-        />
-      ) : null}
       {providerSignInRequest ? (
         <ProviderSignInDialog
           key={providerSignInRequest.key}
@@ -8830,16 +8651,7 @@ function Workspace({
   );
 }
 function conversationTitle(session: Session): string {
-  const hostId = isRemoteProjectPath(session.cwd)
-    ? remoteSessionFor(session.id)
-    : undefined;
-  const remote = hostId
-    ? cachedRemoteSessionSummary(session.cwd, hostId)
-    : undefined;
-  const title = sessionDisplayTitle(
-    remote?.title ?? session.title,
-    remote?.harness ?? session.harness,
-  );
+  const title = sessionDisplayTitle(session.title, session.harness);
   return title === "New session" ? "" : title;
 }
 
@@ -8884,7 +8696,6 @@ function isBlankWorkspaceTab(tab: WorkspaceTab, sessions: Session[]): boolean {
     return false;
   const ids = leafIds(tab.layout);
   if (ids.length !== 1) return false;
-  if (remoteSessionFor(ids[0]) || remotePendingWorktree(ids[0])) return false;
   return isBlankSession(sessions.find((entry) => entry.id === ids[0]));
 }
 

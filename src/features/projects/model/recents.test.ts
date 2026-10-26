@@ -151,6 +151,17 @@ describe("forgetProject", () => {
     expect(loadPinnedProjects()).toEqual([]);
   });
 
+  it("drops recents saved on the removed remote host", () => {
+    localStorage.setItem(
+      "bonocode.recentProjects",
+      JSON.stringify([
+        { path: "remote://env/home/me/repo", openedAt: 2 },
+        { path: "/tmp/keep", openedAt: 1 },
+      ]),
+    );
+    expect(loadRecents().map((item) => item.path)).toEqual(["/tmp/keep"]);
+  });
+
   it("treats differently-cased Windows paths as one project", () => {
     rememberProject("C:/Users/me/Code/App");
     rememberProject("c:/users/ME/code/app");

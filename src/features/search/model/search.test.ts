@@ -52,8 +52,4 @@ describe("project search cancellation", () => {
     });
   });
 
-  it("does not send remote cancellation to this computer", async () => {
-    await cancelProjectSearch("remote://env/home/me/repo", "remote-search");
-    expect(invoke).not.toHaveBeenCalled();
-  });
 });

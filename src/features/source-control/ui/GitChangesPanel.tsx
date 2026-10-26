@@ -50,7 +50,6 @@ import {
   gitPrStatus,
   gitPull,
   gitPush,
-  gitRangeContext,
   gitStageAll,
   gitStageFile,
   gitSync,
@@ -79,10 +78,7 @@ import { invalidateWatchedFiles } from "../../files/model/fileWatch";
 import { MOD } from "../../../platform/tauri/platform";
 import { applyProjectDiffStats } from "../hooks/useProjectDiffStats";
 import { useLockOverscroll } from "../../../shared/hooks/useLockOverscroll";
-import {
-  isRemoteProjectPath,
-  sameProjectPath,
-} from "../../projects/model/recents";
+import { sameProjectPath } from "../../projects/model/recents";
 import type { SessionSummary } from "../../sessions/data/sessionStore";
 import type { CiRepairRequest } from "../model/ciRepair";
 import { useGithubPrChecks } from "../hooks/useGithubPrChecks";
@@ -412,7 +408,7 @@ function ChangedFiles({
     !!index?.branch &&
     !!index.defaultBranch &&
     index.branch === index.defaultBranch;
-  const canGenerate = files.length > 0 && !busy && !isRemoteProjectPath(cwd);
+  const canGenerate = files.length > 0 && !busy;
   const canCommit =
     (staged.length > 0 || amend) && message.trim().length > 0 && !busy;
   const canCreatePr =
@@ -672,9 +668,7 @@ function ChangedFiles({
   };
 
   const openCreatedPr = async () => {
-    const content = isRemoteProjectPath(cwd)
-      ? await remotePrContent(cwd)
-      : await generatePrContent(cwd, textHarness);
+    const content = await generatePrContent(cwd, textHarness);
     if (!content) throw new Error("Could not prepare pull request content");
     const url = await gitPrCreate(
       cwd,
@@ -1298,23 +1292,6 @@ type ChangeDir = {
   /** Status shared by every descendant, or null when they differ. */
   status: string | null;
 };
-
-async function remotePrContent(cwd: string) {
-  const range = await gitRangeContext(cwd);
-  const commits = range.commitSummary.trim();
-  const firstCommit = commits
-    .split(/\r?\n/, 1)[0]
-    ?.replace(/^[0-9a-f]+\s+/i, "")
-    .trim();
-  const title = firstCommit || `Changes on ${range.head}`;
-  const body = [
-    commits && `## Commits\n\n${commits}`,
-    range.diffSummary.trim() && `## Changes\n\n${range.diffSummary.trim()}`,
-  ]
-    .filter(Boolean)
-    .join("\n\n");
-  return { title, body: body || title, base: range.base, head: range.head };
-}
 
 type ChangeRowProps = {
   files: GitChangedFile[];
