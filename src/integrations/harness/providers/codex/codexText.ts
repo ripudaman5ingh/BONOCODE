@@ -342,7 +342,7 @@ async function startLive(
       {
         clientInfo: {
           name: "bonocode-text",
-          title: "MonoCode",
+          title: "Bonocode",
           version: "0.1.0",
         },
         capabilities: { experimentalApi: true },
