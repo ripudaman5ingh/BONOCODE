@@ -46,7 +46,6 @@ import {
   subscribeDirsChanged,
 } from "../model/fileTree";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
-import { REMOTE_PATH_PREFIX } from "../../../shared/lib/remotePaths";
 import { dragPointToClient } from "../../../shared/lib/dragPoint";
 import {
   basename,
@@ -821,14 +820,6 @@ export const FileTree = memo(function FileTree({
       document.removeEventListener("visibilitychange", onResume);
     };
   }, []);
-
-  useEffect(() => {
-    if (!cwd.startsWith(REMOTE_PATH_PREFIX)) return;
-    const timer = window.setInterval(() => {
-      if (!document.hidden) notifyDirsChanged();
-    }, 5000);
-    return () => window.clearInterval(timer);
-  }, [cwd]);
 
   useEffect(() => {
     const hit = peekDir(cwd);

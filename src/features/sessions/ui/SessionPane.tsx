@@ -80,9 +80,6 @@ import {
 } from "../../settings/model/appearance";
 import type { SessionFolderTarget } from "../model/sessionFolders";
 import { markLinkedSessionUpdateSeen } from "../../github/model/linkedSessionSeen";
-import { RemoteSession } from "../../connections/ui/RemoteSession";
-import { isRemoteProjectPath } from "../../projects/model/recents";
-import type { HostSession } from "../../connections/model/protocol";
 
 export type SessionPaneProps = {
   session: Session;
@@ -100,7 +97,6 @@ export type SessionPaneProps = {
   onCwdChange: (sessionId: string, cwd: string) => void;
   onBranchChange: (sessionId: string) => void;
   onWorktreeChange?: (sessionId: string, tree: Worktree) => Promise<void>;
-  onRemoteSnapshot?: (shellId: string, snapshot?: HostSession) => void;
   onWorkspaceModeChange: (
     sessionId: string,
     mode: WorkspaceMode,
@@ -204,38 +200,10 @@ export type SessionPaneProps = {
 };
 
 type Props = SessionPaneProps & {
-  /** The session runtime is on another machine. */
-  remoteSession?: boolean;
-  remoteFeatures?: { attachments: boolean; plan: boolean; draft: boolean };
-  /** An opened host conversation whose transcript has not arrived yet. */
-  remoteSessionLoading?: boolean;
-  remoteSessionStarted?: boolean;
   allowedModelHarnesses?: readonly HarnessId[];
 };
 
-export const SessionPane = memo(function SessionPane(props: SessionPaneProps) {
-  // Sessions in a project on another machine render this same pane, backed by
-  // the host instead of this computer's session runtime.
-  if (isRemoteProjectPath(props.session.cwd))
-    return (
-      <RemoteSession
-        shell={props.session}
-        visible={props.visible}
-        onSnapshot={props.onRemoteSnapshot}
-        onOpenFile={props.onOpenFile}
-        onOpenDiff={props.onOpenDiff}
-        onOpenPlan={props.onOpenPlan}
-        render={(remote) => <LocalSessionPane {...props} {...remote} />}
-      />
-    );
-  return <LocalSessionPane {...props} />;
-});
-
-const LocalSessionPane = memo(function LocalSessionPane({
-  remoteSession = false,
-  remoteFeatures,
-  remoteSessionLoading = false,
-  remoteSessionStarted = false,
+export const SessionPane = memo(function SessionPane({
   allowedModelHarnesses,
   session,
   reviewUndoLocked = false,
@@ -298,8 +266,7 @@ const LocalSessionPane = memo(function LocalSessionPane({
   const title = sessionDisplayTitle(session.title, session.harness);
   const isEmpty = session.blocks.length === 0;
   const recallLastTurnRef = useRef<(() => void) | null>(null);
-  const remote = remoteSession;
-  const editLastTurnSupported = !remote && canEditLastTurn(session);
+  const editLastTurnSupported = canEditLastTurn(session);
   const turnRecall = editLastTurnSupported ? lastTurnRecall(session) : null;
   const draftBlock = sessionDraftBlock(session);
   useSyncExternalStore(
@@ -383,7 +350,6 @@ const LocalSessionPane = memo(function LocalSessionPane({
   const [quoteRequest, setQuoteRequest] = useState<QuoteRequest>();
   const btw = useBtwConversation({
     available:
-      !remote &&
       !isEmpty &&
       !session.worktreeRemoved &&
       !!onBtwSubmit &&
@@ -474,16 +440,12 @@ const LocalSessionPane = memo(function LocalSessionPane({
   }, [addSelectionToChat, addToChatTarget]);
   const workCwd = sessionWorkCwd(session);
   const showDeckProjectPicker = isEmpty && !looksLikeProject(session.cwd);
-  const dockComposer =
-    remoteSessionLoading ||
-    (!draftBlock && (!isEmpty || inSplit));
+  const dockComposer = !draftBlock && (!isEmpty || inSplit);
   const composerDockMotion = useComposerDockMotion(dockComposer);
   const draftRef = useRef<string | undefined>(getComposerDraft(session.id));
   const composer = (
     <Composer
       key={session.id}
-      remoteSession={remoteSession}
-      remoteFeatures={remoteFeatures}
       allowedModelHarnesses={allowedModelHarnesses}
       enabled={visible}
       focused={focused && composerFocused && !btw.open}
@@ -526,9 +488,7 @@ const LocalSessionPane = memo(function LocalSessionPane({
       }
       draftWorkspace={
         !session.worktreeRemoved &&
-        (remote
-          ? !remoteSessionStarted
-          : (isEmpty || !!session.workspaceMode) && !session.worktreeCwd)
+        (isEmpty || !!session.workspaceMode) && !session.worktreeCwd
       }
       workspaceMode={session.workspaceMode}
       worktreeBase={session.worktreeBase}
@@ -555,7 +515,6 @@ const LocalSessionPane = memo(function LocalSessionPane({
       }
       onRuntimeModeChange={(mode) => onRuntimeModeChange(session.id, mode)}
       canSaveDraft={
-        (!remote || !!remoteFeatures?.draft) &&
         !session.busy &&
         !draftBlock &&
         !session.handoffCard
@@ -706,7 +665,7 @@ const LocalSessionPane = memo(function LocalSessionPane({
               }
             />
           ) : null}
-          {remoteSessionLoading ? null : isEmpty ? (
+          {isEmpty ? (
             <EmptySession
               cwd={session.cwd}
               composer={
@@ -759,7 +718,7 @@ const LocalSessionPane = memo(function LocalSessionPane({
                   onOpenDiff={onOpenDiff}
                   onOpenPlan={openPlan}
                   onBuildPlan={session.worktreeRemoved ? undefined : buildPlan}
-                  planBuildTargets={!remote}
+                  planBuildTargets
                   onSecondOpinion={
                     !session.worktreeRemoved &&
                     onSecondOpinion
@@ -787,7 +746,6 @@ const LocalSessionPane = memo(function LocalSessionPane({
                       : undefined
                   }
                   latestTurnAccessory={
-                    remote ||
                     session.worktreeRemoved ||
                     draftBlock ? undefined : (
                       <SessionReview

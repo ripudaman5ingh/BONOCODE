@@ -17,12 +17,6 @@ import {
   shouldPersistSession,
 } from "./sessionStore";
 
-it("keeps host-owned transcripts out of local session storage", () => {
-  const session = newSession("codex", "remote://env/home/me/repo");
-  session.blocks = [{ id: "turn", role: "user", text: "Continue" }];
-  expect(shouldPersistSession(session)).toBe(false);
-});
-
 describe("Claude Shell row recovery", () => {
   it("restores only matching placeholder rows and preserves tool output", () => {
     const blocks: Block[] = [

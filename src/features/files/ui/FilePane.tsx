@@ -31,7 +31,6 @@ import {
 import { MarkdownPreview } from "../../sessions/ui/AgentMarkdown";
 import { BinaryFileView } from "./BinaryFileView";
 import { ReleaseNotesSurface } from "../../../app/ui/ReleaseNotesSurface";
-import { isRemoteProjectPath } from "../../projects/model/recents";
 
 const CommitDiff = lazySurface(async () => {
   const module = await import("../../source-control/ui/CommitDiff");
@@ -291,7 +290,6 @@ function PlanSurface({
   const block = plan
     ? session?.blocks.find((entry) => entry.id === plan.blockId)
     : undefined;
-  const remote = !!session && isRemoteProjectPath(session.cwd);
 
   if (!block || !plan) {
     return (
@@ -342,7 +340,7 @@ function PlanSurface({
               <Play className="size-3" />
               {buildLabel}
             </button>
-            {session && !remote ? (
+            {session ? (
               <BuildTargetButton
                 from={session.harness}
                 model={session.model}
@@ -361,7 +359,6 @@ function PlanSurface({
             spellCheck={false}
             value={block.text}
             disabled={
-              remote ||
               block.plan?.status === "streaming" ||
               block.plan?.status === "building" ||
               block.plan?.status === "built"

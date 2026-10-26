@@ -121,7 +121,6 @@ import { useAnimatedReorder } from "../../shared/hooks/useAnimatedReorder";
 import { normalizeHex } from "../../shared/lib/colorUtils";
 import {
   looksLikeProject,
-  isRemoteProjectPath,
   sameProjectPath,
   type RecentProject,
 } from "../../features/projects/model/recents";
@@ -149,14 +148,6 @@ import { SessionsEmpty } from "../../features/sessions/ui/SessionsEmpty";
 import { SidebarUpdateFooter } from "./SidebarUpdate";
 import { SourceControl } from "../../features/source-control/ui/SourceControl";
 import type { GitCiRepair } from "../../features/source-control/ui/GitChangesPanel";
-import {
-  refreshRemoteProjectSessions,
-  remoteRequest,
-  remotePendingWorktree,
-  remoteSessionFor,
-  useRemoteProjectSessions,
-} from "../../features/connections/model/connections";
-import { parseRemotePath, remotePath, remoteProjectFor } from "../../features/connections/model/remoteProjects";
 
 const MIN_WIDTH = 260;
 const MAX_WIDTH = 560;
@@ -206,8 +197,6 @@ type Props = {
   /** First listing for this project has not arrived yet. */
   pending: boolean;
   onSelectSession: (sessionId: string) => void;
-  onSelectRemoteSession?: (project: string, sessionId: string) => void;
-  onRemoteSessionDeleted?: (sessionId: string) => void;
   onSessionNavigationOrder?: (ids: readonly string[]) => void;
   onPrefetchSession?: (sessionId: string) => void;
   onPlaceSessionOnPane?: (
@@ -295,20 +284,18 @@ function SidebarComponent({
   openSessions = [],
   status,
   pending,
-  onSelectSession: onSelectLocalSession,
-  onSelectRemoteSession,
-  onRemoteSessionDeleted,
+  onSelectSession,
   onSessionNavigationOrder,
-  onPrefetchSession: onPrefetchLocalSession,
-  onPlaceSessionOnPane: onPlaceLocalSessionOnPane,
-  onRenameSession: onRenameLocalSession,
-  onArchiveSession: onArchiveLocalSession,
-  onArchiveSessions: onArchiveLocalSessions,
-  onPinSession: onPinLocalSession,
-  onPinSessions: onPinLocalSessions,
-  onSetSessionLinkedWorkItem: onSetLocalSessionLinkedWorkItem,
-  onDeleteSession: onDeleteLocalSession,
-  onDeleteSessions: onDeleteLocalSessions,
+  onPrefetchSession,
+  onPlaceSessionOnPane,
+  onRenameSession,
+  onArchiveSession,
+  onArchiveSessions,
+  onPinSession,
+  onPinSessions,
+  onSetSessionLinkedWorkItem,
+  onDeleteSession,
+  onDeleteSessions,
   onOpenFile,
   onOpenTerminal,
   onFileMoved,
@@ -359,128 +346,8 @@ function SidebarComponent({
   onOpenWhatsNew,
   onDismissUpdate,
 }: Props) {
-  const remoteProject = isRemoteProjectPath(cwd);
   const tab: SidebarTabId = requestedTab;
-  const remote = useRemoteProjectSessions(cwd, remoteProject);
-  const hostProject = remoteProject ? remoteProjectFor(cwd) : undefined;
-  const remoteChange = async (
-    sessionId: string,
-    patch: { title?: string; archived?: boolean; pinned?: boolean; linkedWorkItem?: LinkedWorkItem | null },
-  ) => {
-    if (!remote.machine || !hostProject) {
-      window.alert("Connect this project's machine to change its sessions.");
-      return;
-    }
-    try {
-      await remoteRequest(remote.machine.id, "sessions.update", {
-        projectId: hostProject.projectId,
-        sessionId,
-        ...patch,
-      });
-      refreshRemoteProjectSessions();
-    } catch (error) {
-      window.alert(`Could not update this session.\n\n${String(error)}`);
-    }
-  };
-  const remoteDelete = async (sessionIds: readonly string[]) => {
-    if (sessionIds.length === 0) return;
-    if (!remote.machine || !hostProject) {
-      window.alert("Connect this project's machine to delete its sessions.");
-      return;
-    }
-    if (!window.confirm(
-      `Delete ${sessionIds.length === 1 ? "this conversation" : `${sessionIds.length} conversations`}? This can’t be undone.`,
-    )) return;
-    try {
-      for (const sessionId of sessionIds) {
-        await remoteRequest(remote.machine.id, "sessions.delete", {
-          projectId: hostProject.projectId,
-          sessionId,
-        });
-        onRemoteSessionDeleted?.(sessionId);
-      }
-      refreshRemoteProjectSessions();
-    } catch (error) {
-      window.alert(`Could not delete this session.\n\n${String(error)}`);
-      refreshRemoteProjectSessions();
-    }
-  };
-  const onSelectSession = remoteProject
-    ? (sessionId: string) => onSelectRemoteSession?.(cwd, sessionId)
-    : onSelectLocalSession;
-  const onPrefetchSession = remoteProject ? undefined : onPrefetchLocalSession;
-  const onPlaceSessionOnPane = remoteProject ? undefined : onPlaceLocalSessionOnPane;
-  const onRenameSession = remoteProject
-    ? (sessionId: string, title: string) => { void remoteChange(sessionId, { title }); }
-    : onRenameLocalSession;
-  const onArchiveSession = remoteProject
-    ? (sessionId: string, archived: boolean) => { void remoteChange(sessionId, { archived }); }
-    : onArchiveLocalSession;
-  const onArchiveSessions = remoteProject
-    ? (sessionIds: readonly string[], archived: boolean) => {
-        void Promise.all(sessionIds.map((id) => remoteChange(id, { archived })));
-      }
-    : onArchiveLocalSessions;
-  const onPinSession = remoteProject
-    ? (sessionId: string, pinned: boolean) => { void remoteChange(sessionId, { pinned }); }
-    : onPinLocalSession;
-  const onPinSessions = remoteProject
-    ? (sessionIds: readonly string[], pinned: boolean) => {
-        void Promise.all(sessionIds.map((id) => remoteChange(id, { pinned })));
-      }
-    : onPinLocalSessions;
-  const onDeleteSession = remoteProject
-    ? (sessionId: string) => { void remoteDelete([sessionId]); }
-    : onDeleteLocalSession;
-  const onDeleteSessions = remoteProject
-    ? (sessionIds: readonly string[]) => { void remoteDelete(sessionIds); }
-    : onDeleteLocalSessions;
-  const onSetSessionLinkedWorkItem = remoteProject
-    ? (sessionId: string, item: LinkedWorkItem | undefined) => {
-        void remoteChange(sessionId, { linkedWorkItem: item ?? null });
-      }
-    : onSetLocalSessionLinkedWorkItem;
-  const activeRemoteId = activeSessionId
-    ? remoteSessionFor(activeSessionId)
-    : undefined;
-  const activeListedSessionId = remoteProject ? activeRemoteId : activeSessionId;
-  const listedBusySessionIds = remoteProject
-    ? new Set(remote.sessions.filter((session) => session.status === "running" && !session.needsInput).map((session) => session.id))
-    : busySessionIds;
-  const listedApprovalSessionIds = remoteProject
-    ? new Set(remote.sessions.filter((session) => session.needsInput).map((session) => session.id))
-    : approvalSessionIds;
-  const projectSessions: SessionSummary[] = useMemo(() => remoteProject
-    ? remote.sessions.map((session) => ({
-        id: session.id,
-        cwd,
-        harness: session.harness,
-        model: session.model ?? "",
-        runtimeMode: session.runtimeMode ?? "supervised",
-        providerSessionId: session.providerSessionId ?? undefined,
-        title: session.title,
-        createdAt: session.createdAt ?? session.updatedAt,
-        updatedAt: session.updatedAt,
-        archived: session.archived,
-        pinned: session.pinned,
-        linkedWorkItem: session.linkedWorkItem,
-        draft: session.draft,
-        repo: session.repo,
-        branch: session.branch,
-        worktreeCwd: session.worktreeCwd,
-      }))
-    : sessions, [remoteProject, remote.sessions, sessions, cwd]);
-  const remoteExecutionCwd =
-    remote.sessions.find((session) => session.id === activeRemoteId)?.cwd ??
-    (activeSessionId ? remotePendingWorktree(activeSessionId) : undefined) ??
-    (remoteProject && gitCwd && gitCwd !== cwd
-      ? parseRemotePath(gitCwd)?.hostPath ?? gitCwd
-      : undefined) ??
-    undefined;
-  const gitRoot =
-    remoteProject && hostProject
-      ? remotePath(hostProject.environmentId, remoteExecutionCwd ?? hostProject.cwd)
-      : gitCwd || cwd;
+  const gitRoot = gitCwd || cwd;
   const resize = useDragResize({
     min: MIN_WIDTH,
     max: () => Math.min(MAX_WIDTH, Math.floor(window.innerWidth * 0.5)),
@@ -556,12 +423,10 @@ function SidebarComponent({
     unseenFinishedIdsProp ?? unseenFinishedLocalRef.current;
   // Revisits render straight from cache, so this is only ever true the first
   // time a project is opened.
-  const pendingFirstLoad = remoteProject
-    ? !!remote.machine && !remote.loaded && projectSessions.length === 0
-    : pending && sessions.length === 0;
+  const pendingFirstLoad = pending && sessions.length === 0;
   const listedSessions = mergeFolderSessionSummaries(
-    projectSessions,
-    remoteProject ? [] : openSessions,
+    sessions,
+    openSessions,
     sessionFolders,
   );
   const visibleSessions = [
@@ -579,8 +444,8 @@ function SidebarComponent({
           now,
         ),
         sessionFilters.status,
-        listedBusySessionIds,
-        listedApprovalSessionIds,
+        busySessionIds,
+        approvalSessionIds,
         unseenFinishedIds,
       ),
       searchQuery,
@@ -593,7 +458,7 @@ function SidebarComponent({
   // mounts; the sentinel below asks for the next page.
   const ungroupedVisible = ungroupedSessions(visibleSessions, sessionFolders);
   const activeUngroupedIndex = ungroupedVisible.findIndex(
-    (session) => session.id === activeListedSessionId,
+    (session) => session.id === activeSessionId,
   );
   const shownUngroupedCount = listWindowSize(
     ungroupedVisible.length,
@@ -640,7 +505,7 @@ function SidebarComponent({
   }, [cwd, tab, sessionNavigationKey]);
   const hasMoreSessions = shownUngroupedCount < ungroupedVisible.length;
   const sessionListKey = `${cwd}\0${sessionFilters.showArchived}\0${sessionFilters.time}\0${sessionFilters.hiddenHarnesses.join(",")}\0${sessionFilters.status.working}\0${sessionFilters.status.needsApproval}\0${sessionFilters.status.done}\0${searchQuery}`;
-  const sessionHarnesses = harnessesInSessions(projectSessions);
+  const sessionHarnesses = harnessesInSessions(sessions);
   const narrowedByUser = searchNarrowed || filtersActive;
   const sortable = useAnimatedReorder(tabOrder, (ids) => {
     setTabOrder(ids);
@@ -816,48 +681,25 @@ function SidebarComponent({
 
   useEffect(() => {
     if (pending || status === "error") return;
-    if (remoteProject && !remote.loaded) return;
-    const known = new Set(projectSessions.map((session) => session.id));
-    const completedFolderSessions = new Map<string, string>();
-    for (const session of remoteProject ? [] : openSessions) known.add(session.id);
-    if (activeListedSessionId) known.add(activeListedSessionId);
-    if (remoteProject && activeSessionId) known.add(activeSessionId);
-    if (remoteProject) {
-      for (const folder of sessionFolders) {
-        for (const shellId of folder.sessionIds) {
-          const hostId = remoteSessionFor(shellId);
-          if (hostId && known.has(hostId)) completedFolderSessions.set(shellId, hostId);
-        }
-      }
-    }
+    const known = new Set(sessions.map((session) => session.id));
+    for (const session of openSessions) known.add(session.id);
+    if (activeSessionId) known.add(activeSessionId);
     for (const id of pendingFolderSessionIds.current) {
       known.add(id);
-      const hostId = remoteProject ? remoteSessionFor(id) : undefined;
-      if (hostId && known.has(hostId)) {
-        completedFolderSessions.set(id, hostId);
-        pendingFolderSessionIds.current.delete(id);
-        continue;
-      }
       if (
-        projectSessions.some((session) => session.id === id) ||
+        sessions.some((session) => session.id === id) ||
         openSessions.some((session) => session.id === id)
       ) {
         pendingFolderSessionIds.current.delete(id);
       }
     }
     setSessionFolders((current) => {
-      const migrated = completedFolderSessions.size
-        ? current.map((folder) => ({
-            ...folder,
-            sessionIds: folder.sessionIds.map((id) => completedFolderSessions.get(id) ?? id),
-          }))
-        : current;
-      const next = pruneSessionFolders(migrated, known);
+      const next = pruneSessionFolders(current, known);
       if (next === current) return current;
       saveSessionFolders(cwd, next);
       return next;
     });
-  }, [activeListedSessionId, activeSessionId, cwd, openSessions, pending, projectSessions, remoteProject, remote.loaded, sessionFolders, status]);
+  }, [activeSessionId, cwd, openSessions, pending, sessions, sessionFolders, status]);
 
   useEffect(() => {
     if (tab !== "sessions") return;
@@ -1249,7 +1091,7 @@ function SidebarComponent({
       ) {
         selectionAnchorRef.current = null;
       }
-      const anchor = selectionAnchorRef.current ?? activeListedSessionId ?? sessionId;
+      const anchor = selectionAnchorRef.current ?? activeSessionId ?? sessionId;
       const start = visibleIds.indexOf(anchor);
       const end = visibleIds.indexOf(sessionId);
       const range =
@@ -1331,8 +1173,8 @@ function SidebarComponent({
     renamingSessionId === session.id && onRenameSession ? (
       <SessionRenameRow
         session={session}
-        isActive={session.id === activeListedSessionId}
-        needsApproval={listedApprovalSessionIds.has(session.id)}
+        isActive={session.id === activeSessionId}
+        needsApproval={approvalSessionIds.has(session.id)}
         onCommit={(title) => {
           onRenameSession(session.id, title);
           setRenamingSessionId(null);
@@ -1342,17 +1184,17 @@ function SidebarComponent({
     ) : (
       <SessionCard
         session={session}
-        isActive={session.id === activeListedSessionId}
+        isActive={session.id === activeSessionId}
         isSelected={selectedSessionIds.has(session.id)}
-        busy={listedBusySessionIds.has(session.id)}
+        busy={busySessionIds.has(session.id)}
         done={unseenFinishedIds.has(session.id)}
         linkedUpdate={linkedSessionUpdateIds.has(session.id)}
-        needsApproval={listedApprovalSessionIds.has(session.id)}
+        needsApproval={approvalSessionIds.has(session.id)}
         dropTarget={isSessionDrop("session", session.id)}
         compact={compact}
         now={now}
         onSelect={cardActions.select}
-        onOpenWorkItem={onOpenLinkedWorkItem && !remoteProject ? cardActions.openWorkItem : undefined}
+        onOpenWorkItem={onOpenLinkedWorkItem ? cardActions.openWorkItem : undefined}
         onPrefetch={onPrefetchSession ? cardActions.prefetch : undefined}
         onPlaceOnPane={
           onPlaceSessionOnPane ? cardActions.placeOnPane : undefined
@@ -1562,7 +1404,7 @@ function SidebarComponent({
                 cwd={gitRoot}
                 rootLabel={explorerRootLabel}
                 onOpenFile={onOpenFile}
-                onOpenTerminal={remoteProject ? undefined : onOpenTerminal}
+                onOpenTerminal={onOpenTerminal}
                 onFileMoved={onFileMoved}
                 onFileDeleted={onFileDeleted}
                 onSearch={onOpenFilesSearch}
@@ -1615,7 +1457,7 @@ function SidebarComponent({
               cannot claim "No sessions yet" before the rows have landed.
             */}
               {pendingFirstLoad ? null : status === "error" &&
-                projectSessions.length === 0 ? (
+                sessions.length === 0 ? (
                 <p className="px-3 py-2 text-[12px] text-content/50">
                   Couldn’t load sessions
                 </p>
@@ -1628,10 +1470,6 @@ function SidebarComponent({
                     {searchNarrowed
                       ? "No matching sessions"
                       : "No sessions match these filters"}
-                  </p>
-                ) : remoteProject && !remote.machine ? (
-                  <p className="px-3 py-2 text-[12px] text-content/45">
-                    This project’s machine isn’t connected on this computer.
                   </p>
                 ) : (
                   <SessionsEmpty message="Sessions you start will show up here" />
@@ -1658,13 +1496,13 @@ function SidebarComponent({
                               expanded={expanded}
                               dropTarget={false}
                               busy={entry.sessions.some((session) =>
-                                listedBusySessionIds.has(session.id),
+                                busySessionIds.has(session.id),
                               )}
                               done={entry.sessions.some((session) =>
                                 unseenFinishedIds.has(session.id),
                               )}
                               needsApproval={entry.sessions.some((session) =>
-                                listedApprovalSessionIds.has(session.id),
+                                approvalSessionIds.has(session.id),
                               )}
                               groupIcon={
                                 <Pin
@@ -1771,13 +1609,13 @@ function SidebarComponent({
                                   entry.folder.id,
                                 )}
                                 busy={entry.sessions.some((session) =>
-                                  listedBusySessionIds.has(session.id),
+                                  busySessionIds.has(session.id),
                                 )}
                                 done={entry.sessions.some((session) =>
                                   unseenFinishedIds.has(session.id),
                                 )}
                                 needsApproval={entry.sessions.some((session) =>
-                                  listedApprovalSessionIds.has(session.id),
+                                  approvalSessionIds.has(session.id),
                                 )}
                                 onPointerDown={(event) =>
                                   folderSortable.onItemPointerDown(

@@ -4,7 +4,6 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@tauri-apps/plugin-opener", () => ({
-  openUrl: vi.fn(async () => {}),
 }));
 
 vi.mock("@tauri-apps/api/core", async (importOriginal) => ({
@@ -21,7 +20,6 @@ vi.mock("../../../platform/tauri/fs", () => ({
   gitHistory: vi.fn(async () => []),
   gitPrStatus: vi.fn(async () => null),
   gitPull: vi.fn(async () => {}),
-  gitPush: vi.fn(async () => {}),
   gitSync: vi.fn(async () => {}),
   gitCommit: vi.fn(async () => {}),
   gitHeadMessage: vi.fn(async () => ""),
@@ -31,8 +29,6 @@ vi.mock("../../../platform/tauri/fs", () => ({
   gitStageFile: vi.fn(async () => {}),
   gitUnstageFile: vi.fn(async () => {}),
   gitDiscardFile: vi.fn(async () => {}),
-  gitPrCreate: vi.fn(async () => ""),
-  gitRangeContext: vi.fn(),
   notifyGitChanged: vi.fn(),
   subscribeGitChanged: () => () => {},
   basename: (path: string) => path.split("/").pop() ?? path,
@@ -40,7 +36,6 @@ vi.mock("../../../platform/tauri/fs", () => ({
 
 vi.mock("../../../integrations/harness", () => ({
   generateCommitMessage: vi.fn(async () => ""),
-  generatePrContent: vi.fn(async () => null),
 }));
 
 vi.mock("../../files/model/fileWatch", () => ({
@@ -56,17 +51,12 @@ import { GitChangesPanel } from "./GitChangesPanel";
 import { invoke } from "@tauri-apps/api/core";
 import {
   gitDiffIndex,
-  gitPrCreate,
   gitPrStatus,
   gitPull,
-  gitPush,
-  gitRangeContext,
 } from "../../../platform/tauri/fs";
 import {
   generateCommitMessage,
-  generatePrContent,
 } from "../../../integrations/harness";
-import { openUrl } from "@tauri-apps/plugin-opener";
 import type { GitDiffIndex } from "../../../platform/tauri/fs";
 
 function index(overrides: Partial<GitDiffIndex> = {}): GitDiffIndex {
@@ -288,49 +278,5 @@ describe("GitChangesPanel PR checks", () => {
     });
 
     expect(container.textContent).toContain("unit tests");
-  });
-});
-
-describe("GitChangesPanel remote pull request", () => {
-  it("creates it from the host Git range without calling a local harness", async () => {
-    const cwd = "remote://machine/home/user/repo";
-    vi.mocked(gitDiffIndex).mockResolvedValue(
-      index({
-        remote: "origin",
-        upstream: "origin/feature/pull",
-        ahead: 1,
-        aheadOfDefault: 1,
-      }),
-    );
-    vi.mocked(gitRangeContext).mockResolvedValue({
-      base: "main",
-      head: "feature/pull",
-      commitSummary: "abc123 Fix remote flow\ndef456 Add coverage",
-      diffSummary: "2 files changed, 4 insertions(+)\n",
-      diffPatch: "",
-    });
-    vi.mocked(gitPrCreate).mockResolvedValue("https://example.test/pull/42");
-    await renderPanel(cwd);
-
-    const button = [
-      ...container.querySelectorAll<HTMLButtonElement>("button"),
-    ].find((candidate) => candidate.textContent?.trim() === "Create PR");
-    expect(button?.disabled).toBe(false);
-    await act(async () => {
-      button!.click();
-      await Promise.resolve();
-    });
-
-    expect(gitPush).toHaveBeenCalledWith(cwd);
-    expect(gitRangeContext).toHaveBeenCalledWith(cwd);
-    expect(generatePrContent).not.toHaveBeenCalled();
-    expect(gitPrCreate).toHaveBeenCalledWith(
-      cwd,
-      "Fix remote flow",
-      expect.stringContaining("## Changes\n\n2 files changed"),
-      "main",
-      "feature/pull",
-    );
-    expect(openUrl).toHaveBeenCalledWith("https://example.test/pull/42");
   });
 });

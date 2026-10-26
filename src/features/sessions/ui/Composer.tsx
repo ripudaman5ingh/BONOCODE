@@ -202,9 +202,6 @@ type Props = {
   hideProjectPicker?: boolean;
   hideBranchPicker?: boolean;
   hideTopBar?: boolean;
-  /** Keeps local file mentions, skills, and app modes off for host sessions. */
-  remoteSession?: boolean;
-  remoteFeatures?: { attachments: boolean; plan: boolean; draft: boolean };
   context?: ContextUsage;
   compactSupported?: boolean;
   quoteRequest?: QuoteRequest;
@@ -490,8 +487,6 @@ export function Composer({
   hideProjectPicker = false,
   hideBranchPicker = false,
   hideTopBar = false,
-  remoteSession = false,
-  remoteFeatures,
   context,
   compactSupported = false,
   quoteRequest,
@@ -616,11 +611,8 @@ export function Composer({
   const mcpInsertAt = useRef<number | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
   const [createBusy, setCreateBusy] = useState(false);
-  const remote = remoteSession;
-  // Local indexes (files, skills) must never read a remote session's path.
-  const localCwd = remote ? "" : executionCwd;
   const [files, setFiles] = useState<ProjectFile[]>(
-    () => peekProjectFiles(localCwd) ?? [],
+    () => peekProjectFiles(executionCwd) ?? [],
   );
   const modelControls = useSyncExternalStore(
     subscribeModelControls,
@@ -643,57 +635,44 @@ export function Composer({
 
   attachmentsRef.current = attachments;
 
-  const mentionOpen = !remote && mention !== null && looksLikeProject(cwd);
+  const mentionOpen = mention !== null && looksLikeProject(cwd);
   const navigationEmpty =
     draft.length === 0 && attachments.length === 0 && !handoffCard;
   const skillPickerOpen = creatingSkill || slash !== null;
   const pickerOpen = skillPickerOpen || sessionFolderOpen || mcpPickerOpen;
   const skillCatalog = useComposerSkills({
     harness,
-    executionCwd: localCwd,
+    executionCwd: executionCwd,
     sessionId,
-    pickerOpen: pickerOpen && !remote,
+    pickerOpen,
   });
   const skills = skillCatalog.skills;
   const slashItems = useMemo(
-    () =>
-      remote
-        ? [...(remoteFeatures?.plan ? [PLAN_COMMAND] : []), COMPACT_COMMAND]
-        : [
-            SESSION_FOLDER_COMMAND,
-            MCP_COMMAND,
-            PLAN_COMMAND,
-            ...(canSaveDraft && onSaveDraft ? [DRAFT_COMMAND] : []),
-            COMPACT_COMMAND,
-            ...(supportsBtwHarness(harness) ? [BTW_COMMAND] : []),
-            ...skills.filter(
-              (skill) =>
-                skill.kind === "native" ||
-                (skill.name !== PLAN_COMMAND.name &&
-                  skill.name !== COMPACT_COMMAND.name &&
-                  skill.name !== SESSION_FOLDER_COMMAND.name &&
-                  skill.name !== MCP_COMMAND.name &&
-                  skill.name !== DRAFT_COMMAND.name &&
-                  skill.name !== BTW_COMMAND.name),
-            ),
-          ],
-    [
-      harness,
-      skills,
-      remote,
-      remoteFeatures?.plan,
-      hideTopBar,
-      canSaveDraft,
-      onSaveDraft,
+    () => [
+      SESSION_FOLDER_COMMAND,
+      MCP_COMMAND,
+      PLAN_COMMAND,
+      ...(canSaveDraft && onSaveDraft ? [DRAFT_COMMAND] : []),
+      COMPACT_COMMAND,
+      ...(supportsBtwHarness(harness) ? [BTW_COMMAND] : []),
+      ...skills.filter(
+        (skill) =>
+          skill.kind === "native" ||
+          (skill.name !== PLAN_COMMAND.name &&
+            skill.name !== COMPACT_COMMAND.name &&
+            skill.name !== SESSION_FOLDER_COMMAND.name &&
+            skill.name !== MCP_COMMAND.name &&
+            skill.name !== DRAFT_COMMAND.name &&
+            skill.name !== BTW_COMMAND.name),
+      ),
     ],
+    [harness, skills, hideTopBar, canSaveDraft, onSaveDraft],
   );
   const skillLimit = hasNativeCommands(harness)
     ? Number.POSITIVE_INFINITY
     : undefined;
   const rankedSkills = rankSkills(slashItems, slash?.query ?? "", skillLimit);
-  const attachmentsSupported =
-    (!remote || !!remoteFeatures?.attachments) &&
-    harnessSupportsAttachments(harness);
+  const attachmentsSupported = harnessSupportsAttachments(harness);
   const skillNames = useMemo(
     () => new Set(slashItems.map((skill) => skill.invocation)),
     [slashItems],
@@ -880,21 +859,21 @@ export function Composer({
     const apply = (next: ProjectFile[]) => {
       if (!cancelled) setFiles(next);
     };
-    const cached = peekProjectFiles(localCwd);
+    const cached = peekProjectFiles(executionCwd);
     apply(cached ?? []);
-    if (!localCwd) return;
-    void loadProjectFiles(localCwd, mentionOpen)
+    if (!executionCwd) return;
+    void loadProjectFiles(executionCwd, mentionOpen)
       .then(apply)
       .catch(() => undefined);
     const unsub = subscribeProjectFiles(() => {
-      const next = peekProjectFiles(localCwd);
+      const next = peekProjectFiles(executionCwd);
       if (next) apply(next);
     });
     return () => {
       cancelled = true;
       unsub();
     };
-  }, [localCwd, mentionOpen]);
+  }, [executionCwd, mentionOpen]);
 
   useEffect(() => {
     setMentionActive(0);
@@ -1231,7 +1210,6 @@ export function Composer({
     };
 
     const onExplorerFilePointerDrag = (event: Event) => {
-      if (remote) return;
       const detail = (event as CustomEvent<ExplorerFilePointerDragDetail>)
         .detail;
       if (!detail || detail.type === "end") {
@@ -1294,7 +1272,7 @@ export function Composer({
       );
       unlisten?.();
     };
-  }, [addAttachments, attachmentsSupported, enabled, remote]);
+  }, [addAttachments, attachmentsSupported, enabled]);
   const restoreDraft = useCallback(
     (
       text: string,
@@ -2050,7 +2028,7 @@ export function Composer({
           ) : null}
           {hideTopBar ? null : (
             <div className="flex min-w-0 items-center gap-2.5 overflow-hidden px-3 pt-2.5">
-              {!remote && !hideProjectPicker ? (
+              {!hideProjectPicker ? (
                 <CwdPicker
                   cwd={cwd}
                   recents={recents}
@@ -2266,38 +2244,34 @@ export function Composer({
                       <span className="block truncate whitespace-nowrap text-[11px] leading-4 text-content/45">
                         {attachmentsSupported
                           ? "Attach files or images"
-                          : remote && !remoteFeatures?.attachments
-                            ? "Update this machine’s host to attach files"
-                            : `${HARNESS_TITLE[harness]} does not support attachments`}
+                          : `${HARNESS_TITLE[harness]} does not support attachments`}
                       </span>
                     </span>
                   </button>
-                  {!remote || remoteFeatures?.plan ? (
-                    <button
-                      type="button"
-                      aria-pressed={planActive}
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => {
-                        setPlanSelected(!planActive);
-                        if (planActive) clearLeadingMode(PLAN_COMMAND.name);
-                        setDraftSelected(false);
-                        setPlusOpen(false);
-                        ref.current?.focus();
-                      }}
-                      className="flex w-full items-start gap-2.5 rounded-lg px-2 py-2 text-left text-content hover:bg-content/10"
-                    >
-                      <AiIdea className="mt-0.5 size-4 shrink-0 text-yellow-300/80" />
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-[13px]">Plan mode</span>
-                        <span className="block truncate whitespace-nowrap text-[11px] leading-4 text-content/45">
-                          Review a plan before building
-                        </span>
+                  <button
+                    type="button"
+                    aria-pressed={planActive}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => {
+                      setPlanSelected(!planActive);
+                      if (planActive) clearLeadingMode(PLAN_COMMAND.name);
+                      setDraftSelected(false);
+                      setPlusOpen(false);
+                      ref.current?.focus();
+                    }}
+                    className="flex w-full items-start gap-2.5 rounded-lg px-2 py-2 text-left text-content hover:bg-content/10"
+                  >
+                    <AiIdea className="mt-0.5 size-4 shrink-0 text-yellow-300/80" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[13px]">Plan mode</span>
+                      <span className="block truncate whitespace-nowrap text-[11px] leading-4 text-content/45">
+                        Review a plan before building
                       </span>
-                      {planActive ? (
-                        <Check className="mt-0.5 size-3.5 shrink-0 text-accent" />
-                      ) : null}
-                    </button>
-                  ) : null}
+                    </span>
+                    {planActive ? (
+                      <Check className="mt-0.5 size-3.5 shrink-0 text-accent" />
+                    ) : null}
+                  </button>
                   {canSaveDraft && onSaveDraft ? (
                     <button
                       type="button"
@@ -2426,7 +2400,7 @@ export function Composer({
             </div>
           </div>
         </div>
-        {runnerLive && runnerEnabled && !remote ? (
+        {runnerLive && runnerEnabled ? (
           <ComposerRunner
             boxRef={boxRef}
             cwd={cwd}

@@ -23,7 +23,6 @@ import {
 } from "../../projects/model/projectTerminal";
 import { normalizeProjectPath } from "../../projects/model/recents";
 import { pathKey } from "../../../shared/lib/paths";
-import { parseRemotePath, remotePath } from "../../connections/model/remoteProjects";
 import {
   reconcileProjectReturn,
   type ProjectReturnMemory,
@@ -334,6 +333,7 @@ function sanitizeStub(raw: unknown): WorkspaceSessionStub | null {
   const harness = asHarness(value.harness);
   const runtimeMode = asRuntimeMode(value.runtimeMode);
   if (!harness || !runtimeMode) return null;
+  if (typeof value.cwd === "string" && value.cwd.startsWith("remote://")) return null;
   const modelSettings =
     value.modelSettings &&
     typeof value.modelSettings === "object" &&
@@ -483,6 +483,9 @@ function sanitizeFile(raw: unknown): FilePaneTab | null {
   if (typeof value.id !== "string" || !value.id) return null;
   if (typeof value.path !== "string" || !value.path) return null;
   if (typeof value.cwd !== "string" || !value.cwd) return null;
+  // Tabs from the removed remote host have no local file behind them.
+  if (value.path.startsWith("remote://") || value.cwd.startsWith("remote://"))
+    return null;
   const plan = sanitizePlan(value.plan);
   const hasReleaseNotes = "releaseNotes" in value;
   const releaseNotes = sanitizeReleaseNotes(value.releaseNotes);
@@ -490,26 +493,9 @@ function sanitizeFile(raw: unknown): FilePaneTab | null {
   const commit = sanitizeCommit(value.commit);
   const hasSessionChanges = "sessionChanges" in value;
   const sessionChanges = sanitizeSessionChanges(value.sessionChanges);
-  const hasRemoteFile = "remoteFile" in value;
-  const remoteFile = sanitizeRemoteFile(value.remoteFile);
   if (hasReleaseNotes && !releaseNotes) return null;
   if (hasCommit && !commit) return null;
   if (hasSessionChanges && !sessionChanges) return null;
-  if (hasRemoteFile && !remoteFile) return null;
-  const remoteOwner =
-    remoteFile && typeof value.projectCwd === "string"
-      ? parseRemotePath(value.projectCwd)
-      : undefined;
-  if (remoteFile && !remoteOwner) return null;
-  if (
-    remoteFile &&
-    (value.plan != null ||
-      releaseNotes ||
-      commit ||
-      sessionChanges ||
-      value.terminal === true)
-  )
-    return null;
   if (
     sessionChanges &&
     (value.plan != null ||
@@ -543,8 +529,8 @@ function sanitizeFile(raw: unknown): FilePaneTab | null {
   }
   return {
     id: value.id,
-    path: remoteOwner ? remotePath(remoteOwner.environmentId, value.path) : value.path,
-    cwd: remoteOwner ? remotePath(remoteOwner.environmentId, value.cwd) : value.cwd,
+    path: value.path,
+    cwd: value.cwd,
     ...(typeof value.projectCwd === "string" && value.projectCwd
       ? { projectCwd: value.projectCwd }
       : {}),
@@ -559,25 +545,6 @@ function sanitizeFile(raw: unknown): FilePaneTab | null {
       : {}),
     ...(value.terminal === true ? { terminal: true } : {}),
     ...(value.preview === true ? { preview: true } : {}),
-  };
-}
-
-function sanitizeRemoteFile(raw: unknown): { machineId: string; projectId: string; relativePath: string } | null {
-  if (!raw || typeof raw !== "object") return null;
-  const value = raw as Record<string, unknown>;
-  if (
-    typeof value.machineId !== "string" ||
-    !value.machineId ||
-    typeof value.projectId !== "string" ||
-    !value.projectId ||
-    typeof value.relativePath !== "string" ||
-    !value.relativePath
-  )
-    return null;
-  return {
-    machineId: value.machineId,
-    projectId: value.projectId,
-    relativePath: value.relativePath,
   };
 }
 

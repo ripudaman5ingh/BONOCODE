@@ -17,7 +17,6 @@ const SECTION_KEY = "bonocode.settingsSection";
 
 export type SettingsSectionId =
   | "general"
-  | "connections"
   | "appearance"
   | "keybindings"
   | "chat"
@@ -54,13 +53,6 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     description:
       "The build you are running, how Bonocode reaches you, and the panels it shows.",
     keywords: "version update sounds notifications rail",
-  },
-  {
-    id: "connections",
-    group: "app",
-    label: "Connections",
-    description: "Connect your machines and run agents remotely through SSH.",
-    keywords: "ssh remote host machine server environment always on",
   },
   {
     id: "appearance",
@@ -159,7 +151,6 @@ export type SettingsEntry = {
 };
 
 export const SETTINGS_INDEX: SettingsEntry[] = [
-  { id: "remote-machines", section: "connections", label: "Your machines", keywords: "ssh remote connect host server environment" },
   {
     id: "mcp-servers",
     section: "mcp",

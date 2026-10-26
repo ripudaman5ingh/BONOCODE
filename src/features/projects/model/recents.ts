@@ -1,5 +1,4 @@
 import { pathKey, prettyCwd, slash } from "../../../shared/lib/paths";
-import { REMOTE_PATH_PREFIX } from "../../../shared/lib/remotePaths";
 
 const KEY = "bonocode.recentProjects";
 const RAIL_ORDER_KEY = "bonocode.projectRailOrder";
@@ -42,6 +41,8 @@ export function loadRecents(): RecentProject[] {
       if (!item || typeof item !== "object") continue;
       const rec = item as { path?: unknown; openedAt?: unknown };
       if (typeof rec.path !== "string" || !rec.path) continue;
+      // Projects saved on the removed remote host are not local folders.
+      if (rec.path.startsWith("remote://")) continue;
       const openedAt =
         typeof rec.openedAt === "number" && Number.isFinite(rec.openedAt)
           ? rec.openedAt
@@ -389,21 +390,13 @@ export function projectRailItems(
   return [...pinned, ...unpinned];
 }
 
-/** True if this looks like a user project, not an app bundle or system root. */
-/** Projects on another machine use `remote://<host id>/<host path>` keys. They
- * appear in the rail like any project, but are never folders on this computer. */
-export const REMOTE_PROJECT_PREFIX = REMOTE_PATH_PREFIX;
-
-export function isRemoteProjectPath(path: string): boolean {
-  return slash(path).startsWith(REMOTE_PROJECT_PREFIX);
-}
-
 /** A project folder on this computer: safe to index, search, or run git and
- * terminals in. Use `looksLikeProject` where a remote project also counts. */
+ * terminals in. */
 export function isLocalProject(path: string): boolean {
-  return looksLikeProject(path) && !isRemoteProjectPath(path);
+  return looksLikeProject(path);
 }
 
+/** True if this looks like a user project, not an app bundle or system root. */
 export function looksLikeProject(path: string): boolean {
   if (!path || path === "/" || path === "~") return false;
   const normalized = slash(path).replace(/\/+$/, "") || "/";
