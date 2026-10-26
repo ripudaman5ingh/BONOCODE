@@ -529,3 +529,21 @@ The estimated total removed is about 5,300 lines, which would leave App.tsx near
 - Updates now go through `useSyncExternalStore`, which renders synchronously. Before, they were batched like `useState` updates. Commit timing for updates made outside React event handlers may therefore change. Not verified in the running app, since dev servers were off-limits for this PR.
 - `applyApprovalEvent` is not destructured in App, because nothing in App reads it and `noUnusedLocals` would fail. It is still used inside the store.
 - `liveSessions.ts` imports `app/model/harnessFlush`, so a feature module depends on `app/`. Move that helper into `features/` in a later PR.
+
+## PR 1 Part 2 — done
+
+**New hooks** (both under `src/features/sessions/hooks/`, each takes one `XDeps` object)
+- `useTurnController(deps)` in `useTurnController.ts`: 14 deps, returns 15 handlers. It holds `submitSession`, `onSubmit`, `onUpdatePlan`, `onBuildPlan`, the queued-message handlers and dispatch effect, the usage-limit handlers and effects, `onSecondOpinion`, `onHandoff`, the auto-continue effect, `onCompactContext` and `onStop`.
+- `useBtwController(deps)` in `useBtwController.ts`: 4 deps, returns 5 handlers (`onBtwSubmit`, `onBtwModelChange`, `onBtwDelete`, `onBtwStop`, `onBtwRetry`). It holds `btwRequestsRef`, both btw effects, `updateBtwThread`, `removeBtwThread` and `runBtwRequest`.
+
+**Ref bridges:** none. Nothing crosses a cycle.
+
+**Choices beyond the brief**
+- Module-level helpers used only by the turn code moved verbatim into `useTurnController.ts`: the `SubmitOptions` and `Submit` types, `withPlanStatus`, `lastAssistantTextInTurn`, `userTurnCards`, `trackSessionEdits`, `nudgeWorkspace`, `nudgeOpenEditors`.
+- `withPlanBuildTarget` stays in App because it calls `withHarnessChoice`, which `onModelChange` also uses. It is passed in as a dep.
+- `openSessionBeside` stays in App and moved up, unchanged, to just above the turn hook call. Only the turn hook uses it, so it can move in later.
+- `useBtwController` is called after `persistSession`, not at the position of `btwRequestsRef`. Its deps (`persistSession`, which needs `sidebarCwdRef`) are declared lower in Workspace, so calling it earlier would have meant moving a chain of declarations. The btw effects therefore run after the effects that used to sit between them. Nothing reads what they write, so the order change should be inert.
+
+**App.tsx line count:** 8,858 before, 6,620 after (`wc -l`, net −2,238).
+
+**Move proof:** each of the 24 moved blocks (including `openSessionBeside`) was compared to `git show HEAD:src/app/App.tsx` with leading whitespace ignored. All match exactly. The bodies were copied by script without re-indenting, so they are byte-identical to HEAD.
