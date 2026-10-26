@@ -547,3 +547,34 @@ The estimated total removed is about 5,300 lines, which would leave App.tsx near
 **App.tsx line count:** 8,858 before, 6,620 after (`wc -l`, net −2,238).
 
 **Move proof:** each of the 24 moved blocks (including `openSessionBeside`) was compared to `git show HEAD:src/app/App.tsx` with leading whitespace ignored. All match exactly. The bodies were copied by script without re-indenting, so they are byte-identical to HEAD.
+
+## PR 2 Part 1 — done
+
+**New hooks** (each takes one `XDeps` object and returns only what App or other hooks use)
+- `useOpenFiles(deps)` in `src/features/files/hooks/useOpenFiles.ts`: 2 deps, 9 returns. Holds `editorNavigation`, `editorNavigationToken`, `dirtyFiles` with its ref mirror, `fileErrorCounts`, `onFileDirtyChange` and `onFileErrorCountChange`. The close flows and `onOpenFile` stay in App and use the returned setters.
+- `useLinkedWorkItemPanels(deps)` in `src/features/github/hooks/useLinkedWorkItemPanels.ts`: 9 deps, 8 returns. Holds the panel state, request ref, activity fetch map, `linkedSessionUpdatesRef`, the drop-panels effect, `setLinkedWorkItemUpdateCard`, `revealLinkedSessionUpdate`, `dismissNoticesForContinuedSession` and `onOpenLinkedWorkItem`. `useLinkedWorkItemActivity` stays in App.
+- `useSessionHistory(deps)` in `src/features/sessions/hooks/useSessionHistory.ts`: 13 deps, 16 returns. Holds the history and load-cache state and refs, `refreshHistory`, `persistSession`, `invalidateLoadedSession`, `loadStoredSession`, `ensureOpenSession`, `onPrefetchHistorySession`, the imported-session seed effect, the `refreshHistory(sidebarCwd)` effect, the 650 ms persistence effect and the in-flight effect. It also exports `openSessionIds` and `lastUserBlockId`, which App still uses. Both were moved verbatim from App's module scope.
+- `LinkedWorkItemPanelState` (type) moved verbatim into `useLinkedWorkItemPanels.ts`.
+
+**Ref bridges:** one.
+- `onSelectHistorySessionRef` in App. `onOpenLinkedWorkItem` (in the hook) calls `onSelectHistorySession`. That function is declared later in App and reads the hook's `linkedSessionUpdatesRef` and `revealLinkedSessionUpdate`, which is a cycle. App fills the ref right after the declaration, and the hook gets the stable forwarder `bridgedSelectHistorySession`. The moved `onOpenLinkedWorkItem` still lists `onSelectHistorySession` in its deps, but that value is now stable and calls the latest function through the ref.
+
+**Placement changes outside the brief**
+- `useLinkedWorkItemPanels` is called after `useSessionHistory`, not at its first block, because `onOpenLinkedWorkItem` reads `history`.
+- Declarations moved up verbatim, above the first hook call, because the hooks need them and they need nothing from a hook: `onPinFile`, `sessionsRef`, `tabsRef`, `removingSessionIds`, `activeTab`, `active`, `activeFile`, `sidebarCwd` and `sidebarCwdRef`. `activeTab` and `active` also come along because `sidebarCwd` depends on them.
+- The `activeLinkedWorkItemPanel` statement stays where it was. It is after the new `useLinkedWorkItemPanels` call, so it did not need to move.
+- App imports that only moved code used were removed. Two were rewritten to drop names only the hooks use.
+
+**App.tsx line count:** 6,620 before, 6,149 after (`wc -l`, net −471). The three hooks are 69, 238 and 418 lines.
+
+**Move proof:** 26 moved blocks in the hooks and 6 moved-up blocks in App. Every block matches `git show HEAD:src/app/App.tsx` exactly, including blank lines, once leading whitespace is ignored. The hook bodies were copied by script without re-indenting.
+
+**Effect order changes**
+- Moved earlier, and now run before every App-level effect: the seed effect, `refreshHistory(sidebarCwd)`, the persistence effect and the in-flight effect. Before, they ran after readProjectReturn, recents, bind-resumed, probe-harness, add-to-chat, warm-skills, catalog, sign-in ×2, notification probe, dock badge, window focus, visibility, layout flush, close-requested and prefetch. They also moved ahead of the effects of `useBtwController` and `useInputNotifications`. Safe: none of those earlier effects read or write the history refs (checked by scanning their bodies). The persistence and in-flight effects still see the same `sessions` and `tabs` from their commit. The persistence cleanup, which only clears the 650 ms timer and does not flush, now runs before the close-requested cleanup. Nothing depends on that order.
+- The drop-panels effect now runs before every App effect, not after probe-harness and bind-resumed. It writes only `linkedWorkItemPanels` and reads only `tabs`, so it is safe.
+- The `useBtwController` and `useInputNotifications` effects now run after the three history effects. Previously they ran before them. Neither touches history or persistence state, so it is safe.
+- Unchanged: `useTurnController` and `useLinkedWorkItemActivity` effects, and all App effects that were already after the history effects.
+
+**Tests:** `tsc --noEmit` is clean. The six listed suites pass when run one at a time: `liveSessions` 10/10, `sessionHistory` 21/21, `sessionCache` 4/4, `sessionWorkItem` 5/5, `sessionRemoval` 13/13, `bootWorkspace` 2/2.
+
+**Not done:** `App.tsx` was not run through prettier. It already had about 887 lines of prettier drift at HEAD. The new hook files were formatted with prettier, and their moved bodies were already prettier-clean.
