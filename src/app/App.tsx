@@ -4,6 +4,15 @@ import {
 } from "../features/sessions/model/liveSessions";
 import { useTurnController } from "../features/sessions/hooks/useTurnController";
 import { useBtwController } from "../features/sessions/hooks/useBtwController";
+import { useOpenFiles } from "../features/files/hooks/useOpenFiles";
+import {
+  useLinkedWorkItemPanels,
+} from "../features/github/hooks/useLinkedWorkItemPanels";
+import {
+  lastUserBlockId,
+  openSessionIds,
+  useSessionHistory,
+} from "../features/sessions/hooks/useSessionHistory";
 import type { CiRepairRequest } from "../features/source-control/model/ciRepair";
 import { ciRepairSessions } from "../features/source-control/model/ciRepairSessions";
 import {
@@ -12,11 +21,9 @@ import {
 } from "../features/source-control/model/ciRepairTracking";
 import { invoke } from "@tauri-apps/api/core";
 import { flushSync } from "react-dom";
-import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { ask, message } from "@tauri-apps/plugin-dialog";
 import {
-  startTransition,
   Suspense,
   useCallback,
   useEffect,
@@ -52,10 +59,6 @@ import { UsageFooter } from "./shell/UsageFooter";
 import { useProjectBranches } from "../features/source-control/hooks/useProjectBranches";
 import { useLinkedWorkItemActivity } from "./hooks/useLinkedWorkItemActivity";
 import {
-  loadProjectRailOpen,
-  loadSessionSidebarOpen,
-  saveProjectRailOpen,
-  saveSessionSidebarOpen,
   type SidebarTabId,
 } from "../features/settings/model/appearance";
 import {
@@ -71,9 +74,6 @@ import {
   zoomInUiScale,
   zoomOutUiScale,
 } from "../features/settings/model/uiScale";
-import { resolveZoomKeybinding } from "../features/settings/model/zoomKeybinding";
-import { resolveAppShortcut } from "../features/settings/model/appShortcuts";
-import { runUpdateFlow } from "./model/updater";
 import {
   basename,
   notifyGitChanged,
@@ -134,26 +134,15 @@ import {
   type WorkspaceTab,
 } from "../features/workspace/model/layout";
 import {
-  releaseNotesForVersion,
   releaseNotesTitle,
 } from "./model/releaseNotes";
 import { mergeOrderedSubset, orderByIds } from "../shared/lib/reorder";
 import {
-  addTerminalToDock,
-  applyDockGridStyle,
-  closeTerminalInDock,
-  createProjectTerminal,
   findProjectTerminal,
   mapProjectTerminal,
-  nextDockTerminalTitle,
   patchProjectTerminals,
-  reorderDockTerminals,
   selectDockTerminal,
   withDockOpen,
-  withDockSide,
-  withDockSize,
-  type DockSide,
-  type ProjectTerminalDock as ProjectTerminal,
 } from "../features/projects/model/projectTerminal";
 import {
   applyGroupedReorder,
@@ -202,10 +191,7 @@ import {
   notifyReviewChanged,
 } from "../features/sessions/model/checkpoint";
 import { notifyDirsChanged } from "../features/files/model/fileTree";
-import {
-  type EditorNavigationTarget,
-  type OpenFileFn,
-} from "../features/search/model/search";
+import { type OpenFileFn } from "../features/search/model/search";
 import {
   mergeModelSettings,
   preferredModelSettings,
@@ -290,10 +276,8 @@ import { dropContextWindow } from "../features/sessions/model/contextUsage";
 import {
   discardDraftSessionRecord,
   getSession,
-  listSessionsByProject,
   persistFingerprint,
   rebaseProjectSessions,
-  replaceInFlightSessions,
   saveWorkspaceSnapshot,
   setSessionArchived,
   setSessionLinkedWorkItem,
@@ -314,7 +298,6 @@ import { hiddenApprovalNotices } from "../features/notifications/model/approvalT
 import { nextUnseenFinishedSessions } from "../features/sessions/model/sessionDone";
 import {
   loadNotificationsEnabled,
-  NOTIFICATION_CLICK_EVENT,
   probeNotificationPermission,
   setWindowFocused,
 } from "../features/notifications/model/notifications";
@@ -324,11 +307,7 @@ import {
   adjacentItemId,
   deferUnhandledEscape,
   focusedBusyAgentSessionId,
-  shouldHandleListNavigation,
   shouldStopFocusedTurnOnEscape,
-  tabCommand,
-  tabCommandForKeybinding,
-  tabCommandKeybinding,
 } from "../features/workspace/model/tabKeys";
 import {
   canTabVisitBack,
@@ -353,56 +332,24 @@ import { PaneTree } from "../features/workspace/ui/PaneTree";
 import { ProjectTerminalDock } from "../features/terminal/ui/ProjectTerminalDock";
 import { lazySurface } from "../shared/ui/lazySurface";
 import { requestTranscriptJump } from "../features/sessions/model/transcriptJump";
-import type { SettingsAnchor } from "../features/settings/ui/SettingsView";
-import {
-  githubWorkItemThread,
-  type InboxItem,
-} from "../features/github/model/githubTasks";
+import { type InboxItem } from "../features/github/model/githubTasks";
 import {
   linkedWorkItemFromInboxItem,
 } from "../features/sessions/model/sessionWorkItem";
 import {
-  completeLinkedWorkItemUpdateCard,
-  failLinkedWorkItemUpdateCard,
-  pendingLinkedWorkItemUpdateCard,
-  type LinkedWorkItemUpdateCard,
-} from "../features/github/model/linkedWorkItemActivity";
-import type { LinkedSessionUpdate } from "../features/github/model/linkedSessionUpdates";
-import { markLinkedSessionUpdateSeen } from "../features/github/model/linkedSessionSeen";
-import {
   loadCloseToTray,
-  loadAutosave,
-  loadCollapsedProjectRailMode,
   loadFileTabMode,
   loadLiveAgentsEnabled,
   loadDiffViewer,
-  loadKeybindingOverrides,
-  loadSettingsSection,
-  keybindingPressed,
-  matchCustomKeybinding,
-  saveSettingsSection,
-  saveAutosave,
   subscribeLiveAgentsEnabled,
-  type CollapsedProjectRailMode,
-  type SettingsSectionId,
 } from "../features/settings/model/settings";
-import {
-  handleEditorFindKey,
-  openFindInActiveEditor,
-} from "../features/files/editor/editorSearch";
 
 import {
   mergeHistorySummary,
   mergeProjectHistorySummary,
-  replaceProjectHistory,
   historyWithLiveSessions,
   summaryFromSession,
 } from "../features/sessions/data/sessionHistory";
-import {
-  inFlightRefs,
-  inFlightSnapshotKey,
-  shouldWriteInFlightSnapshot,
-} from "../features/sessions/model/inFlight";
 import {
   isBlankSession,
   reconcileProjectReturn,
@@ -431,6 +378,9 @@ import {
   setQuitWorkspace,
   type ResumedWorkspace,
 } from "./model/appLifecycle";
+import { useAppCommands } from "./hooks/useAppCommands";
+import { useAppSurfaces } from "./hooks/useAppSurfaces";
+import { useTerminalDock } from "../features/terminal/hooks/useTerminalDock";
 
 const SearchView = lazySurface(
   async () => {
@@ -453,12 +403,6 @@ const LinkedWorkItemPanel = lazySurface(async () => {
 
 /** How long a hidden idle session stays attached after it leaves every tab. */
 const SESSION_DETACH_DELAY_MS = 250;
-
-type LinkedWorkItemPanelState = {
-  item: LinkedWorkItem;
-  sessionId: string;
-  cwd: string;
-};
 
 function setsEqual<T>(a: Set<T>, b: Set<T>): boolean {
   if (a.size !== b.size) return false;
@@ -528,14 +472,6 @@ function withPlanBuildTarget(
     return { ...next, pendingSwitch: undefined };
   }
   return next;
-}
-
-function openSessionIds(tabs: WorkspaceTab[]): Set<string> {
-  const ids = new Set<string>();
-  for (const tab of tabs) {
-    for (const id of leafIds(tab.layout)) ids.add(id);
-  }
-  return ids;
 }
 
 function filesInWorkspaceTabs(tabs: readonly WorkspaceTab[]): FilePaneTab[] {
@@ -639,19 +575,10 @@ function Workspace({
   const [tabs, setTabs] = useState<WorkspaceTab[]>(
     () => windowTransfer?.tabs ?? resumed?.tabs ?? [seed.tab],
   );
-  const [projectTerminals, setProjectTerminals] = useState<ProjectTerminal[]>(
-    () => windowTransfer?.projectTerminals ?? resumed?.projectTerminals ?? [],
-  );
-  /** Dock side a brand-new project's terminal starts with, persisted in the workspace snapshot. */
-  const [lastDockSide, setLastDockSide] = useState<DockSide | null>(
-    () => resumed?.lastDockSide ?? null,
-  );
-  const lastDockSideRef = useRef(lastDockSide);
-  lastDockSideRef.current = lastDockSide;
-  const [projectTerminalFocused, setProjectTerminalFocused] = useState(false);
   const [activeTabId, setActiveTabId] = useState(
     () => windowTransfer?.activeTabId ?? resumed?.activeTabId ?? seed.tab.id,
   );
+
   const [composerFocused, setComposerFocused] = useState(() => {
     if (windowTransfer) return true;
     if (!resumed) return false;
@@ -662,6 +589,70 @@ function Workspace({
       !!tab && resumed.sessions.some((session) => session.id === tab.focusedId)
     );
   });
+
+  const activeTab = tabs.find((t) => t.id === activeTabId) ?? tabs[0];
+
+  const active =
+    sessions.find((session) => session.id === activeTab?.focusedId) ??
+    sessions.find(
+      (session) => activeTab && leafIds(activeTab.layout).includes(session.id),
+    );
+
+  const activeFile = activeTab ? focusedFileTab(activeTab) : undefined;
+
+  const sidebarCwd =
+    activeFile?.projectCwd ?? activeFile?.cwd ?? active?.cwd ?? projectCwd;
+
+  const sidebarCwdRef = useRef(sidebarCwd);
+  sidebarCwdRef.current = sidebarCwd;
+
+  const projectCwdRef = useRef(projectCwd);
+  projectCwdRef.current = projectCwd;
+
+  const gitCwd =
+    activeFile?.cwd ?? (active ? sessionWorkCwd(active) : sidebarCwd);
+
+  const onOpenTerminalRef = useRef<(cwd: string) => void>(() => undefined);
+  // Bridges onShowProjectTerminal to onOpenTerminal, which is declared below and
+  // calls openProjectTerminal from this hook. App fills the ref after it.
+  const bridgedOpenTerminal = useCallback(
+    (cwd: string) => onOpenTerminalRef.current(cwd),
+    [],
+  );
+
+  const {
+    projectTerminals,
+    setProjectTerminals,
+    lastDockSide,
+    lastDockSideRef,
+    projectTerminalFocused,
+    setProjectTerminalFocused,
+    currentProjectDock,
+    projectTerminalsRef,
+    projectTerminalFocusedRef,
+    focusProjectTerminal,
+    openProjectTerminal,
+    onShowProjectTerminal,
+    onToggleProjectTerminal,
+    onHideProjectTerminal,
+    onProjectTerminalSide,
+    onSelectProjectTerminal,
+    onReorderProjectTerminals,
+    onCloseProjectTerminal,
+    onCloseOtherProjectTerminals,
+    dockGridRef,
+    paintDockSize,
+    commitDockSize,
+  } = useTerminalDock({
+    windowTransfer,
+    resumed,
+    projectCwd,
+    projectCwdRef,
+    gitCwd,
+    setComposerFocused,
+    onOpenTerminal: bridgedOpenTerminal,
+  });
+
   const [composerFocusToken, setComposerFocusToken] = useState(0);
   /** Tab id -> project name, kept in sync with the rendered title tabs. */
   const tabProjectsRef = useRef(new Map<string, string>());
@@ -669,43 +660,94 @@ function Workspace({
     (id: string) => tabProjectsRef.current.get(id),
     [],
   );
-  const [projectRailOpen, setProjectRailOpen] = useState(loadProjectRailOpen);
-  const [sessionSidebarOpen, setSessionSidebarOpen] = useState(
-    loadSessionSidebarOpen,
-  );
-  const tabCloseScope = "project" as const;
-  const currentProjectDock = findProjectTerminal(projectTerminals, projectCwd);
-  const dockVisible = !!currentProjectDock?.open;
-  const [filesSearchOpen, setFilesSearchOpen] = useState(false);
-  const [searchFocusToken, setSearchFocusToken] = useState(0);
-  const [searchViewOpen, setSearchViewOpen] = useState(false);
-  const [searchViewFocusToken, setSearchViewFocusToken] = useState(0);
-  const [linkedWorkItemPanels, setLinkedWorkItemPanels] = useState<
-    ReadonlyMap<string, LinkedWorkItemPanelState>
-  >(() => new Map());
-  const linkedWorkItemPanelRequest = useRef(0);
-  const closeLinkedWorkItemPanel = useCallback((sessionId: string) => {
-    linkedWorkItemPanelRequest.current += 1;
-    setLinkedWorkItemPanels((current) => {
-      if (!current.has(sessionId)) return current;
-      const next = new Map(current);
-      next.delete(sessionId);
-      return next;
+  const [sidebarTabSelection, setSidebarTabSelection] = useState<{
+    project: string;
+    tab: SidebarTabId;
+  }>(() => ({
+    project: pathKey(sidebarCwd),
+    tab: loadProjectSidebarTab(sidebarCwd),
+  }));
+  const sidebarTab =
+    sidebarTabSelection.project === pathKey(sidebarCwd)
+      ? sidebarTabSelection.tab
+      : loadProjectSidebarTab(sidebarCwd);
+  const setSidebarTab = useCallback((tab: SidebarTabId, project?: string) => {
+    const cwd = project ?? sidebarCwdRef.current;
+    saveProjectSidebarTab(cwd, tab);
+    setSidebarTabSelection({
+      project: pathKey(cwd),
+      tab,
     });
   }, []);
+
+  const onVisitBackRef = useRef<() => void>(() => undefined);
+  const onVisitForwardRef = useRef<() => void>(() => undefined);
+  // Bridges the rail handlers to onVisitBack and onVisitForward, which are declared
+  // below and depend on activateTab. App fills the refs after them.
+  const bridgedOnVisitBack = useCallback(() => onVisitBackRef.current(), []);
+  const bridgedOnVisitForward = useCallback(
+    () => onVisitForwardRef.current(),
+    [],
+  );
+
+  const {
+    projectRailOpen,
+    sessionSidebarOpen,
+    filesSearchOpen,
+    setFilesSearchOpen,
+    searchFocusToken,
+    searchViewOpen,
+    setSearchViewOpen,
+    searchViewFocusToken,
+    collapsedProjectRailMode,
+    setCollapsedProjectRailMode,
+    settingsOpen,
+    setSettingsOpen,
+    updateNotice,
+    setUpdateNotice,
+    whatsNewVersion,
+    setWhatsNewVersion,
+    settingsSection,
+    settingsAnchor,
+    notificationProjectPath,
+    notificationSettingsRequest,
+    filePickerOpen,
+    setFilePickerOpen,
+    filePickerInitialQuery,
+    filePickerResetToken,
+    searchViewOpenRef,
+    foregroundSurfaceRef,
+    settingsOpenRef,
+    filePickerOpenRef,
+    whatsNewVersionRef,
+    onOpenWhatsNew,
+    onToggleSidebar,
+    onToggleSessionSidebar,
+    onToggleProjectRail,
+    onGoToFile,
+    onOpenCommandPalette,
+    onFindInProject,
+    onOpenSearch,
+    onLeaveSearch,
+    openSettings,
+    onOpenNotificationSettings,
+    onCloseSettings,
+    onSelectSettingsSection,
+    onRailBack,
+    onRailForward,
+  } = useAppSurfaces({
+    installedUpdate,
+    setSidebarTab,
+    onVisitBack: bridgedOnVisitBack,
+    onVisitForward: bridgedOnVisitForward,
+  });
+
+  const tabCloseScope = "project" as const;
   const liveAgentsEnabled = useSyncExternalStore(
     subscribeLiveAgentsEnabled,
     loadLiveAgentsEnabled,
     () => true,
   );
-  const [collapsedProjectRailMode, setCollapsedProjectRailMode] =
-    useState<CollapsedProjectRailMode>(loadCollapsedProjectRailMode);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const settingsReturnViewRef = useRef({
-    search: false,
-  });
-  const [updateNotice, setUpdateNotice] = useState(installedUpdate);
-  const [whatsNewVersion, setWhatsNewVersion] = useState<string | null>(null);
   const [providerSignInRequest, setProviderSignInRequest] = useState<{
     key: string;
     sessionId: string;
@@ -725,72 +767,99 @@ function Workspace({
         return [providerSignInRequestKey(session)];
       }),
     ));
-  const [settingsSection, setSettingsSection] =
-    useState<SettingsSectionId>(loadSettingsSection);
-  const [settingsAnchor, setSettingsAnchor] = useState<SettingsAnchor | null>(
-    null,
-  );
-  const [notificationProjectPath, setNotificationProjectPath] = useState<
-    string | null
-  >(null);
-  const [notificationSettingsRequest, setNotificationSettingsRequest] =
-    useState(0);
-  const [editorNavigation, setEditorNavigation] =
-    useState<EditorNavigationTarget | null>(null);
-  const editorNavigationToken = useRef(0);
-  const [filePickerOpen, setFilePickerOpen] = useState(false);
-  const [filePickerInitialQuery, setFilePickerInitialQuery] = useState("");
-  const [filePickerResetToken, setFilePickerResetToken] = useState(0);
-  const [dirtyFiles, setDirtyFiles] = useState<Set<string>>(
-    () => new Set(windowTransfer?.dirtyFileIds ?? []),
-  );
-  // Not carried across a window transfer the way dirty state is: the editor
-  // re-lints whatever it mounts, so the counts rebuild themselves.
-  const [fileErrorCounts, setFileErrorCounts] = useState<Map<string, number>>(
-    () => new Map(),
-  );
-  const [history, setHistory] = useState<SessionSummary[]>(() => bootHistory);
-  /**
-   * Projects whose rows are already in `history`. This has to be state, not a
-   * ref: `sidebarCwd` is derived during render, so the frame that first shows
-   * a new project must already know the listing has not arrived yet.
-   */
-  const [loadedProjects, setLoadedProjects] = useState<ReadonlySet<string>>(
-    () =>
-      bootHistoryCwd
-        ? new Set([normalizeProjectPath(bootHistoryCwd)])
-        : new Set(),
-  );
-  const loadedProjectsRef = useRef(loadedProjects);
-  loadedProjectsRef.current = loadedProjects;
-  /** Project whose listing failed, so the error cannot leak to another one. */
-  const [historyErrorCwd, setHistoryErrorCwd] = useState<string | null>(null);
+  const onPinFile = useCallback((fileId: string) => {
+    setTabs((prev) => {
+      const next = prev.map((tab) => pinEditorFile(tab, fileId));
+      return next.some((tab, index) => tab !== prev[index]) ? next : prev;
+    });
+  }, []);
+
+  const {
+    editorNavigation,
+    setEditorNavigation,
+    editorNavigationToken,
+    dirtyFiles,
+    setDirtyFiles,
+    fileErrorCounts,
+    dirtyFilesRef,
+    onFileDirtyChange,
+    onFileErrorCountChange,
+  } = useOpenFiles({
+    windowTransfer,
+    onPinFile,
+  });
 
   const sessionsRef = liveSessions.ref;
-  const linkedSessionUpdatesRef = useRef<
-    ReadonlyMap<string, LinkedSessionUpdate>
-  >(new Map());
-  const linkedWorkItemActivityFetches = useRef(new Map<string, number>());
   const tabsRef = useRef(tabs);
   tabsRef.current = tabs;
-  const dirtyFilesRef = useRef(dirtyFiles);
-  dirtyFilesRef.current = dirtyFiles;
-  const projectTerminalsRef = useRef(projectTerminals);
-  projectTerminalsRef.current = projectTerminals;
-  const projectTerminalFocusedRef = useRef(projectTerminalFocused);
-  projectTerminalFocusedRef.current = projectTerminalFocused;
+  const removingSessionIds = useRef(new Set<string>());
+
+  const {
+    history,
+    setHistory,
+    loadedProjects,
+    setLoadedProjects,
+    historyErrorCwd,
+    lastPersisted,
+    lastPersistedUserBlock,
+    pendingPersist,
+    loadedSessionCache,
+    sessionLoads,
+    openingSessionIds,
+    refreshHistory,
+    persistSession,
+    invalidateLoadedSession,
+    ensureOpenSession,
+    onPrefetchHistorySession,
+  } = useSessionHistory({
+    windowTransfer,
+    resumed,
+    bootHistory,
+    bootHistoryCwd,
+    sessions,
+    sessionsRef,
+    setSessions,
+    tabs,
+    tabsRef,
+    sidebarCwd,
+    sidebarCwdRef,
+    removingSessionIds,
+    switchingWorktrees,
+  });
+
+  const onSelectHistorySessionRef = useRef<
+    (sessionId: string) => Promise<void>
+  >(async () => undefined);
+  // Bridges onOpenLinkedWorkItem to onSelectHistorySession, which is declared
+  // further down and reads this hook's outputs. App fills the ref after it.
+  const bridgedSelectHistorySession = useCallback(
+    (sessionId: string) => onSelectHistorySessionRef.current(sessionId),
+    [],
+  );
+
+  const {
+    linkedWorkItemPanels,
+    setLinkedWorkItemPanels,
+    closeLinkedWorkItemPanel,
+    linkedSessionUpdatesRef,
+    setLinkedWorkItemUpdateCard,
+    revealLinkedSessionUpdate,
+    dismissNoticesForContinuedSession,
+    onOpenLinkedWorkItem,
+  } = useLinkedWorkItemPanels({
+    tabs,
+    sessionsRef,
+    setSessions,
+    history,
+    sidebarCwd,
+    setFilePickerOpen,
+    setSettingsOpen,
+    setSearchViewOpen,
+    onSelectHistorySession: bridgedSelectHistorySession,
+  });
+
   const activeTabIdRef = useRef(activeTabId);
   activeTabIdRef.current = activeTabId;
-  const projectCwdRef = useRef(projectCwd);
-  projectCwdRef.current = projectCwd;
-  const searchViewOpenRef = useRef(searchViewOpen);
-  searchViewOpenRef.current = searchViewOpen;
-  const foregroundSurfaceRef = useRef<{ workspaceVisible: boolean }>({
-    workspaceVisible: true,
-  });
-  foregroundSurfaceRef.current = {
-    workspaceVisible: !searchViewOpen && !settingsOpen,
-  };
   liveSessions.setForegroundProbe((sessionId) => {
     const tab = tabsRef.current.find(
       (entry) => entry.id === activeTabIdRef.current,
@@ -802,13 +871,7 @@ function Workspace({
       leafIds(tab.layout).includes(sessionId)
     );
   });
-  const settingsOpenRef = useRef(settingsOpen);
-  settingsOpenRef.current = settingsOpen;
   const sessionNavigationIdsRef = useRef<readonly string[]>([]);
-  const filePickerOpenRef = useRef(filePickerOpen);
-  filePickerOpenRef.current = filePickerOpen;
-  const whatsNewVersionRef = useRef(whatsNewVersion);
-  whatsNewVersionRef.current = whatsNewVersion;
 
   const projectReturnRef = useRef<ProjectReturnMemory>(
     resumed?.projectReturnMemory ?? new Map(),
@@ -833,45 +896,15 @@ function Workspace({
     canForward: false,
   });
   const turnGen = liveSessions.turnGen;
-  const lastPersisted = useRef(new Map<string, string>());
-  const lastBoundProvider = useRef(new Map<string, string>());
-  const lastPersistedUserBlock = useRef(new Map<string, string>());
-  const inFlightSyncKey = useRef<string | null>(null);
-  const sawInFlight = useRef(false);
   const workspaceSyncKey = useRef<string | null>(null);
-  const observedSessions = useRef(new Map<string, Session>());
-  const pendingPersist = useRef(new Map<string, Session>());
-  const removingSessionIds = useRef(new Set<string>());
-  const loadedSessionCache = useRef(new Map<string, Session>());
-  const sessionLoads = useRef(new Map<string, Promise<Session | null>>());
-  const sessionLoadEpochs = useRef(new Map<string, number>());
-  const openingSessionIds = useRef(new Set<string>());
-  const activeSessionPrefetch = useRef<Promise<Session | null> | null>(null);
   const [transcriptPool] = useState(() => new TranscriptPool());
   const skipForgetSessionIds = useRef(new Set<string>());
-  const importedSessionsApplied = useRef(false);
 
   useEffect(() => {
     for (const project of recents) {
       void rememberProjectLocation(project.path).catch(() => undefined);
     }
   }, [recents]);
-
-  useEffect(() => {
-    if (importedSessionsApplied.current) return;
-    const imported = windowTransfer?.sessions ?? resumed?.sessions;
-    if (!imported?.length) return;
-    importedSessionsApplied.current = true;
-    for (const session of imported) {
-      observedSessions.current.set(session.id, session);
-      lastPersisted.current.set(session.id, persistFingerprint(session));
-      const userId = lastUserBlockId(session);
-      if (userId) lastPersistedUserBlock.current.set(session.id, userId);
-      if (session.providerSessionId) {
-        lastBoundProvider.current.set(session.id, session.providerSessionId);
-      }
-    }
-  }, [windowTransfer, resumed]);
 
   const { flushHarnessEvents, enqueueHarnessEvent } = liveSessions;
 
@@ -955,12 +988,6 @@ function Workspace({
     });
   }, []);
 
-  const activeTab = tabs.find((t) => t.id === activeTabId) ?? tabs[0];
-  const active =
-    sessions.find((session) => session.id === activeTab?.focusedId) ??
-    sessions.find(
-      (session) => activeTab && leafIds(activeTab.layout).includes(session.id),
-    );
   const activeTabSessionIds = activeTab ? leafIds(activeTab.layout) : [];
   const activeLinkedWorkItemPanel = activeTab
     ? (linkedWorkItemPanels.get(activeTab.focusedId) ??
@@ -969,19 +996,6 @@ function Workspace({
         .find((panel) => activeTabSessionIds.includes(panel.sessionId)) ??
       null)
     : null;
-
-  // Panels are tab-local UI. Keep mounted panels alive while their tab is in
-  // the workspace so switching away preserves the fetched issue and its UI
-  // state, then discard them when their session leaves every open tab.
-  useEffect(() => {
-    const openSessionIds = new Set(tabs.flatMap((tab) => leafIds(tab.layout)));
-    setLinkedWorkItemPanels((current) => {
-      if ([...current.keys()].every((id) => openSessionIds.has(id))) {
-        return current;
-      }
-      return new Map([...current].filter(([id]) => openSessionIds.has(id)));
-    });
-  }, [tabs]);
 
   const sessionDefaults = active ?? sessions[0];
 
@@ -1026,30 +1040,6 @@ function Workspace({
     warmNativeSkills(activeSkillContext);
   }, [activeSkillCwd, active?.id, active?.harness]);
 
-  const activeFile = activeTab ? focusedFileTab(activeTab) : undefined;
-  const sidebarCwd =
-    activeFile?.projectCwd ?? activeFile?.cwd ?? active?.cwd ?? projectCwd;
-  const sidebarCwdRef = useRef(sidebarCwd);
-  sidebarCwdRef.current = sidebarCwd;
-  const [sidebarTabSelection, setSidebarTabSelection] = useState<{
-    project: string;
-    tab: SidebarTabId;
-  }>(() => ({
-    project: pathKey(sidebarCwd),
-    tab: loadProjectSidebarTab(sidebarCwd),
-  }));
-  const sidebarTab =
-    sidebarTabSelection.project === pathKey(sidebarCwd)
-      ? sidebarTabSelection.tab
-      : loadProjectSidebarTab(sidebarCwd);
-  const setSidebarTab = useCallback((tab: SidebarTabId, project?: string) => {
-    const cwd = project ?? sidebarCwdRef.current;
-    saveProjectSidebarTab(cwd, tab);
-    setSidebarTabSelection({
-      project: pathKey(cwd),
-      tab,
-    });
-  }, []);
   const sidebarCwdKey =
     sidebarCwd && sidebarCwd !== "~" ? normalizeProjectPath(sidebarCwd) : null;
   const historyFailed =
@@ -1060,8 +1050,6 @@ function Workspace({
     sidebarCwdKey != null &&
     !loadedProjects.has(sidebarCwdKey) &&
     !historyFailed;
-  const gitCwd =
-    activeFile?.cwd ?? (active ? sessionWorkCwd(active) : sidebarCwd);
   const gitCwdBranches = useProjectBranches(
     gitCwd,
     Boolean(gitCwd) && gitCwd !== "~",
@@ -1339,61 +1327,9 @@ function Workspace({
     };
   }, [flushHarnessEvents, readProjectReturnMemory]);
 
-  const refreshHistory = useCallback(async (cwd: string) => {
-    if (!cwd || cwd === "~") return;
-    // `history` holds every visited project's rows and the sidebar filters it
-    // by cwd, so a project loaded once paints from cache on the way back and
-    // revalidates quietly underneath the cards already on screen. Whether the
-    // first load is still pending is derived from `loadedProjects`, not
-    // tracked here — a status set from this effect lands a render too late to
-    // suppress the empty state.
-    const key = normalizeProjectPath(cwd);
-    setHistoryErrorCwd((prev) => (prev === key ? null : prev));
-    try {
-      const rows = await listSessionsByProject(cwd);
-      if (cwd !== sidebarCwdRef.current) return;
-      setHistory((current) => replaceProjectHistory(current, cwd, rows));
-      setLoadedProjects((prev) =>
-        prev.has(key) ? prev : new Set(prev).add(key),
-      );
-    } catch {
-      if (cwd !== sidebarCwdRef.current) return;
-      // A failed revalidate keeps the cached cards rather than replacing a
-      // good list with an error.
-      if (!loadedProjectsRef.current.has(key)) setHistoryErrorCwd(key);
-    }
-  }, []);
-
-  useEffect(() => {
-    void refreshHistory(sidebarCwd);
-  }, [sidebarCwd, refreshHistory]);
-
   useEffect(() => {
     prefetchProjectFiles(gitCwd);
   }, [gitCwd]);
-
-  const persistSession = useCallback((session: Session | undefined) => {
-    if (
-      !session ||
-      !shouldPersistSession(session) ||
-      removingSessionIds.current.has(session.id) ||
-      switchingWorktrees.current.has(session.id)
-    )
-      return;
-    const fingerprint = persistFingerprint(session);
-    // Leaving a session flushes it. An unchanged one would still rewrite and
-    // re-diff its whole transcript under the store lock, stalling the next load.
-    if (lastPersisted.current.get(session.id) === fingerprint) return;
-    void upsertSession(session)
-      .then((summary) => {
-        if (!summary) return;
-        lastPersisted.current.set(session.id, fingerprint);
-        if (summary.cwd === sidebarCwdRef.current) {
-          setHistory((current) => mergeProjectHistorySummary(current, summary));
-        }
-      })
-      .catch(() => undefined);
-  }, []);
 
   const {
     onBtwSubmit,
@@ -1407,96 +1343,6 @@ function Workspace({
     sessionsRef,
     setSessions,
   });
-
-  useEffect(() => {
-    const liveIds = new Set(sessions.map((session) => session.id));
-    const visibleIds = openSessionIds(tabsRef.current);
-    for (const session of sessions) {
-      if (
-        removingSessionIds.current.has(session.id) ||
-        switchingWorktrees.current.has(session.id)
-      )
-        continue;
-      if (observedSessions.current.get(session.id) === session) continue;
-      observedSessions.current.set(session.id, session);
-      const parked = !visibleIds.has(session.id);
-      const newlyBound =
-        !!session.providerSessionId &&
-        lastBoundProvider.current.get(session.id) !== session.providerSessionId;
-      const lastUserId = lastUserBlockId(session);
-      const newUserTurn =
-        !!lastUserId &&
-        lastPersistedUserBlock.current.get(session.id) !== lastUserId;
-      if (newlyBound && session.providerSessionId) {
-        lastBoundProvider.current.set(session.id, session.providerSessionId);
-      }
-      if (newUserTurn && lastUserId) {
-        lastPersistedUserBlock.current.set(session.id, lastUserId);
-      }
-      if ((newlyBound || newUserTurn) && shouldPersistSession(session)) {
-        persistSession(session);
-      }
-      if (
-        shouldPersistSession(session) &&
-        (!session.busy ||
-          parked ||
-          newlyBound ||
-          newUserTurn ||
-          !lastPersisted.current.has(session.id))
-      ) {
-        pendingPersist.current.set(session.id, session);
-      }
-    }
-    for (const sessionId of observedSessions.current.keys()) {
-      if (liveIds.has(sessionId)) continue;
-      observedSessions.current.delete(sessionId);
-      pendingPersist.current.delete(sessionId);
-    }
-    if (pendingPersist.current.size === 0) return;
-
-    const timer = window.setTimeout(() => {
-      const dirty = [...pendingPersist.current.values()];
-      pendingPersist.current.clear();
-      void Promise.all(
-        dirty.map(async (session) => {
-          if (
-            removingSessionIds.current.has(session.id) ||
-            switchingWorktrees.current.has(session.id)
-          )
-            return;
-          const fingerprint = persistFingerprint(session);
-          if (lastPersisted.current.get(session.id) === fingerprint) return;
-          const summary = await upsertSession(session).catch(() => null);
-          if (!summary) return;
-          lastPersisted.current.set(session.id, fingerprint);
-          if (summary.cwd === sidebarCwdRef.current) {
-            setHistory((current) =>
-              mergeProjectHistorySummary(current, summary),
-            );
-          }
-        }),
-      );
-    }, 650);
-    return () => window.clearTimeout(timer);
-  }, [persistSession, sessions]);
-
-  useEffect(() => {
-    const refs = inFlightRefs(sessions, tabs);
-    if (refs.length > 0) sawInFlight.current = true;
-    const key = inFlightSnapshotKey(refs);
-    if (
-      !shouldWriteInFlightSnapshot(
-        key,
-        refs,
-        inFlightSyncKey.current,
-        sawInFlight.current,
-      )
-    ) {
-      return;
-    }
-    inFlightSyncKey.current = key;
-    void replaceInFlightSessions(refs).catch(() => undefined);
-  }, [sessions, tabs]);
 
   useEffect(() => {
     if (windowTransfer) return;
@@ -1748,18 +1594,6 @@ function Workspace({
     [active, appendTab],
   );
 
-  const onOpenWhatsNew = useCallback((version: string) => {
-    const document = releaseNotesForVersion(version);
-    if (!document) {
-      void message(
-        "Release notes for this version are not available in this build.",
-        { title: "Bonocode" },
-      );
-      return;
-    }
-    setWhatsNewVersion(document.source.version);
-  }, []);
-
   const onNew = useCallback(() => {
     setSearchViewOpen(false);
     const cwd = active?.cwd ?? sessionDefaults?.cwd ?? projectCwd;
@@ -1777,28 +1611,6 @@ function Workspace({
     sessionDefaults?.runtimeMode,
     projectCwd,
   ]);
-
-  const setLinkedWorkItemUpdateCard = useCallback(
-    (
-      sessionId: string,
-      update: (
-        card: LinkedWorkItemUpdateCard | undefined,
-      ) => LinkedWorkItemUpdateCard | undefined,
-    ) => {
-      const previous = sessionsRef.current;
-      const next = previous.map((session) => {
-        if (session.id !== sessionId) return session;
-        const card = update(session.linkedWorkItemUpdateCard);
-        return card === session.linkedWorkItemUpdateCard
-          ? session
-          : { ...session, linkedWorkItemUpdateCard: card };
-      });
-      if (!next.some((session, index) => session !== previous[index])) return;
-      sessionsRef.current = next;
-      setSessions(next);
-    },
-    [],
-  );
 
   const onLinkedWorkItemUpdateCardDismiss = useCallback(
     (sessionId: string) => {
@@ -1838,43 +1650,6 @@ function Workspace({
       setComposerFocused(true);
     },
     [activeTab, projectCwd, sessionDefaults?.cwd, sessionDefaults?.runtimeMode],
-  );
-
-  const focusProjectTerminal = useCallback(() => {
-    setProjectTerminalFocused(true);
-    setComposerFocused(false);
-  }, []);
-
-  const openProjectTerminal = useCallback(
-    (cwd: string) => {
-      const workdir = cwd || projectCwdRef.current;
-      const projectPath = projectCwdRef.current;
-      if (!isLocalProject(projectPath)) return false;
-      setProjectTerminals((prev) => {
-        const existing = findProjectTerminal(prev, projectPath);
-        const file = newTerminalFile(
-          workdir,
-          existing ? nextDockTerminalTitle(existing, workdir) : undefined,
-          projectPath,
-        );
-        if (!existing) {
-          return [
-            ...prev,
-            createProjectTerminal(
-              projectPath,
-              file,
-              lastDockSideRef.current ?? "bottom",
-            ),
-          ];
-        }
-        return mapProjectTerminal(prev, projectPath, (dock) =>
-          addTerminalToDock(dock, file),
-        );
-      });
-      focusProjectTerminal();
-      return true;
-    },
-    [focusProjectTerminal],
   );
 
   const onOpenTerminal = useCallback(
@@ -1921,26 +1696,11 @@ function Workspace({
     },
     [gitCwd, activeTab, appendTab, openProjectTerminal, sidebarCwd],
   );
+  onOpenTerminalRef.current = onOpenTerminal;
 
   const onNewTerminal = useCallback(() => {
     onOpenTerminal(gitCwd);
   }, [gitCwd, onOpenTerminal]);
-
-  const onShowProjectTerminal = useCallback(() => {
-    const dock = findProjectTerminal(projectTerminalsRef.current, projectCwd);
-    if (dock && dock.pane.files.length > 0) {
-      if (!dock.open) {
-        setProjectTerminals((prev) =>
-          mapProjectTerminal(prev, projectCwd, (entry) =>
-            withDockOpen(entry, true),
-          ),
-        );
-      }
-      focusProjectTerminal();
-      return;
-    }
-    onOpenTerminal(gitCwd);
-  }, [gitCwd, focusProjectTerminal, onOpenTerminal, projectCwd]);
 
   const onNewTerminalInSession = useCallback(
     (sessionId: string) => {
@@ -1956,120 +1716,6 @@ function Workspace({
     },
     [onOpenTerminal, projectCwd],
   );
-
-  const onToggleProjectTerminal = useCallback(() => {
-    if (!isLocalProject(projectCwd)) return;
-    const dock = findProjectTerminal(projectTerminalsRef.current, projectCwd);
-    if (!dock) {
-      openProjectTerminal(gitCwd);
-      return;
-    }
-    const nextOpen = !dock.open;
-    setProjectTerminals((prev) =>
-      mapProjectTerminal(prev, projectCwd, (entry) =>
-        withDockOpen(entry, nextOpen),
-      ),
-    );
-    if (nextOpen) focusProjectTerminal();
-    else setProjectTerminalFocused(false);
-  }, [gitCwd, focusProjectTerminal, openProjectTerminal, projectCwd]);
-
-  const onHideProjectTerminal = useCallback(() => {
-    setProjectTerminals((prev) =>
-      mapProjectTerminal(prev, projectCwdRef.current, (dock) =>
-        withDockOpen(dock, false),
-      ),
-    );
-    setProjectTerminalFocused(false);
-  }, []);
-
-  const onProjectTerminalSide = useCallback((side: DockSide) => {
-    setLastDockSide(side);
-    setProjectTerminals((prev) =>
-      mapProjectTerminal(prev, projectCwdRef.current, (dock) =>
-        withDockSide(dock, side, {
-          width: window.innerWidth,
-          height: window.innerHeight,
-        }),
-      ),
-    );
-  }, []);
-
-  const onProjectTerminalSize = useCallback((size: number) => {
-    setProjectTerminals((prev) =>
-      mapProjectTerminal(prev, projectCwdRef.current, (dock) =>
-        withDockSize(dock, size, {
-          width: window.innerWidth,
-          height: window.innerHeight,
-        }),
-      ),
-    );
-  }, []);
-
-  const onSelectProjectTerminal = useCallback(
-    (fileId: string) => {
-      setProjectTerminals((prev) =>
-        mapProjectTerminal(prev, projectCwdRef.current, (dock) =>
-          selectDockTerminal(dock, fileId),
-        ),
-      );
-      focusProjectTerminal();
-    },
-    [focusProjectTerminal],
-  );
-
-  const onReorderProjectTerminals = useCallback((ids: string[]) => {
-    setProjectTerminals((prev) =>
-      mapProjectTerminal(prev, projectCwdRef.current, (dock) =>
-        reorderDockTerminals(dock, orderByIds(dock.pane.files, ids)),
-      ),
-    );
-  }, []);
-
-  const onCloseProjectTerminal = useCallback((fileId: string) => {
-    const dock = findProjectTerminal(
-      projectTerminalsRef.current,
-      projectCwdRef.current,
-    );
-    const file = dock?.pane.files.find((entry) => entry.id === fileId);
-    if (!file) return;
-    const finishClose = () => {
-      setProjectTerminals((prev) =>
-        mapProjectTerminal(prev, projectCwdRef.current, (entry) =>
-          closeTerminalInDock(entry, fileId),
-        ),
-      );
-    };
-    void confirmCloseTerminal(file).then((ok) => ok && finishClose());
-  }, []);
-
-  const onCloseOtherProjectTerminals = useCallback((fileId: string) => {
-    const projectPath = projectCwdRef.current;
-    const dock = findProjectTerminal(projectTerminalsRef.current, projectPath);
-    if (!dock?.pane.files.some((file) => file.id === fileId)) return;
-    const closingFiles = dock.pane.files.filter((file) => file.id !== fileId);
-    if (closingFiles.length === 0) return;
-    const closingIds = new Set(closingFiles.map((file) => file.id));
-
-    const finishClose = () => {
-      setProjectTerminals((prev) =>
-        mapProjectTerminal(prev, projectPath, (entry) => {
-          if (!entry.pane.files.some((file) => file.id === fileId)) {
-            return entry;
-          }
-          const files = entry.pane.files.filter(
-            (file) => !closingIds.has(file.id),
-          );
-          return {
-            ...entry,
-            pane: { ...entry.pane, files, activeFileId: fileId },
-          };
-        }),
-      );
-    };
-
-    void confirmCloseTerminals(closingFiles).then((ok) => ok && finishClose());
-  }, []);
 
   const onTerminalMetaChange = useCallback(
     (fileId: string, patch: TerminalMetaPatch) => {
@@ -2789,6 +2435,7 @@ function Workspace({
     commitTabVisit(next);
     activateTab(next.current);
   }, [activateTab, commitTabVisit]);
+  onVisitBackRef.current = onVisitBack;
 
   const onVisitForward = useCallback(() => {
     const openIds = new Set(tabsRef.current.map((tab) => tab.id));
@@ -2803,6 +2450,7 @@ function Workspace({
     commitTabVisit(next);
     activateTab(next.current);
   }, [activateTab, commitTabVisit]);
+  onVisitForwardRef.current = onVisitForward;
 
   const onActivate = useCallback(
     (slot: number) => {
@@ -3075,203 +2723,6 @@ function Workspace({
     return true;
   }, []);
 
-  const invalidateLoadedSession = useCallback((sessionId: string) => {
-    openingSessionIds.current.delete(sessionId);
-    loadedSessionCache.current.delete(sessionId);
-    sessionLoads.current.delete(sessionId);
-    sessionLoadEpochs.current.set(
-      sessionId,
-      (sessionLoadEpochs.current.get(sessionId) ?? 0) + 1,
-    );
-  }, []);
-
-  const loadStoredSession = useCallback(
-    (sessionId: string): Promise<Session | null> => {
-      const cached = loadedSessionCache.current.get(sessionId);
-      if (cached) {
-        // The cache owns closed sessions only. Transfer this reference into
-        // live state instead of retaining a stale duplicate while it changes.
-        loadedSessionCache.current.delete(sessionId);
-        return Promise.resolve(cached);
-      }
-
-      const pending = sessionLoads.current.get(sessionId);
-      if (pending) return pending;
-
-      const epoch = sessionLoadEpochs.current.get(sessionId) ?? 0;
-      const loading = getSession(sessionId)
-        .then((loaded) => {
-          if (
-            !loaded ||
-            removingSessionIds.current.has(sessionId) ||
-            (sessionLoadEpochs.current.get(sessionId) ?? 0) !== epoch
-          ) {
-            return null;
-          }
-          return loaded;
-        })
-        .catch(() => null);
-      sessionLoads.current.set(sessionId, loading);
-      void loading.then(() => {
-        if (sessionLoads.current.get(sessionId) === loading) {
-          sessionLoads.current.delete(sessionId);
-        }
-      });
-      return loading;
-    },
-    [],
-  );
-
-  const ensureOpenSession = useCallback(
-    async (sessionId: string): Promise<Session | null> => {
-      const open = sessionsRef.current.find(
-        (session) => session.id === sessionId,
-      );
-      if (open) return open;
-
-      openingSessionIds.current.add(sessionId);
-      const restored = await loadStoredSession(sessionId);
-      if (!restored || removingSessionIds.current.has(sessionId)) {
-        openingSessionIds.current.delete(sessionId);
-        void refreshHistory(sidebarCwd);
-        return null;
-      }
-      loadedSessionCache.current.delete(sessionId);
-      const appeared = sessionsRef.current.find(
-        (session) => session.id === sessionId,
-      );
-      if (appeared) return appeared;
-      if (
-        !restored.worktreeRemoved &&
-        restored.providerSessionId &&
-        isLiveHarness(restored.harness)
-      ) {
-        bindHarnessSession(
-          restored.harness,
-          restored.id,
-          restored.providerSessionId,
-          sessionWorkCwd(restored),
-          restored.providerAccountId,
-          restored.blocks,
-        );
-      }
-      lastPersisted.current.set(restored.id, persistFingerprint(restored));
-      if (!sessionsRef.current.some((session) => session.id === restored.id)) {
-        const next = [...sessionsRef.current, restored];
-        sessionsRef.current = next;
-        setSessions(next);
-      }
-      return restored;
-    },
-    [loadStoredSession, refreshHistory, sidebarCwd],
-  );
-
-  const onPrefetchHistorySession = useCallback(
-    (sessionId: string) => {
-      if (
-        removingSessionIds.current.has(sessionId) ||
-        sessionsRef.current.some((session) => session.id === sessionId) ||
-        loadedSessionCache.current.has(sessionId) ||
-        sessionLoads.current.has(sessionId) ||
-        activeSessionPrefetch.current
-      ) {
-        return;
-      }
-      const loading = loadStoredSession(sessionId);
-      activeSessionPrefetch.current = loading;
-      void loading.then((loaded) => {
-        if (
-          loaded &&
-          !removingSessionIds.current.has(sessionId) &&
-          !sessionsRef.current.some((session) => session.id === sessionId)
-        ) {
-          rememberLoadedSession(loadedSessionCache.current, loaded);
-        }
-        if (activeSessionPrefetch.current === loading) {
-          activeSessionPrefetch.current = null;
-        }
-      });
-    },
-    [loadStoredSession],
-  );
-
-  const revealLinkedSessionUpdate = useCallback(
-    (sessionId: string, update: LinkedSessionUpdate) => {
-      const session = sessionsRef.current.find(
-        (entry) => entry.id === sessionId,
-      );
-      if (!session?.linkedWorkItem) return;
-      if (
-        session.linkedWorkItemUpdateCard?.updatedAt === update.updatedAt &&
-        session.linkedWorkItemUpdateCard.status !== "error"
-      ) {
-        return;
-      }
-      if (
-        linkedWorkItemActivityFetches.current.get(sessionId) ===
-        update.updatedAt
-      ) {
-        return;
-      }
-      const pending = pendingLinkedWorkItemUpdateCard(update);
-      linkedWorkItemActivityFetches.current.set(sessionId, update.updatedAt);
-      // A stale/error card should not remain visible while fresh details load.
-      // The session itself is already open; this request stays fully detached
-      // from the navigation path.
-      setLinkedWorkItemUpdateCard(sessionId, (current) =>
-        current?.updatedAt === update.updatedAt && current.status === "ready"
-          ? current
-          : undefined,
-      );
-
-      void githubWorkItemThread(
-        session.cwd,
-        session.linkedWorkItem.repo,
-        session.linkedWorkItem.kind,
-        session.linkedWorkItem.number,
-        { force: true },
-      ).then(
-        (thread) => {
-          if (
-            linkedWorkItemActivityFetches.current.get(sessionId) !==
-            pending.updatedAt
-          ) {
-            return;
-          }
-          linkedWorkItemActivityFetches.current.delete(sessionId);
-          if (
-            linkedSessionUpdatesRef.current.get(sessionId)?.updatedAt !==
-            pending.updatedAt
-          ) {
-            return;
-          }
-          setLinkedWorkItemUpdateCard(sessionId, () =>
-            completeLinkedWorkItemUpdateCard(pending, thread),
-          );
-        },
-        () => {
-          if (
-            linkedWorkItemActivityFetches.current.get(sessionId) !==
-            pending.updatedAt
-          ) {
-            return;
-          }
-          linkedWorkItemActivityFetches.current.delete(sessionId);
-          if (
-            linkedSessionUpdatesRef.current.get(sessionId)?.updatedAt !==
-            pending.updatedAt
-          ) {
-            return;
-          }
-          setLinkedWorkItemUpdateCard(sessionId, () =>
-            failLinkedWorkItemUpdateCard(pending),
-          );
-        },
-      );
-    },
-    [setLinkedWorkItemUpdateCard],
-  );
-
   const onSelectHistorySession = useCallback(
     async (sessionId: string) => {
       const session = await ensureOpenSession(sessionId);
@@ -3299,20 +2750,7 @@ function Workspace({
       revealLinkedSessionUpdate,
     ],
   );
-
-  const dismissNoticesForContinuedSession = useCallback(
-    (sessionId: string) => {
-      const updatedAt = sessionsRef.current.find(
-        (session) => session.id === sessionId,
-      )?.linkedWorkItemUpdateCard?.updatedAt;
-      if (updatedAt == null) return;
-      markLinkedSessionUpdateSeen(sessionId, updatedAt);
-      setLinkedWorkItemUpdateCard(sessionId, (card) =>
-        card?.updatedAt === updatedAt ? undefined : card,
-      );
-    },
-    [setLinkedWorkItemUpdateCard],
-  );
+  onSelectHistorySessionRef.current = onSelectHistorySession;
 
   const onPlaceSessionOnPane = useCallback(
     async (sessionId: string, targetId: string, edge: PaneEdge) => {
@@ -4727,42 +4165,6 @@ function Workspace({
     [activeTabId],
   );
 
-  const onPinFile = useCallback((fileId: string) => {
-    setTabs((prev) => {
-      const next = prev.map((tab) => pinEditorFile(tab, fileId));
-      return next.some((tab, index) => tab !== prev[index]) ? next : prev;
-    });
-  }, []);
-
-  const onFileDirtyChange = useCallback(
-    (fileId: string, dirty: boolean) => {
-      // An edited preview must not be replaced by the next click.
-      if (dirty) onPinFile(fileId);
-      setDirtyFiles((prev) => {
-        if (prev.has(fileId) === dirty) return prev;
-        const next = new Set(prev);
-        if (dirty) next.add(fileId);
-        else next.delete(fileId);
-        return next;
-      });
-    },
-    [onPinFile],
-  );
-
-  /** The editor reports 0 as it unmounts, so closed tabs drop out on their own. */
-  const onFileErrorCountChange = useCallback(
-    (fileId: string, count: number) => {
-      setFileErrorCounts((prev) => {
-        if ((prev.get(fileId) ?? 0) === count) return prev;
-        const next = new Map(prev);
-        if (count > 0) next.set(fileId, count);
-        else next.delete(fileId);
-        return next;
-      });
-    },
-    [],
-  );
-
   const onSelectFileSurface = useCallback((paneId: string, fileId: string) => {
     setTabs((prev) =>
       prev.map((tab) => {
@@ -5151,97 +4553,12 @@ function Workspace({
     [projectBranches, sessions, sidebarCwd],
   );
 
-  const onToggleSidebar = useCallback(() => {
-    setProjectRailOpen((open) => {
-      const next = !open;
-      saveProjectRailOpen(next);
-      return next;
-    });
-  }, []);
-
-  const onToggleSessionSidebar = useCallback(() => {
-    setSessionSidebarOpen((open) => {
-      const next = !open;
-      saveSessionSidebarOpen(next);
-      return next;
-    });
-  }, []);
-
-  const onToggleProjectRail = useCallback(() => {
-    setProjectRailOpen((open) => {
-      const next = !open;
-      saveProjectRailOpen(next);
-      return next;
-    });
-  }, []);
-
-  const onGoToFile = useCallback(() => {
-    setSearchViewOpen(false);
-    setFilePickerInitialQuery("");
-    setFilePickerResetToken((token) => token + 1);
-    setFilePickerOpen(true);
-  }, []);
-  const onOpenCommandPalette = useCallback(() => {
-    setSearchViewOpen(false);
-    setFilePickerInitialQuery(">");
-    setFilePickerResetToken((token) => token + 1);
-    setFilePickerOpen(true);
-  }, []);
   const onReload = useCallback(() => {
     void (async () => {
       if (!(await confirmReload(dirtyFilesRef.current.size > 0))) return;
       window.location.reload();
     })();
   }, []);
-
-  const onFindInProject = useCallback(() => {
-    setSearchViewOpen(false);
-    setSidebarTab("files");
-    setFilesSearchOpen(true);
-    setSearchFocusToken((token) => token + 1);
-  }, []);
-
-  const onOpenSearch = useCallback(() => {
-    startTransition(() => {
-      setFilePickerOpen(false);
-      setSettingsOpen(false);
-      setSearchViewOpen(true);
-      setSearchViewFocusToken((token) => token + 1);
-    });
-  }, []);
-
-  const onLeaveSearch = useCallback(() => {
-    setSearchViewOpen(false);
-  }, []);
-
-  const onOpenLinkedWorkItem = useCallback(
-    (item: LinkedWorkItem, sessionId: string) => {
-      const request = linkedWorkItemPanelRequest.current + 1;
-      linkedWorkItemPanelRequest.current = request;
-      setFilePickerOpen(false);
-      setSettingsOpen(false);
-      setSearchViewOpen(false);
-      const cwd =
-        sessionsRef.current.find((session) => session.id === sessionId)?.cwd ??
-        history.find((session) => session.id === sessionId)?.cwd ??
-        sidebarCwd;
-      void onSelectHistorySession(sessionId).then(() => {
-        if (linkedWorkItemPanelRequest.current !== request) return;
-        if (!sessionsRef.current.some((session) => session.id === sessionId)) {
-          return;
-        }
-        setLinkedWorkItemPanels((current) => {
-          const next = new Map(current);
-          // Reinsert the panel so it wins if this workspace tab contains
-          // multiple sessions with remembered panels.
-          next.delete(sessionId);
-          next.set(sessionId, { item, sessionId, cwd });
-          return next;
-        });
-      });
-    },
-    [history, onSelectHistorySession, sidebarCwd],
-  );
 
   const onOpenLinkedSession = useCallback(
     (sessionId: string) => {
@@ -5324,54 +4641,7 @@ function Workspace({
     [startCiRepair],
   );
 
-  const openSettings = useCallback(
-    (section?: SettingsSectionId, anchor?: SettingsAnchor) => {
-      if (!settingsOpenRef.current) {
-        settingsReturnViewRef.current = {
-          search: searchViewOpenRef.current,
-        };
-      }
-      startTransition(() => {
-        setFilePickerOpen(false);
-        setSearchViewOpen(false);
-        if (section) {
-          setSettingsSection(section);
-          saveSettingsSection(section);
-        }
-        setSettingsAnchor(anchor ?? null);
-        setNotificationProjectPath(null);
-        setSettingsOpen(true);
-      });
-    },
-    [],
-  );
-
   const onOpenSettings = useCallback(() => openSettings(), [openSettings]);
-  useEffect(() => {
-    const onOpenMcp = () => openSettings("mcp");
-    window.addEventListener("bonocode:open-mcp-settings", onOpenMcp);
-    return () => window.removeEventListener("bonocode:open-mcp-settings", onOpenMcp);
-  }, [openSettings]);
-
-  const onOpenNotificationSettings = useCallback(
-    (path?: string) => {
-      openSettings("github", "project-notifications");
-      setNotificationProjectPath(path ?? null);
-      setNotificationSettingsRequest((request) => request + 1);
-    },
-    [openSettings],
-  );
-
-  const onCloseSettings = useCallback(() => {
-    const returnView = settingsReturnViewRef.current;
-    setSearchViewOpen(returnView.search);
-    setSettingsOpen(false);
-  }, []);
-
-  const onSelectSettingsSection = useCallback((section: SettingsSectionId) => {
-    setSettingsSection(section);
-    saveSettingsSection(section);
-  }, []);
 
   const onOpenArchivedSession = useCallback(
     (sessionId: string) => {
@@ -5380,33 +4650,6 @@ function Workspace({
     },
     [onSelectHistorySession],
   );
-
-  const onRailBack = useCallback(() => {
-    if (settingsOpen) {
-      onCloseSettings();
-      return;
-    }
-    if (searchViewOpen) {
-      setSearchViewOpen(false);
-      return;
-    }
-    onVisitBack();
-  }, [
-    onCloseSettings,
-    onVisitBack,
-    searchViewOpen,
-    settingsOpen,
-  ]);
-
-  const onRailForward = useCallback(() => {
-    setSearchViewOpen(false);
-    setSettingsOpen(false);
-    onVisitForward();
-  }, [onVisitForward]);
-
-  useEffect(() => {
-    if (!dockVisible) setProjectTerminalFocused(false);
-  }, [dockVisible]);
 
   const openFilePaths = useMemo(() => {
     const paths: string[] = [];
@@ -5504,410 +4747,6 @@ function Workspace({
     [onSelectProject],
   );
 
-  const actions = useRef({
-    onNew,
-    onArchiveFocusedSession,
-    onCloseOtherTabs,
-    onCloseAllTabs,
-    onClosePane,
-    onNext,
-    onPrev,
-    onVisitBack,
-    onVisitForward,
-    onActivate,
-    onSplit,
-    onFocusDir,
-    onToggleSidebar,
-    onToggleSessionSidebar,
-    onGoToFile,
-    onOpenCommandPalette,
-    onReload,
-    onFindInProject,
-    onOpenSearch,
-    pickProject,
-    onNewTerminal,
-    onNewTerminalTab,
-    onToggleProjectTerminal,
-    onNavigateSessionList,
-    onNavigateProjectList,
-    openSettings,
-    onOpenApprovalSession,
-  });
-  actions.current = {
-    onNew,
-    onArchiveFocusedSession,
-    onCloseOtherTabs,
-    onCloseAllTabs,
-    onClosePane,
-    onNext,
-    onPrev,
-    onVisitBack,
-    onVisitForward,
-    onActivate,
-    onSplit,
-    onFocusDir,
-    onToggleSidebar,
-    onToggleSessionSidebar,
-    onGoToFile,
-    onOpenCommandPalette,
-    onReload,
-    onFindInProject,
-    onOpenSearch,
-    pickProject,
-    onNewTerminal,
-    onNewTerminalTab,
-    onToggleProjectTerminal,
-    onNavigateSessionList,
-    onNavigateProjectList,
-    openSettings,
-    onOpenApprovalSession,
-  };
-
-  const debounce = useRef({ name: "", at: 0 });
-  const run = useCallback((name: string, fn: () => void) => {
-    const now = performance.now();
-    if (name === debounce.current.name && now - debounce.current.at < 80)
-      return;
-    debounce.current = { name, at: now };
-    fn();
-  }, []);
-
-  useEffect(() => {
-    if (!IS_MAC) return;
-    void invoke("autosave_set_enabled", { enabled: loadAutosave() }).catch(
-      console.error,
-    );
-    void invoke("keybindings_set_overrides", {
-      overrides: loadKeybindingOverrides(),
-    }).catch(console.error);
-  }, []);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      // The Quick Composer recorder owns the next key combination, including
-      // bindings that the workspace would normally handle in capture phase.
-      if (document.querySelector('[data-shortcut-recorder-active="true"]'))
-        return;
-      // Never act on a chord while an IME is composing: tabCommand and the
-      // editor guards already do, and the app shortcut resolver does too, so
-      // this keeps the whole handler consistent for whatever is added next.
-      if (e.isComposing) return;
-      const customCommand = matchCustomKeybinding(e);
-      const pressed = (command: string, defaultMatch: boolean) =>
-        keybindingPressed(command, e, defaultMatch);
-      // A rebound zoom chord may be Option-only, so it is resolved outside the
-      // Cmd/Ctrl guard that only the browser-standard defaults need.
-      const zoom = resolveZoomKeybinding(e);
-      if (zoom) {
-        e.preventDefault();
-        e.stopPropagation();
-        if (zoom === "zoom-in") {
-          const next = saveUiScale(zoomInUiScale(loadUiScale()));
-          void applyUiScale(next);
-        } else if (zoom === "zoom-out") {
-          const next = saveUiScale(zoomOutUiScale(loadUiScale()));
-          void applyUiScale(next);
-        } else {
-          saveUiScale(UI_SCALE_DEFAULT);
-          void applyUiScale(UI_SCALE_DEFAULT);
-        }
-        return;
-      }
-      const cmd = customCommand
-        ? tabCommandForKeybinding(customCommand, e)
-        : tabCommand(e);
-      if (cmd && pressed(tabCommandKeybinding(cmd), !customCommand)) {
-        if (cmd === "archive-session") {
-          if (e.repeat) return;
-          actions.current.onArchiveFocusedSession(e);
-          return;
-        }
-        const target = e.target instanceof Element ? e.target : null;
-        const listNavigation =
-          cmd === "prev-session" ||
-          cmd === "next-session" ||
-          cmd === "prev-session-in-tab" ||
-          cmd === "next-session-in-tab" ||
-          cmd === "prev-project" ||
-          cmd === "next-project";
-        if (listNavigation) {
-          const blockedTarget = Boolean(
-            target?.closest(
-              'input, textarea, select, [contenteditable="true"], .cm-editor, .bonocode-terminal, [role="dialog"], [data-model-picker], [data-file-picker], [data-branch-picker], [data-skill-picker], [data-mention-picker], [data-app-search]',
-            ),
-          );
-          const emptyComposerTarget = Boolean(
-            target?.matches('textarea[data-composer-empty="true"]'),
-          );
-          const surfaceOpen =
-            searchViewOpenRef.current ||
-            settingsOpenRef.current ||
-            filePickerOpenRef.current ||
-            Boolean(whatsNewVersionRef.current);
-          if (
-            !shouldHandleListNavigation({
-              blockedTarget,
-              emptyComposerTarget,
-              surfaceOpen,
-            })
-          ) {
-            return;
-          }
-        }
-        if (
-          target?.closest(".bonocode-terminal") &&
-          e.ctrlKey &&
-          !e.metaKey &&
-          (cmd === "back" ||
-            cmd === "forward" ||
-            /Mac|iPhone|iPad/.test(navigator.platform))
-        ) {
-          return;
-        }
-        if (
-          (cmd === "split-right" || cmd === "split-down") &&
-          target?.closest(".cm-editor")
-        ) {
-          return;
-        }
-        const inPicker =
-          target &&
-          target.closest(
-            "[data-model-picker], [data-file-picker], [data-branch-picker], [data-skill-picker], [data-mention-picker], [data-app-search]",
-          );
-        if (inPicker && typeof cmd === "object" && "activate" in cmd) {
-          return;
-        }
-        e.preventDefault();
-        e.stopPropagation();
-        const a = actions.current;
-        if (cmd === "new") run("new", a.onNew);
-        else if (cmd === "close-others")
-          run("close-others", a.onCloseOtherTabs);
-        else if (cmd === "close-all") run("close-all", a.onCloseAllTabs);
-        else if (cmd === "close") run("close", a.onClosePane);
-        else if (cmd === "next") run("next", a.onNext);
-        else if (cmd === "prev") run("prev", a.onPrev);
-        else if (cmd === "cycle-next") run("next", a.onNext);
-        else if (cmd === "cycle-prev") run("prev", a.onPrev);
-        else if (cmd === "back") run("back", a.onVisitBack);
-        else if (cmd === "forward") run("forward", a.onVisitForward);
-        else if (cmd === "split-right")
-          run("split-right", () => a.onSplit("right"));
-        else if (cmd === "split-down")
-          run("split-down", () => a.onSplit("down"));
-        else if (cmd === "new-terminal") run("new-terminal", a.onNewTerminal);
-        else if (cmd === "new-terminal-tab")
-          run("new-terminal-tab", a.onNewTerminalTab);
-        else if (cmd === "toggle-terminal")
-          run("toggle-terminal", a.onToggleProjectTerminal);
-        else if (cmd === "prev-session")
-          run("prev-session", () => a.onNavigateSessionList(-1));
-        else if (cmd === "next-session")
-          run("next-session", () => a.onNavigateSessionList(1));
-        else if (cmd === "prev-session-in-tab")
-          run("prev-session-in-tab", () => a.onNavigateSessionList(-1, true));
-        else if (cmd === "next-session-in-tab")
-          run("next-session-in-tab", () => a.onNavigateSessionList(1, true));
-        else if (cmd === "prev-project")
-          run("prev-project", () => a.onNavigateProjectList(-1));
-        else if (cmd === "next-project")
-          run("next-project", () => a.onNavigateProjectList(1));
-        else if (typeof cmd === "object" && "focus" in cmd)
-          run(`focus-${cmd.focus}`, () => a.onFocusDir(cmd.focus));
-        else if (typeof cmd === "object" && "activate" in cmd)
-          run(`activate-${cmd.activate}`, () => a.onActivate(cmd.activate));
-        return;
-      }
-      if (
-        !searchViewOpenRef.current &&
-        !(
-          e.target instanceof Element &&
-          e.target.closest("[data-session-drop], [data-agent-tab]")
-        ) &&
-        handleEditorFindKey(e)
-      ) {
-        e.stopPropagation();
-        return;
-      }
-      const shortcut = resolveAppShortcut(e);
-      if (shortcut) {
-        if (
-          shortcut === "App: Search" &&
-          e.target instanceof Element &&
-          e.target.closest(".bonocode-terminal") &&
-          e.ctrlKey &&
-          !e.metaKey
-        ) {
-          return;
-        }
-        e.preventDefault();
-        e.stopPropagation();
-        const a = actions.current;
-        if (shortcut === "App: New Window")
-          run("new_window", () => void invoke("open_new_window"));
-        else if (shortcut === "App: Open Project")
-          run("open_project", () => void a.pickProject());
-        else if (shortcut === "App: Toggle Sidebar")
-          run("toggle_sidebar", a.onToggleSidebar);
-        else if (shortcut === "App: Toggle Session Sidebar")
-          run("toggle_session_sidebar", a.onToggleSessionSidebar);
-        else if (shortcut === "App: Go to File")
-          run("go_to_file", a.onGoToFile);
-        else if (shortcut === "App: Command Palette")
-          run("open_command_palette", a.onOpenCommandPalette);
-        else if (shortcut === "View: Reload") run("reload", a.onReload);
-        else if (shortcut === "App: Search") run("open_search", a.onOpenSearch);
-        else if (shortcut === "App: Settings")
-          run("open_settings", () => a.openSettings());
-        else if (shortcut === "App: Find in Files")
-          run("find_in_project", a.onFindInProject);
-        return;
-      }
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [run]);
-
-  useEffect(() => {
-    const unlisten: Array<Promise<() => void>> = [
-      listen("new_tab", () => run("new", actions.current.onNew)),
-      listen("close_other_tabs", () =>
-        run("close-others", actions.current.onCloseOtherTabs),
-      ),
-      listen("close_all_tabs", () =>
-        run("close-all", actions.current.onCloseAllTabs),
-      ),
-      listen("close_tab", () => run("close", actions.current.onClosePane)),
-      listen<boolean>("toggle_autosave", ({ payload }) => {
-        const saved = saveAutosave(payload);
-        if (saved !== payload && IS_MAC) {
-          void invoke("autosave_set_enabled", { enabled: saved });
-        }
-      }),
-      listen("next_tab", () => run("next", actions.current.onNext)),
-      listen("prev_tab", () => run("prev", actions.current.onPrev)),
-      listen("back_tab", () => run("back", actions.current.onVisitBack)),
-      listen("forward_tab", () =>
-        run("forward", actions.current.onVisitForward),
-      ),
-      listen("split_right", () =>
-        run("split-right", () => actions.current.onSplit("right")),
-      ),
-      listen("split_down", () =>
-        run("split-down", () => actions.current.onSplit("down")),
-      ),
-      listen("new_terminal", () =>
-        run("new-terminal", actions.current.onNewTerminal),
-      ),
-      listen("new_terminal_tab", () =>
-        run("new-terminal-tab", actions.current.onNewTerminalTab),
-      ),
-      listen("toggle_terminal", () =>
-        run("toggle-terminal", actions.current.onToggleProjectTerminal),
-      ),
-      listen("focus_left", () =>
-        run("focus-left", () => actions.current.onFocusDir("left")),
-      ),
-      listen("focus_right", () =>
-        run("focus-right", () => actions.current.onFocusDir("right")),
-      ),
-      listen("focus_up", () =>
-        run("focus-up", () => actions.current.onFocusDir("up")),
-      ),
-      listen("focus_down", () =>
-        run("focus-down", () => actions.current.onFocusDir("down")),
-      ),
-      listen("toggle_sidebar", () =>
-        run("toggle_sidebar", actions.current.onToggleSidebar),
-      ),
-      listen("toggle_session_sidebar", () =>
-        run("toggle_session_sidebar", actions.current.onToggleSessionSidebar),
-      ),
-      listen("open_project", () => {
-        void actions.current.pickProject();
-      }),
-      listen("go_to_file", () => run("go_to_file", actions.current.onGoToFile)),
-      listen("open_command_palette", () =>
-        run("open_command_palette", actions.current.onOpenCommandPalette),
-      ),
-      listen("reload", () => run("reload", actions.current.onReload)),
-      listen("open_search", () => actions.current.onOpenSearch()),
-      listen("open_settings", () => actions.current.openSettings()),
-      listen("check_for_updates", () => {
-        void runUpdateFlow(true);
-      }),
-      listen("sidebar_opacity", () => {
-        actions.current.openSettings("appearance");
-      }),
-      listen("find_in_project", () => actions.current.onFindInProject()),
-      listen("find", () => {
-        openFindInActiveEditor();
-      }),
-      listen("open_model_picker", () => {
-        window.dispatchEvent(new Event("open_model_picker"));
-      }),
-      // Every window hears the click; only the one holding the session acts.
-      listen<string>(NOTIFICATION_CLICK_EVENT, ({ payload: sessionId }) => {
-        if (!sessionsRef.current.some((s) => s.id === sessionId)) return;
-        const win = getCurrentWindow();
-        // Windows leaves a minimized window minimized when it is only focused.
-        void win
-          .unminimize()
-          .then(() => win.setFocus())
-          .catch(() => {});
-        actions.current.onOpenApprovalSession(sessionId);
-      }),
-      listen("zoom_in", () => {
-        const next = zoomInUiScale(loadUiScale());
-        saveUiScale(next);
-        void applyUiScale(next);
-      }),
-      listen("zoom_out", () => {
-        const next = zoomOutUiScale(loadUiScale());
-        saveUiScale(next);
-        void applyUiScale(next);
-      }),
-      listen("zoom_reset", () => {
-        saveUiScale(UI_SCALE_DEFAULT);
-        void applyUiScale(UI_SCALE_DEFAULT);
-      }),
-    ];
-    return () => {
-      void Promise.all(unlisten).then((fns) => fns.forEach((fn) => fn()));
-    };
-  }, [run]);
-
-  const dockGridRef = useRef<HTMLDivElement>(null);
-  const dockDragSize = useRef<number | null>(null);
-  const paintDockSize = useCallback((size: number) => {
-    const dock = findProjectTerminal(
-      projectTerminalsRef.current,
-      projectCwdRef.current,
-    );
-    const el = dockGridRef.current;
-    if (!dock || !el) return;
-    dockDragSize.current = size;
-    applyDockGridStyle(el, dock.side, size);
-  }, []);
-  const commitDockSize = useCallback(
-    (size: number) => {
-      dockDragSize.current = null;
-      onProjectTerminalSize(size);
-    },
-    [onProjectTerminalSize],
-  );
-  useLayoutEffect(() => {
-    if (dockDragSize.current != null) return;
-    const el = dockGridRef.current;
-    if (!el) return;
-    applyDockGridStyle(
-      el,
-      dockVisible && currentProjectDock ? currentProjectDock.side : null,
-      currentProjectDock?.size ?? 0,
-    );
-  }, [currentProjectDock, dockVisible]);
-
   const onManageWorktrees = useCallback(
     () => openSettings("worktrees"),
     [openSettings],
@@ -5997,6 +4836,41 @@ function Workspace({
       onSelectProject={onSelectProject}
     />
   );
+
+  const { actions } = useAppCommands({
+    onActivate,
+    onArchiveFocusedSession,
+    onCloseAllTabs,
+    onCloseOtherTabs,
+    onClosePane,
+    onFindInProject,
+    onFocusDir,
+    onGoToFile,
+    onNavigateProjectList,
+    onNavigateSessionList,
+    onNew,
+    onNewTerminal,
+    onNewTerminalTab,
+    onNext,
+    onOpenApprovalSession,
+    onOpenCommandPalette,
+    onOpenSearch,
+    onPrev,
+    onReload,
+    onSplit,
+    onToggleProjectTerminal,
+    onToggleSessionSidebar,
+    onToggleSidebar,
+    onVisitBack,
+    onVisitForward,
+    openSettings,
+    pickProject,
+    searchViewOpenRef,
+    sessionsRef,
+    settingsOpenRef,
+    filePickerOpenRef,
+    whatsNewVersionRef,
+  });
 
   return (
     <>
@@ -6404,13 +5278,6 @@ function Workspace({
 function conversationTitle(session: Session): string {
   const title = sessionDisplayTitle(session.title, session.harness);
   return title === "New session" ? "" : title;
-}
-
-function lastUserBlockId(session: Session): string | undefined {
-  for (let i = session.blocks.length - 1; i >= 0; i--) {
-    if (session.blocks[i]?.role === "user") return session.blocks[i]?.id;
-  }
-  return undefined;
 }
 
 function providerSignInRequestKey(session: Session): string {
