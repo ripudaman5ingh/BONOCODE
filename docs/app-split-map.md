@@ -694,3 +694,51 @@ The estimated total removed is about 5,300 lines, which would leave App.tsx near
 | JSX return | 1844–2245 | 402 |
 | Glue: hook calls, bridge refs, App-held state (`sessions`, `seed`, `sidebarTabSelection`, `gitCwd`, `sessionDefaults`), blank lines, Workspace signature | the rest of 215–1009 and 1010–1842 | 682 |
 | **Total** | | **2,396** |
+
+## PR 3 Part 3 — done
+
+**New files** (deps / returns)
+- `src/features/workspace/model/titleTabs.ts`: plain exports `toTitleTab`, `titleTabsEqual`. `conversationTitle` stays private.
+- `src/app/model/selectedChange.ts`: plain exports `selectedChangePath`, `selectedChangeKind`, `selectedCommitSha`.
+- `src/features/sessions/hooks/useSessionIndicators.ts`: 9 deps, 11 returns. `setsEqual` moved with it, not into `titleTabs.ts`, because only the busy and approval sets use it.
+- `src/app/hooks/useWorkspaceLifecycle.ts`: 22 deps, 0 returns. Holds the bind/reap, skills, focus, visibility, layout flush, close-requested, prefetch and traffic-lights effects.
+- `src/app/hooks/useWorkspaceView.ts`: two hooks in one file.
+  - `useWorkspaceFocus`: 4 deps, 8 returns. Holds `activeTab`, `active`, `activeFile`, `sidebarCwd`, `gitCwd`, both refs and `activeSkillContext`/`activeSkillCwd`.
+  - `useWorkspaceView`: 19 deps, 11 returns. Holds `openFilePaths`, `projectHistory`, `sidebarHistory`, `openProjectSessions`, title tabs, running terminals, `historyFailed`/`historyPending`, `explorerRootLabel` and `activeLinkedWorkItemPanel`.
+- `src/features/terminal/hooks/useTerminalTabActions.ts`: 23 deps, 8 returns (`onOpenTerminal` … `onCloseTitleTab`).
+- `src/features/sessions/hooks/useSessionListActions.ts`: 13 deps, 12 returns (archive/pin/delete batches, title-tab actions, `onFocusDir`, `onRatio`, `onReload`, `onOpenLinkedSession`, `onOpenArchivedSession`).
+- `src/app/hooks/useNavigationActions.ts`: 9 deps, 4 returns (`startCiRepair`, `onRepairChecks`, `onOpenSettings`, `onManageWorktrees`).
+- Existing hooks, no new deps:
+  - `useWorktreeActions`: +3 returns (`onShowSourceControl`, `onToggleChanges`, `onOpenWorkingTreeDiff`).
+  - `useProjectActions`: +1 return (`onNavigateProjectList`).
+
+**Why `useNavigationActions` is separate:** `startCiRepair` needs `onSubmit` from `useTurnController`, which is called after the worktree hook. It cannot go into `useWorktreeActions` without a cycle.
+
+**Ref bridges:** none new. The existing bridges are unchanged (`onOpenTerminalRef`, `onVisitBackRef`/`onVisitForwardRef`, `setSidebarTabRef`, `onPinFileRef`, `onSelectHistorySessionRef`).
+
+**Stayed in App (deviations)**
+- Escape-to-stop: it needs `onStop` from `useTurnController`, which is called later. Moving it would change its deps array, so it stays where it was.
+- `onOpenApprovalSession` and `onSelectLiveAgent`: they need `focusOpenSession` and `onSelectHistorySession` from `useSessionLifecycle`.
+- `activeSessionId`, `sidebarTabSelection`, `useProjectBranches` calls, `useLinkedWorkItemActivity`, `useInputNotifications`, `useBtwController`, `useTurnController`, `useSessionLifecycle`, `sessionPaneProps` and the JSX.
+- `useWorkspaceFocus` and `useWorkspaceView` are split because `gitCwd`, `active` and `sidebarCwd` feed hooks that are called before any list value can exist (for example `useTerminalDock` and `useSessionHistory`). The list values need `history`, the dock and `unseenFinishedIds`, which come later.
+
+**Placement changes**
+- `useSessionIndicators` is called right after `useInputNotifications`, so that hook's effects keep their order.
+- `useWorkspaceLifecycle` is called at the bind effect, which was the first effect in this group.
+- `useWorkspaceView` is called after `useSessionIndicators`. Its values are pure derivations (`useMemo`/`useRef`), so this has no effect on effect order.
+
+**Effect order changes**
+1. Window focus, visibility flush, close-requested, prefetch and traffic lights now run before `useInputNotifications`' effects, the notification probe, the dock badge and the `useBtwController` and `useTurnController` effects. Before, they ran after the probe and dock badge, and traffic lights ran after the turn and Escape effects.
+   - Safe: each one only registers a listener, starts a prefetch or sends an IPC call. None reads state that an effect in between writes.
+2. The notification probe and dock badge now run after the four effects in (1) and the traffic-lights effect. Safe: the badge is a function of `sessions` and the probe only caches permission, so neither depends on listeners registered earlier.
+3. Layout flush: the only other App-level layout effect is the dock grid effect in `useTerminalDock`, which is still called first. Order unchanged. Safe.
+4. Close-requested cleanup on unmount: it now runs before the cleanups of the probe, dock badge, btw, turn, Escape, linked-item and app-command effects. It still runs after the `useSessionHistory` cleanups, since those are declared earlier. It only removes its listener and releases `setQuitWorkspace`, and no later cleanup reads that. Safe.
+5. No other effects changed order. Groups 4 to 7 contain no effects.
+
+**Proof:** 103 moved chunks (blank-line separated) checked against `git show HEAD:src/app/App.tsx`, ignoring leading whitespace. All match. The only chunks that did not match are generated wrapper lines (the deps types and signatures) and the closing `}` of `useWorkspaceLifecycle`. The only changed line in moved code is `export` on the five helpers that were made plain exports.
+
+**Tests:** `npx tsc --noEmit` is clean after each group and at the end. Single-file vitest runs, one at a time: `liveSessions` 10/10, `appLifecycle` 19/19, `harnessFlush` 3/3, `liveAgents` 8/8, `sessionDone` 5/5, `layout` 48/48.
+
+**App.tsx line count:** 1,579 (`wc -l`). It was 2,396 at the start of Part 3.
+
+**Not done:** no prettier run on App.tsx or the moved bodies, so they stay byte-for-byte. Nothing was built, run, committed or pushed.

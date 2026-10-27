@@ -13,7 +13,8 @@ import { notifyDirsChanged } from "../../files/model/fileTree";
 import { pathKey, projectName } from "../../../shared/lib/paths";
 import { rebaseProjectData, removeProjectData } from "../model/projectData";
 import { forgetProjectLocation, rememberProjectLocation } from "../model/projectLocation";
-import { archiveProject, forgetProject, lastProjectPath, looksLikeProject, normalizeProjectPath, rememberProject, replaceProjectPath, sameProjectPath } from "../model/recents";
+import { archiveProject, forgetProject, lastProjectPath, loadRecents, looksLikeProject, normalizeProjectPath, projectRailItems, rememberProject, replaceProjectPath, sameProjectPath } from "../model/recents";
+import { adjacentItemId } from "../../workspace/model/tabKeys";
 import { filterTabsForProject } from "../../workspace/model/workspaceTabGroups";
 import { newDefaultSession, newSession, retargetSessionToProject, type Session } from "../../sessions/model/session";
 import { rebaseProjectSessions, shouldPersistSession } from "../../sessions/data/sessionStore";
@@ -511,5 +512,18 @@ export function useProjectActions(deps: UseProjectActionsDeps) {
     [onFileMoved],
   );
 
-  return { readProjectReturnMemory, sidebarTab, setSidebarTab, onCwdChange, onSelectProject, pickProject, onRemoveProject, onRestoreProject, applyProjectLocationChange };
+  const onNavigateProjectList = useCallback(
+    (delta: number) => {
+      const current = normalizeProjectPath(projectCwdRef.current);
+      const ids = projectRailItems(loadRecents(), current).map(
+        (project) => project.path,
+      );
+      const next = adjacentItemId(ids, current, delta);
+      if (!next || sameProjectPath(next, current)) return;
+      onSelectProject(next);
+    },
+    [onSelectProject],
+  );
+
+  return { readProjectReturnMemory, sidebarTab, setSidebarTab, onCwdChange, onSelectProject, pickProject, onRemoveProject, onRestoreProject, applyProjectLocationChange, onNavigateProjectList };
 }

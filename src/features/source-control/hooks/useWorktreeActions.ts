@@ -509,5 +509,19 @@ export function useWorktreeActions(deps: UseWorktreeActionsDeps) {
     [history, sessions],
   );
 
-  return { repairSessions, onCheckWorktreeRemoval, onRemoveWorktree, onWorktreeChange, onBranchChange, onWorkspaceModeChange, onWorktreeBaseChange, onOpenDiff, onOpenAllChanges, onOpenCommit };
+  const onShowSourceControl = useCallback(() => {
+    setSidebarTab("changes");
+  }, []);
+
+  const onToggleChanges = useCallback(() => {
+    onShowSourceControl();
+  }, [onShowSourceControl]);
+
+  const onOpenWorkingTreeDiff = useCallback(
+    (path: string, kind?: GitFileDiffKind, pin?: boolean) =>
+      onOpenDiff(path, undefined, kind, pin),
+    [onOpenDiff],
+  );
+
+  return { repairSessions, onCheckWorktreeRemoval, onRemoveWorktree, onWorktreeChange, onBranchChange, onWorkspaceModeChange, onWorktreeBaseChange, onOpenDiff, onOpenAllChanges, onOpenCommit, onShowSourceControl, onToggleChanges, onOpenWorkingTreeDiff };
 }
