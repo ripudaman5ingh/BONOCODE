@@ -610,3 +610,87 @@ The estimated total removed is about 5,300 lines, which would leave App.tsx near
 **Verification:** `npx tsc --noEmit` is clean (run after all three hooks were written, not after each). Single-file vitest runs, one at a time, all pass: `liveSessions` 10/10, `layout` 48/48, `appLifecycle` 19/19, and the five files in `src/features/terminal/model/` (terminalChrome 2, terminalClose 3, terminalKeys 4, terminalLayout 2, terminalTab 8).
 
 **Not done:** no prettier run on App.tsx or the new hook files, so moved code stays byte-for-byte. Imports were pruned to what each file now uses, and `import type` was kept. Nothing was built, run or committed.
+
+
+## PR 3 Part 1 — done
+
+**New hooks**
+- `useProjectState({ windowTransfer, resumed })` in `src/features/projects/hooks/useProjectState.ts`: 2 deps, 6 returns. Holds `projectCwd`, `recents`, `projectCwdRef` and `projectReturnRef`.
+- `useWorkspaceTabState({ windowTransfer, resumed, seed })` in `src/features/workspace/hooks/useWorkspaceTabState.ts`: 3 deps, 16 returns. Holds `tabs`, `activeTabId`, `composerFocused` and its token, `tabProjectsRef`, `tabsRef`, `activeTabIdRef`, the tab visit refs and state, and `workspaceSyncKey`.
+- `useProjectActions(deps)` in `src/features/projects/hooks/useProjectActions.ts`: 37 deps, 9 returns (`readProjectReturnMemory`, `sidebarTab`, `setSidebarTab`, `onCwdChange`, `onSelectProject`, `pickProject`, `onRemoveProject`, `onRestoreProject`, `applyProjectLocationChange`). Holds the project-return reconcile, recents and `default_cwd` effects.
+- `useWorkspaceTabActions(deps)` in `src/features/workspace/hooks/useWorkspaceTabActions.ts`: 36 deps, 32 returns. Holds `projectOfTab`, activate, insert, append, split, the close flows, navigation, pane and file handlers, `deckProjectTabs`, `onPinFile`, `onOpenFile`, `onOpenPlan`, and the three effects (isolate terminal panes, tab visit pruning, 250 ms snapshot save).
+
+**Ref bridges**
+- `onPinFileRef` → `bridgedOnPinFile`. `useOpenFiles` (called earlier) takes `onPinFile`, which is declared in `useWorkspaceTabActions`. App fills the ref after the call.
+- `setSidebarTabRef` → `bridgedSetSidebarTab`. `useAppSurfaces` (called earlier) takes `setSidebarTab`, which is declared in `useProjectActions`. Cycle: project actions read surface setters. App fills the ref after the call.
+
+**App statements moved, not hook code**
+- `turnGen` alias (`liveSessions.turnGen`) hoisted above the project actions call.
+- `sessionDefaults`, `gitCwdRef` and its mirror hoisted above the workspace actions call.
+- `workspaceSyncKey` ref moved into `useWorkspaceTabState` (ref declaration, not handler).
+
+**Kept in App (deviations from the brief)**
+- `sidebarTabSelection` state. Its lazy initializer reads `sidebarCwd`, which depends on `projectCwd` and `tabs`, so it cannot sit in the project state hook. Its setter is passed into `useProjectActions`.
+- Title tabs (`nextTitleTabs`, `titleTabs`, the `tabProjectsRef` render mirror, `titleTabsRef`, module `toTitleTab`). They read `unseenFinishedIds`, which is declared far below the actions call.
+- `pickProject` moved with the project actions. It was not in the brief but belongs to the project domain.
+
+**Effect order changes**
+- Isolate-terminal, tab-visit prune and snapshot-save effects now run right after the linked-panels effects, before the project and provider effects. Safe: they write only `tabs`, the visit state and a timer, and no earlier effect writes `tabs` on mount.
+- Project reconcile, recents and `default_cwd` effects now run before App's bind/reap, probe and catalog effects. Safe: reconcile and recents write refs only, and `default_cwd` is an async read that sets state.
+
+**Proof:** 4 hook files, 68 moved statements (including module decls). Each one is found in `git show HEAD:src/app/App.tsx` after whitespace normalization. Zero misses.
+
+**Tests (one at a time):** liveSessions 10/10, layout 48/48, workspaceTabGroups 37/37, projectReturn 20/20, bootWorkspace 2/2. `tsc --noEmit` clean.
+
+## PR 3 Part 2 — done
+
+**New hooks**
+- `useProviderControls(deps)` in `src/features/providers/hooks/useProviderControls.ts`: 7 deps, 10 returns. One hook, not split: nothing before it reads its state. Holds `providerSignInRequest`, `seenProviderSignInRequestsRef`, `harnessUpdateHeight`, `activeProviderSignInRequest`, `usageProviders`, `usageSession`, the four handlers, and the probe, catalog and two sign-in effects. Module helpers moved with it: `withHarnessChoice`, `withPlanBuildTarget` (still passed to `useTurnController`), `providerSignInRequestKey`, `sameSettings`.
+- `useWorktreeState()` in `src/features/source-control/hooks/useWorktreeState.ts`: 0 deps, 2 returns (`switchingWorktrees`, `removingWorktreePaths`). Called at their original position because `useSessionHistory` and the turn controller read them.
+- `useWorktreeActions(deps)` in `src/features/source-control/hooks/useWorktreeActions.ts`: 27 deps, 10 returns (`repairSessions`, `onCheckWorktreeRemoval`, `onRemoveWorktree`, `onWorktreeChange`, `onBranchChange`, `onWorkspaceModeChange`, `onWorktreeBaseChange`, `onOpenDiff`, `onOpenAllChanges`, `onOpenCommit`). Module helper `filesInWorkspaceTabs` moved with it.
+- `useSessionLifecycleState({ liveAgentsEnabled })` in `src/features/sessions/hooks/useSessionLifecycleState.ts`: 1 dep, 8 returns. Holds `sessionDeleteDialog`, `deleteConfirmationPending`, `removingSessionIds`, `skipForgetSessionIds`, `sessionNavigationIdsRef`, `detachInputs` (with its mirror line), `detachTimer`.
+- `useSessionLifecycle(deps)` in `src/features/sessions/hooks/useSessionLifecycle.ts`: 53 deps, 17 returns. Holds the detach handler and its two effects, the 18 session handlers listed in the brief, and the add-to-chat effect. Module constant `SESSION_DETACH_DELAY_MS` moved with it.
+
+**Ref bridges:** none new. The existing `onSelectHistorySessionRef` bridge is now filled after the lifecycle call, not after the `onSelectHistorySession` declaration.
+
+**App statements moved**
+- `liveAgentsEnabled` hoisted above `useSessionLifecycleState`, verbatim. Not in the brief; needed for the `detachInputs` initializer.
+- `onOpenWorkingTreeDiff` moved below the worktree actions call. Its deps array reads `onOpenDiff` directly.
+- `onSelectHistorySessionRef.current = onSelectHistorySession` moved below the lifecycle call.
+
+**Kept in App (deviations)**
+- `stopSessionForRemoval`. The worktree hook needs it and is called before the lifecycle hook, so it cannot move into the lifecycle hook.
+- `startCiRepair`. It needs `onSubmit` from the turn controller, which is called after the worktree hook. It stays in App below the turn call.
+- The Escape-to-stop effect. It needs `onStop` from the turn controller, so it stays below the turn call.
+- `gitCwd` and `gitCwdRef`. The terminal dock, which is called earlier, reads them.
+- `onCloseOtherTabs`, `onCloseTitleTab`, `onShowSourceControl`, `onToggleChanges`, `onNewTerminal*`. Not in the brief, so they stay.
+
+**Effect order changes**
+- Provider probe, live catalog and the two sign-in effects now run before App's bind/reap effect. Safe: the probe reads `sessionsRef`, which `bindResumedSessions` does not write (it only binds harness sessions). Its `setSessions` runs after the async catalog refresh. The sign-in effects only set sign-in state.
+- Detach schedule and cleanup effects and the add-to-chat listener now run before the turn controller's effects. Safe: the detach effects manage only a timer, and the listener only registers.
+- Escape-to-stop effect did not move. It stays after the turn call, so its order is unchanged.
+
+**Proof:** 5 hook files, 65 moved statements (including module decls). Zero misses against HEAD.
+
+**Tests (one at a time):** liveSessions 10/10, sessionRemoval 13/13, addChatToWorkspace 9/9, archiveShortcut 23/23, ciRepair 5/5, ciRepairSessions 2/2, ciRepairTracking 7/7. `tsc --noEmit` clean.
+
+**App.tsx line count:** 2,396 (`wc -l`). Was 5,487 at the start of Part 1.
+
+## What is left in App.tsx (for Part 3)
+
+| Group | Lines in App.tsx | Lines |
+|---|---|---|
+| Imports, lazy surfaces, AppProps, App wrapper, `setsEqual`, `titleTabsEqual` | 1–214 | 214 |
+| Conversation/selected-change helpers, `toTitleTab` (module) | 2247–2273, 2275–2396 | 149 |
+| Title tabs (render-time) | 1528–1538 | 11 |
+| Terminal handlers (`onOpenTerminal` … `onCloseTitleTab`) | 1010–1173 | 164 |
+| Source control (`onShowSourceControl`, `onToggleChanges`, `onOpenWorkingTreeDiff`, `startCiRepair`, `onRepairChecks`) | 1178–1184, 1301–1305, 1604–1672 | 81 |
+| Session list and history handlers (archive/pin/delete batches, title-tab actions, `onFocusDir`, `onRatio`, `onReload`, `onOpenLinkedSession`, `onOpenArchivedSession`) | 1307–1407, 1586–1602, 1676–1682 | 125 |
+| Projects and navigation (`openFilePaths`, `projectHistory`, `sidebarHistory`, `openProjectSessions`, `onOpenSettings`, `onNavigateProjectList`, `onManageWorktrees`) | 1542–1584, 1684–1698, 1674, 1706–1722 | 76 |
+| Approvals, live agents, linked-card dismissals | 993–1008, 1486–1526 | 57 |
+| Effects left in App (resume/bind, skills, notifications, dock badge, visibility, layout flush, close-requested, prefetch, Escape-to-stop, traffic lights) | 708–738, 754–757, 839–841, 873–875, 877–902, 904–912, 914–923, 925–974, 976–978, 1442–1484, 1700–1704 | 187 |
+| Render-time derived values (active, busy, approval, running terminals, liveAgents, toasts, linked panel, skill context, history flags) | 740–868 | 129 |
+| Final render (`sessionPaneProps`, chrome flags, `workspaceTitleBar`, actions hook call) | 1724–1842 | 119 |
+| JSX return | 1844–2245 | 402 |
+| Glue: hook calls, bridge refs, App-held state (`sessions`, `seed`, `sidebarTabSelection`, `gitCwd`, `sessionDefaults`), blank lines, Workspace signature | the rest of 215–1009 and 1010–1842 | 682 |
+| **Total** | | **2,396** |
