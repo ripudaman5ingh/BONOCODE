@@ -45,6 +45,7 @@ import {
   gitDiffIndex,
   gitDiscardAll,
   gitDiscardFile,
+  gitFetch,
   gitHeadMessage,
   gitPrCreate,
   gitPrStatus,
@@ -63,7 +64,8 @@ import {
   type GitHistoryCommit,
   type GitPr,
 } from "../../../platform/tauri/fs";
-import type { HarnessId } from "../../sessions/model/session";
+import type { HarnessId, LinkedWorkItem } from "../../sessions/model/session";
+import { parseGithubWorkItemUrl } from "../../sessions/model/sessionWorkItem";
 import { recordInboxSelfActivity } from "../../github/model/inboxSelfActivity";
 import {
   loadChangesView,
@@ -127,6 +129,7 @@ type Props = {
   onOpenAllChanges: (kind: GitFileDiffKind) => void;
   onOpenCommit: (commit: GitHistoryCommit, pin?: boolean) => void;
   ciRepair?: GitCiRepair;
+  onOpenPr?: (item: LinkedWorkItem) => void;
 };
 
 export function GitChangesPanel({
@@ -140,6 +143,7 @@ export function GitChangesPanel({
   onOpenAllChanges,
   onOpenCommit,
   ciRepair,
+  onOpenPr,
 }: Props) {
   const { index, reload } = useDiffIndex(cwd, enabled);
   const files = index?.files ?? [];
@@ -301,6 +305,7 @@ export function GitChangesPanel({
         onOpenFile={onOpenFile}
         onOpenAllChanges={onOpenAllChanges}
         ciRepair={ciRepair}
+        onOpenPr={onOpenPr}
         onMutated={(paths) => {
           reload();
           notifyGitChanged();
@@ -360,6 +365,7 @@ function ChangedFiles({
   onOpenAllChanges,
   onMutated,
   ciRepair,
+  onOpenPr,
 }: {
   cwd: string;
   textHarness?: HarnessId;
@@ -375,6 +381,7 @@ function ChangedFiles({
   onOpenAllChanges: (kind: GitFileDiffKind) => void;
   onMutated: (paths?: string[]) => void;
   ciRepair?: GitCiRepair;
+  onOpenPr?: (item: LinkedWorkItem) => void;
 }) {
   const lockOverscroll = useLockOverscroll<HTMLDivElement>();
   const menuRef = useRef<HTMLDivElement>(null);
@@ -667,6 +674,22 @@ function ChangedFiles({
     }
   };
 
+  const fetchRemote = async () => {
+    if (!index?.remote) return;
+    setMenuOpen(false);
+    setBusy("fetch");
+    try {
+      await gitFetch(cwd);
+      onMutated();
+      reloadPr();
+    } catch (error) {
+      fail(error);
+      onMutated();
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const openCreatedPr = async () => {
     const content = await generatePrContent(cwd, textHarness);
     if (!content) throw new Error("Could not prepare pull request content");
@@ -679,6 +702,11 @@ function ChangedFiles({
     );
     const number = Number(/\/pull\/(\d+)(?:[/?#]|$)/.exec(url)?.[1]);
     if (Number.isInteger(number) && number > 0) recordPrActivity(number);
+    const item = parseGithubWorkItemUrl(url.trim());
+    if (item && onOpenPr) {
+      onOpenPr(item);
+      return;
+    }
     await openUrl(url.trim());
   };
 
@@ -831,6 +859,16 @@ function ChangedFiles({
                   ) : null}
                 </span>
               </button>
+              <div className="my-1 border-t border-content/10" />
+              <button
+                type="button"
+                role="menuitem"
+                disabled={!index?.remote || !!busy}
+                onClick={() => void fetchRemote()}
+                className="flex h-7 w-full items-center px-3 text-left text-[12px] text-content hover:bg-content/10 disabled:opacity-40"
+              >
+                Fetch
+              </button>
             </div>
           ) : null}
         </div>
@@ -851,6 +889,15 @@ function ChangedFiles({
             onSync={() => void sync()}
             onCreatePr={() => void createPr()}
             onViewPr={() => {
+              if (onOpenPr && pr?.repo) {
+                onOpenPr({
+                  kind: "pr",
+                  repo: pr.repo,
+                  number: pr.number,
+                  url: pr.url,
+                });
+                return;
+              }
               if (pr?.url) void openUrl(pr.url);
             }}
           />

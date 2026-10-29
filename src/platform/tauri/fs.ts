@@ -302,6 +302,10 @@ export function gitPull(cwd: string): Promise<void> {
   return invoke<void>("git_pull", { cwd });
 }
 
+export function gitFetch(cwd: string): Promise<void> {
+  return invoke<void>("git_fetch", { cwd });
+}
+
 export function gitSync(cwd: string): Promise<void> {
   return invoke<void>("git_sync", { cwd });
 }

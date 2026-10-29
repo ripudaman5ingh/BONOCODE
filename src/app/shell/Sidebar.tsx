@@ -1714,6 +1714,11 @@ function SidebarComponent({
                 onOpenAllChanges={onOpenAllChanges ?? (() => {})}
                 onOpenCommit={onOpenCommit ?? (() => {})}
                 ciRepair={ciRepair}
+                onOpenPr={
+                  activeSessionId && onOpenLinkedWorkItem
+                    ? (item) => onOpenLinkedWorkItem(item, activeSessionId)
+                    : undefined
+                }
               />
           </div>
         ) : null}
