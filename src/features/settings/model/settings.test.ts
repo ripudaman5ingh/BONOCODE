@@ -14,6 +14,7 @@ import {
   KEYBINDINGS,
   LIVE_AGENTS_ENABLED_DEFAULT,
   TAB_ANIMATIONS_ENABLED_DEFAULT,
+  loadAgentIdleMs,
   loadComposerRunner,
   loadAutosave,
   loadCollapsedProjectRailMode,
@@ -29,6 +30,7 @@ import {
   keybindingPressed,
   matchCustomKeybinding,
   loadTabAnimationsEnabled,
+  saveAgentIdleMs,
   saveComposerRunner,
   saveAutosave,
   saveCollapsedProjectRailMode,
@@ -43,7 +45,12 @@ import {
   saveTabAnimationsEnabled,
 } from "./settings";
 import { IS_MAC, MOD, SHIFT } from "../../../platform/tauri/platform";
+import {
+  HARNESS_IDLE_PARK_MS,
+  resetHarnessIdlePark,
+} from "../../../integrations/harness/core/registry";
 
+const AGENT_IDLE_KEY = "bonocode.agentIdleMs";
 const KEY = "bonocode.composerRunner";
 const MODEL_CONTROLS_KEY = "bonocode.modelControls";
 const LEGACY_EFFORT_VISIBLE_KEY = "bonocode.composerEffortVisible";
@@ -102,6 +109,28 @@ function mockLocalStorage() {
     configurable: true,
   });
 }
+
+describe("agent idle setting", () => {
+  beforeEach(mockLocalStorage);
+  afterEach(() => {
+    localStorage.removeItem(AGENT_IDLE_KEY);
+    resetHarnessIdlePark();
+  });
+
+  it("returns the default for a missing or unknown stored value", () => {
+    expect(loadAgentIdleMs()).toBe(HARNESS_IDLE_PARK_MS);
+    localStorage.setItem(AGENT_IDLE_KEY, "12345");
+    expect(loadAgentIdleMs()).toBe(HARNESS_IDLE_PARK_MS);
+    localStorage.setItem(AGENT_IDLE_KEY, "soon");
+    expect(loadAgentIdleMs()).toBe(HARNESS_IDLE_PARK_MS);
+  });
+
+  it("returns the saved option", () => {
+    saveAgentIdleMs(300_000);
+    expect(localStorage.getItem(AGENT_IDLE_KEY)).toBe("300000");
+    expect(loadAgentIdleMs()).toBe(300_000);
+  });
+});
 
 describe("composer runner setting", () => {
   beforeEach(mockLocalStorage);

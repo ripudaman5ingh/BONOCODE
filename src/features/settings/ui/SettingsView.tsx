@@ -255,8 +255,10 @@ import { useTabGroupLogos } from "../../projects/hooks/useTabGroupLogos";
 import { ProjectLogoIcon } from "../../projects/ui/ProjectLogoIcon";
 import { ProjectMascot } from "../../projects/ui/ProjectMascot";
 import {
+  AGENT_IDLE_OPTIONS,
   filterKeybindings,
   currentKeybindings,
+  loadAgentIdleMs,
   loadClaudeHooks,
   loadCloseToTray,
   loadCollapsedProjectRailMode,
@@ -269,6 +271,7 @@ import {
   loadModelControls,
   loadKeybindingOverrides,
   loadTabAnimationsEnabled,
+  saveAgentIdleMs,
   saveClaudeHooks,
   saveCloseToTray,
   saveCollapsedProjectRailMode,
@@ -2454,6 +2457,7 @@ function ProvidersPage({
   const [choice, setChoice] = useState(loadLastModelChoice);
   const [defaultModels, setDefaultModels] = useState(loadDefaultModels);
   const [claudeHooks, setClaudeHooks] = useState(loadClaudeHooks);
+  const [agentIdleMs, setAgentIdleMs] = useState(loadAgentIdleMs);
   const [scope, setScope] = useState<string>(GLOBAL_PROVIDER_SCOPE);
   const [hiddenGlobally, setHiddenGlobally] = useState(
     loadHiddenPickerProviders,
@@ -2511,6 +2515,11 @@ function ProvidersPage({
   const onClaudeHooks = (next: boolean) => {
     saveClaudeHooks(next);
     setClaudeHooks(next);
+  };
+
+  const onAgentIdleMs = (next: number) => {
+    saveAgentIdleMs(next);
+    setAgentIdleMs(next);
   };
 
   const onModelChange = (harness: HarnessId, model: string) => {
@@ -2612,6 +2621,21 @@ function ProvidersPage({
       </Group>
 
       <Group title="Advanced">
+        <Row
+          id="agent-idle"
+          label="Keep agents running"
+          description="After a turn, how long an agent stays running for follow-ups. Shorter frees memory; your next message restarts it and keeps the conversation."
+        >
+          <Select
+            label="Keep agents running"
+            value={String(agentIdleMs)}
+            options={AGENT_IDLE_OPTIONS.map((option) => ({
+              value: String(option.ms),
+              label: option.label,
+            }))}
+            onChange={(value) => onAgentIdleMs(Number(value))}
+          />
+        </Row>
         <Row
           id="claude-hooks"
           label="Claude Code hooks"

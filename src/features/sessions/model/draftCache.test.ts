@@ -1,12 +1,53 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   clearComposerDraft,
+  flushComposerDrafts,
   getComposerDraft,
   getComposerMcpTags,
+  resetComposerDraftsForTests,
   setComposerDraft,
   setComposerMcpTags,
 } from "./draftCache";
 import { newMcpTag } from "./mcpPicker";
+
+const DRAFTS_KEY = "bonocode.composerDrafts";
+
+function mockLocalStorage() {
+  const data = new Map<string, string>();
+  const storage = {
+    getItem: (key: string) => data.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      data.set(key, value);
+    },
+    removeItem: (key: string) => {
+      data.delete(key);
+    },
+    clear: () => {
+      data.clear();
+    },
+    key: (index: number) => [...data.keys()][index] ?? null,
+    get length() {
+      return data.size;
+    },
+  };
+  Object.defineProperty(globalThis, "localStorage", {
+    value: storage,
+    configurable: true,
+  });
+}
+
+function storedDrafts(): Record<string, unknown> {
+  return JSON.parse(localStorage.getItem(DRAFTS_KEY) ?? "{}");
+}
+
+beforeEach(() => {
+  mockLocalStorage();
+  resetComposerDraftsForTests();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe("draftCache", () => {
   it("returns undefined for a session that never had a draft", () => {
@@ -64,5 +105,91 @@ describe("draftCache", () => {
     expect(getComposerMcpTags("mcp-two")).toEqual([]);
     setComposerDraft("mcp-one", "");
     expect(getComposerMcpTags("mcp-one")).toEqual([]);
+  });
+});
+
+describe("draftCache storage", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  it("writes a draft 400 ms after it changes, and reads it back after a reset", () => {
+    setComposerDraft("s1", "saved text");
+    expect(localStorage.getItem(DRAFTS_KEY)).toBeNull();
+
+    vi.advanceTimersByTime(400);
+    expect(storedDrafts()).toEqual({
+      s1: { text: "saved text", at: expect.any(Number) },
+    });
+
+    resetComposerDraftsForTests();
+    expect(getComposerDraft("s1")).toBe("saved text");
+  });
+
+  it("removes a cleared draft from storage", () => {
+    setComposerDraft("s2", "gone soon");
+    flushComposerDrafts();
+    clearComposerDraft("s2");
+    flushComposerDrafts();
+
+    expect(storedDrafts()).toEqual({});
+  });
+
+  it("keeps the newest 50 drafts in storage", () => {
+    for (let index = 0; index < 51; index++) {
+      vi.setSystemTime(1_000 + index);
+      setComposerDraft(`s${index}`, `draft ${index}`);
+    }
+    flushComposerDrafts();
+
+    const stored = storedDrafts();
+    expect(Object.keys(stored)).toHaveLength(50);
+    expect(stored).not.toHaveProperty("s0");
+    expect(stored).toHaveProperty("s50");
+  });
+
+  it("keeps a text over 100,000 characters in memory only", () => {
+    setComposerDraft("long", "x".repeat(100_001));
+    setComposerDraft("short", "ok");
+    flushComposerDrafts();
+
+    const stored = storedDrafts();
+    expect(stored).not.toHaveProperty("long");
+    expect(stored).toHaveProperty("short");
+    expect(getComposerDraft("long")).toHaveLength(100_001);
+  });
+
+  it("ignores bad JSON in storage and drafts still work", () => {
+    localStorage.setItem(DRAFTS_KEY, "{not json");
+
+    expect(getComposerDraft("s1")).toBeUndefined();
+    setComposerDraft("s1", "fresh");
+    expect(getComposerDraft("s1")).toBe("fresh");
+  });
+
+  it("ignores bad entries in storage and keeps the good ones", () => {
+    localStorage.setItem(
+      DRAFTS_KEY,
+      JSON.stringify({
+        good: { text: "kept", at: 1 },
+        numericText: { text: 5, at: 1 },
+        noTime: { text: "no time" },
+        nothing: null,
+      }),
+    );
+
+    expect(getComposerDraft("good")).toBe("kept");
+    expect(getComposerDraft("numericText")).toBeUndefined();
+    expect(getComposerDraft("noTime")).toBeUndefined();
+    expect(getComposerDraft("nothing")).toBeUndefined();
+  });
+
+  it("flushComposerDrafts writes right away", () => {
+    setComposerDraft("s1", "now");
+    flushComposerDrafts();
+
+    expect(storedDrafts()).toEqual({
+      s1: { text: "now", at: expect.any(Number) },
+    });
   });
 });

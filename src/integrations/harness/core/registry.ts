@@ -109,8 +109,10 @@ const adapters = new Map<HarnessId, HarnessAdapter>();
 /**
  * After a turn settles, keep the child warm for follow-ups, then park it.
  * Resume state stays, so the next prompt respawns instead of starting over.
+ * This is the default; Settings changes it through setHarnessIdleParkMs.
  */
-export const HARNESS_IDLE_PARK_MS = 5 * 60_000;
+export const HARNESS_IDLE_PARK_MS = 2 * 60_000;
+let idleParkMs = HARNESS_IDLE_PARK_MS;
 const idleParkTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const sessionOperationTails = new Map<string, Promise<void>>();
 const sessionSteerTails = new Map<string, Promise<void>>();
@@ -168,6 +170,11 @@ function cancelIdlePark(sessionId: string): void {
   idleParkTimers.delete(sessionId);
 }
 
+/** Settings value for the idle park. Values under 10 seconds, or not finite, are ignored. */
+export function setHarnessIdleParkMs(ms: number): void {
+  if (Number.isFinite(ms) && ms >= 10_000) idleParkMs = ms;
+}
+
 function scheduleIdlePark(harness: HarnessId, sessionId: string): void {
   cancelIdlePark(sessionId);
   idleParkTimers.set(
@@ -175,14 +182,15 @@ function scheduleIdlePark(harness: HarnessId, sessionId: string): void {
     setTimeout(() => {
       idleParkTimers.delete(sessionId);
       void stopHarnessSession(harness, sessionId);
-    }, HARNESS_IDLE_PARK_MS),
+    }, idleParkMs),
   );
 }
 
-/** Test seam. */
+/** Test seam. Also restores the default idle park. */
 export function resetHarnessIdlePark(): void {
   for (const timer of idleParkTimers.values()) clearTimeout(timer);
   idleParkTimers.clear();
+  idleParkMs = HARNESS_IDLE_PARK_MS;
 }
 
 export function registerHarness(adapter: HarnessAdapter): void {
