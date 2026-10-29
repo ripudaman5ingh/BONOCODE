@@ -18,6 +18,7 @@ import {
   registerHarness,
   resetHarnessIdlePark,
   sendHarnessTurn,
+  setHarnessIdleParkMs,
   type HarnessAdapter,
 } from "./registry";
 import type { SendTurnInput, SteerTurnInput } from "./types";
@@ -295,6 +296,30 @@ describe("harness registry", () => {
     await vi.advanceTimersByTimeAsync(1);
     expect(stopSession).toHaveBeenCalledWith("s1");
   });
+
+  it("parks at the idle time set in Settings, and ignores values under 10 seconds", async () => {
+    vi.useFakeTimers();
+    const stopSession = vi.fn(async () => undefined);
+    registerHarness(stub("cursor", { stopSession }));
+    setHarnessIdleParkMs(30_000);
+    setHarnessIdleParkMs(5_000);
+
+    await sendHarnessTurn({
+      harness: "cursor",
+      sessionId: "s1",
+      cwd: "/tmp",
+      model: "cursor:composer-2.5",
+      text: "hi",
+      runtimeMode: "supervised",
+      onEvent: () => undefined,
+    });
+
+    await vi.advanceTimersByTimeAsync(29_999);
+    expect(stopSession).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(stopSession).toHaveBeenCalledWith("s1");
+  });
+
   it("serializes provider-state operations per session", async () => {
     const order: string[] = [];
     let releaseFirst!: () => void;

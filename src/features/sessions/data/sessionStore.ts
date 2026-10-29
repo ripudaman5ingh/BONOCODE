@@ -6,6 +6,7 @@ import {
 import { codexCommandPresentation } from "../../../integrations/harness/providers/codex/codexProtocol";
 import { recoverCursorSubagents } from "../../../integrations/harness/providers/cursor/cursorSubagents";
 import { persistableAttachment } from "../model/attachments";
+import { clearComposerDraft } from "../model/draftCache";
 import type { ContextUsage } from "../model/contextUsage";
 import { normalizeProjectPath } from "../../projects/model/recents";
 import {
@@ -581,6 +582,7 @@ export async function deleteSession(
 ): Promise<void> {
   deletedSessionIds.add(sessionId);
   persistedBlocks.delete(sessionId);
+  clearComposerDraft(sessionId);
   try {
     // Finish in-flight writes before the deletion transaction runs.
     await sessionWriteQueues.get(sessionId);

@@ -11,6 +11,10 @@ import {
   shortcutLabel,
   shortcutTokens,
 } from "../model/shortcutFormat";
+import {
+  HARNESS_IDLE_PARK_MS,
+  setHarnessIdleParkMs,
+} from "../../../integrations/harness/core/registry";
 import { readFlag, writeFlag } from "./storageFlags";
 
 const SECTION_KEY = "bonocode.settingsSection";
@@ -338,6 +342,12 @@ export const SETTINGS_INDEX: SettingsEntry[] = [
       "account sign in login rename remove delete credentials profile usage limit quota exhausted",
   },
   {
+    id: "agent-idle",
+    section: "providers",
+    label: "Keep agents running",
+    keywords: "idle park stop process memory timeout warm",
+  },
+  {
     id: "claude-hooks",
     section: "providers",
     label: "Claude Code hooks",
@@ -506,6 +516,37 @@ export function saveFollowUpBehavior(value: FollowUpBehavior) {
   } catch {
     // private mode / quota
   }
+}
+
+const AGENT_IDLE_KEY = "bonocode.agentIdleMs";
+
+export const AGENT_IDLE_OPTIONS: { ms: number; label: string }[] = [
+  { ms: 30_000, label: "30 seconds" },
+  { ms: 60_000, label: "1 minute" },
+  { ms: 120_000, label: "2 minutes" },
+  { ms: 300_000, label: "5 minutes" },
+  { ms: 900_000, label: "15 minutes" },
+];
+
+/** How long an agent stays running after a turn. Unknown stored values fall back to the default. */
+export function loadAgentIdleMs(): number {
+  try {
+    const stored = Number(localStorage.getItem(AGENT_IDLE_KEY));
+    return AGENT_IDLE_OPTIONS.some((option) => option.ms === stored)
+      ? stored
+      : HARNESS_IDLE_PARK_MS;
+  } catch {
+    return HARNESS_IDLE_PARK_MS;
+  }
+}
+
+export function saveAgentIdleMs(ms: number) {
+  try {
+    localStorage.setItem(AGENT_IDLE_KEY, String(ms));
+  } catch {
+    // private mode / quota
+  }
+  setHarnessIdleParkMs(ms);
 }
 
 export type FileTabMode = "pane" | "workspace";
