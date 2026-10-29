@@ -29,8 +29,10 @@ Measures a built app: time to first window, time until it goes idle, idle memory
 
 Builds `bench-fixtures/three-chats/` (gitignored) with the app's own code: a 500-message
 chat (text, file reads, diffs, test output) and two small chats, restored as three tabs
-in `~/bonocode-bench-project`. It contains `bonocode.db` and a `monocode.db` copy, so the
-same fixture works for MonoCode v0.6.0. Rebuild it after any session schema change.
+in `~/bonocode-bench-project`. It contains `bonocode.db` and a `monocode.db` copy. The copy
+has each transcript inlined in `sessions.blocks_json`, which is the only place MonoCode
+v0.6.0 reads them, so the same fixture works for both apps. Rebuild it after any session
+schema change.
 
 ## Manual session
 

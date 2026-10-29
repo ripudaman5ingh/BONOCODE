@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -6,7 +6,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::Value;
 use tauri::{AppHandle, Manager, State};
 
 const MIGRATION_V1: &str = r#"
@@ -93,6 +93,16 @@ fn init_with(
     Ok(())
 }
 
+/// Error from session_upsert_blocks when the client must send the whole session via session_upsert.
+pub const NEEDS_FULL_WRITE: &str = "needs full write";
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChangedBlock {
+    pub id: String,
+    pub block: Value,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionUpsert {
@@ -107,6 +117,8 @@ pub struct SessionUpsert {
     pub provider_session_id: Option<String>,
     #[serde(default)]
     pub provider_account_id: Option<String>,
+    /// Ignored by session_upsert_blocks.
+    #[serde(default)]
     pub blocks: Value,
     /// Last context-window reading reported by the harness, if any.
     #[serde(default)]
@@ -121,18 +133,12 @@ pub struct SessionUpsert {
     pub worktree_removed: bool,
     #[serde(default)]
     pub linked_work_item: Option<Value>,
-    #[serde(default)]
-    pub automation_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionSummary {
     pub id: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub orchestration_lead_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub orchestration: Option<Value>,
     pub cwd: String,
     pub harness: String,
     pub model: String,
@@ -160,16 +166,12 @@ pub struct SessionSummary {
     pub draft: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub linked_work_item: Option<Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub automation_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionRecord {
     pub id: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub orchestration_lead_id: Option<String>,
     pub cwd: String,
     pub harness: String,
     pub model: String,
@@ -193,17 +195,11 @@ pub struct SessionRecord {
     pub worktree_removed: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub linked_work_item: Option<Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub automation_id: Option<String>,
     pub created_at: i64,
     pub updated_at: i64,
 }
 
-#[tauri::command(async)]
-pub fn session_upsert(
-    store: State<'_, SessionStore>,
-    session: SessionUpsert,
-) -> Result<SessionSummary, String> {
+fn validate_session_meta(session: &SessionUpsert) -> Result<(), String> {
     validate_id(&session.id, "session")?;
     if session.cwd.trim().is_empty() {
         return Err("cwd is required".into());
@@ -218,14 +214,18 @@ pub fn session_upsert(
             validate_id(provider_account_id, "provider account")?;
         }
     }
-    if let Some(automation_id) = &session.automation_id {
-        if !automation_id.is_empty() {
-            validate_id(automation_id, "automation")?;
-        }
-    }
     if !session.model_settings.is_object() {
         return Err("modelSettings must be an object".into());
     }
+    Ok(())
+}
+
+#[tauri::command(async)]
+pub fn session_upsert(
+    store: State<'_, SessionStore>,
+    session: SessionUpsert,
+) -> Result<SessionSummary, String> {
+    validate_session_meta(&session)?;
     if !session.blocks.is_array() {
         return Err("blocks must be an array".into());
     }
@@ -233,6 +233,22 @@ pub fn session_upsert(
     let conn = store.conn.lock().map_err(|_| "Session store is locked")?;
     let summary = upsert_session(&conn, &session).map_err(|e| e.to_string())?;
     Ok(summary)
+}
+
+/// Saves only the blocks that changed. `order` is the full block list (row ids);
+/// `changed` carries the new content for the blocks that differ.
+#[tauri::command(async)]
+pub fn session_upsert_blocks(
+    store: State<'_, SessionStore>,
+    session: SessionUpsert,
+    order: Vec<String>,
+    changed: Vec<ChangedBlock>,
+) -> Result<SessionSummary, String> {
+    validate_session_meta(&session)?;
+    let conn = store.conn.lock().map_err(|_| "Session store is locked")?;
+    upsert_session_blocks(&conn, &session, &order, &changed)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| NEEDS_FULL_WRITE.into())
 }
 
 fn generated_image_paths(blocks: &Value) -> Vec<String> {
@@ -299,6 +315,7 @@ const MAX_CONVERSATION_HITS: usize = 40;
 const MAX_MESSAGE_HITS: usize = 40;
 const SNIPPET_RADIUS: usize = 42;
 const SEARCH_PROGRESS_INTERVAL: usize = 1_000;
+/// Per block: a larger block is skipped for message hits, its session still matches by title.
 const MAX_SEARCH_BUFFER_BYTES: usize = 8 * 1024 * 1024;
 static SESSION_SEARCH_TOKENS: Mutex<Option<HashMap<String, Arc<AtomicU64>>>> = Mutex::new(None);
 
@@ -920,13 +937,6 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
            sessions_json TEXT NOT NULL
          );",
     )?;
-    // Compatibility only: earlier Inbox Ask builds saved temporary chats here.
-    // Keep those records off normal surfaces without deleting their transcripts.
-    ensure_session_column(conn, "inbox_ask", "TEXT")?;
-    conn.execute_batch(
-        "CREATE INDEX IF NOT EXISTS sessions_legacy_inbox
-         ON sessions (id) WHERE inbox_ask IS NOT NULL;",
-    )?;
     // Unscoped session search pins this index with `INDEXED BY`, and SQLite
     // rejects that statement outright when the index is missing instead of
     // falling back to another plan. The versioned blocks above are the normal
@@ -941,122 +951,418 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
                         linked_work_item_json, worktree_cwd, worktree_removed,
                         is_draft, automation_id);",
     )?;
-    ensure_orchestration_history(conn)?;
-    Ok(())
-}
-
-fn ensure_orchestration_history(conn: &Connection) -> rusqlite::Result<()> {
-    let indexed: bool = conn.query_row(
-        "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name = 'orchestration_sidebar')",
-        [],
-        |row| row.get(0),
-    )?;
-    let tx = conn.unchecked_transaction()?;
-    tx.execute_batch(
-        "CREATE TABLE IF NOT EXISTS orchestration_runs (lead_id TEXT PRIMARY KEY, state TEXT NOT NULL);
-         CREATE TABLE IF NOT EXISTS orchestration_sidebar (lead_id TEXT PRIMARY KEY, summary TEXT NOT NULL);
-         CREATE TABLE IF NOT EXISTS orchestration_workers (session_id TEXT PRIMARY KEY, lead_id TEXT NOT NULL);",
-    )?;
-    if !indexed {
-        // One-time compatibility pass for the preview that listed workers as
-        // separate chats. Normal sidebar reads never scan transcripts/run blobs.
-        let runs = tx
-            .prepare("SELECT lead_id, state FROM orchestration_runs")?
-            .query_map([], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-            })?
-            .collect::<rusqlite::Result<Vec<_>>>()?;
-        for (lead, state) in runs {
-            if let Ok(run) = serde_json::from_str::<Value>(&state) {
-                index_orchestration(&tx, &lead, &run)?;
-            }
-        }
-        let workers = tx.prepare("SELECT id, blocks_json FROM sessions WHERE blocks_json LIKE '%orchestrationLeadId%'")?
-            .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))?
-            .collect::<rusqlite::Result<Vec<_>>>()?;
-        for (id, blocks) in workers {
-            if let Ok(blocks) = serde_json::from_str::<Value>(&blocks) {
-                remember_worker_from_blocks(&tx, &id, &blocks)?;
-            }
-        }
-    }
-    tx.commit()
-}
-
-fn remember_worker(conn: &Connection, id: &str, lead: &str) -> rusqlite::Result<()> {
-    if id != lead && validate_id(id, "Worker").is_ok() && validate_id(lead, "Lead").is_ok() {
-        // Keep earlier workers indexed when a lead starts a subsequent run.
+    ensure_session_blocks(conn)?;
+    import_legacy_blocks(conn)?;
+    if current < 19 {
+        hide_legacy_inbox_rows(conn)?;
         conn.execute(
-            "INSERT OR IGNORE INTO orchestration_workers(session_id, lead_id) VALUES (?1, ?2)",
-            params![id, lead],
+            "INSERT INTO schema_migrations (version, applied_at) VALUES (19, ?1)",
+            params![now_millis()],
         )?;
     }
     Ok(())
 }
 
-fn remember_worker_from_blocks(
-    conn: &Connection,
-    id: &str,
-    blocks: &Value,
-) -> rusqlite::Result<()> {
-    if let Some(blocks) = blocks.as_array() {
-        for block in blocks {
-            if block["role"] == "user" {
-                if let Some(lead) = block["orchestrationLeadId"].as_str() {
-                    remember_worker(conn, id, lead)?;
-                    break;
-                }
-            }
+/// One row per chat block, so a save only writes the blocks that changed.
+fn ensure_session_blocks(conn: &Connection) -> rusqlite::Result<()> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS session_blocks (
+           session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+           block_id TEXT NOT NULL,
+           ord INTEGER NOT NULL,
+           role TEXT NOT NULL DEFAULT '',
+           is_draft INTEGER NOT NULL DEFAULT 0,
+           block_json TEXT NOT NULL,
+           PRIMARY KEY (session_id, block_id)
+         );
+         CREATE INDEX IF NOT EXISTS session_blocks_ord_idx ON session_blocks (session_id, ord);",
+    )
+}
+
+/// Earlier Inbox Ask builds saved temporary chats. Keep them off normal surfaces
+/// without deleting their transcripts.
+fn hide_legacy_inbox_rows(conn: &Connection) -> rusqlite::Result<()> {
+    let present: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM pragma_table_info('sessions') WHERE name = 'inbox_ask'",
+        [],
+        |row| row.get(0),
+    )?;
+    if present > 0 {
+        conn.execute(
+            "UPDATE sessions SET has_user_message = 0, is_draft = 0 WHERE inbox_ask IS NOT NULL",
+            [],
+        )?;
+    }
+    Ok(())
+}
+
+/// Moves transcripts still held in `sessions.blocks_json` into `session_blocks`.
+/// Runs as migration 19 and on every startup, so an older build that writes the
+/// blob again after the upgrade is merged in instead of wiping newer blocks.
+fn import_legacy_blocks(conn: &Connection) -> rusqlite::Result<()> {
+    let tx = conn.unchecked_transaction()?;
+    let legacy = tx
+        .prepare("SELECT id, blocks_json FROM sessions WHERE blocks_json != '[]'")?
+        .query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    for (id, raw) in legacy {
+        merge_legacy_blocks(&tx, &id, &raw)?;
+    }
+    tx.commit()
+}
+
+/// Returns false (and leaves the row alone) when the blob is not an array.
+fn merge_legacy_blocks(conn: &Connection, session_id: &str, raw: &str) -> rusqlite::Result<bool> {
+    let blocks = match serde_json::from_str::<Value>(raw) {
+        Ok(Value::Array(blocks)) => blocks,
+        _ => {
+            eprintln!("Skipped a saved transcript that is not a block list: {session_id}");
+            return Ok(false);
+        }
+    };
+    let ords = stored_block_ords(conn, session_id)?;
+    let mut max_ord = conn.query_row(
+        "SELECT COALESCE(MAX(ord), -1) FROM session_blocks WHERE session_id = ?1",
+        params![session_id],
+        |row| row.get::<_, i64>(0),
+    )?;
+    for row in block_rows(&blocks)? {
+        if ords.contains_key(&row.id) {
+            conn.execute(
+                "UPDATE session_blocks SET block_json = ?1, role = ?2, is_draft = ?3
+                 WHERE session_id = ?4 AND block_id = ?5",
+                params![
+                    row.json,
+                    row.role,
+                    i64::from(row.is_draft),
+                    session_id,
+                    row.id
+                ],
+            )?;
+        } else {
+            max_ord += 1;
+            conn.execute(
+                "INSERT INTO session_blocks (session_id, block_id, ord, role, is_draft, block_json)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                params![
+                    session_id,
+                    row.id,
+                    max_ord,
+                    row.role,
+                    i64::from(row.is_draft),
+                    row.json
+                ],
+            )?;
         }
     }
+    conn.execute(
+        "UPDATE sessions SET blocks_json = '[]' WHERE id = ?1",
+        params![session_id],
+    )?;
+    refresh_block_flags(conn, session_id)?;
+    Ok(true)
+}
+
+fn refresh_block_flags(conn: &Connection, session_id: &str) -> rusqlite::Result<()> {
+    conn.execute(
+        "UPDATE sessions SET
+           has_user_message = EXISTS(SELECT 1 FROM session_blocks WHERE session_id = ?1 AND role = 'user'),
+           is_draft = EXISTS(SELECT 1 FROM session_blocks WHERE session_id = ?1 AND role = 'user' AND is_draft = 1)
+         WHERE id = ?1",
+        params![session_id],
+    )?;
     Ok(())
 }
 
-fn index_orchestration(conn: &Connection, lead: &str, run: &Value) -> rusqlite::Result<()> {
-    let Some(tasks) = run["tasks"].as_array() else {
-        return Ok(());
-    };
-    let mut summaries = Vec::new();
-    for task in tasks {
-        let Some(id) = task["sessionId"].as_str() else {
-            continue;
-        };
-        remember_worker(conn, id, lead)?;
-        summaries.push(serde_json::json!({
-            "sessionId": id, "title": task["title"], "harness": task["harness"],
-            "model": task["model"], "status": task["status"],
-        }));
-    }
-    let summary = serde_json::json!({ "status": run["status"], "tasks": summaries });
-    conn.execute("INSERT INTO orchestration_sidebar(lead_id, summary) VALUES (?1, ?2) ON CONFLICT(lead_id) DO UPDATE SET summary = excluded.summary", params![lead, summary.to_string()])?;
-    Ok(())
-}
-
-fn worker_parent(conn: &Connection, id: &str) -> rusqlite::Result<Option<String>> {
+/// Reads the two listing flags back from the stored blocks.
+fn block_flags(conn: &Connection, session_id: &str) -> rusqlite::Result<(bool, bool)> {
     conn.query_row(
-        "SELECT lead_id FROM orchestration_workers WHERE session_id = ?1",
-        [id],
-        |row| row.get(0),
+        "SELECT
+           EXISTS(SELECT 1 FROM session_blocks WHERE session_id = ?1 AND role = 'user'),
+           EXISTS(SELECT 1 FROM session_blocks WHERE session_id = ?1 AND role = 'user' AND is_draft = 1)",
+        params![session_id],
+        |row| Ok((row.get(0)?, row.get(1)?)),
     )
-    .optional()
 }
 
-fn orchestration_summary(conn: &Connection, id: &str) -> rusqlite::Result<Option<Value>> {
-    Ok(optional_json(
-        conn.query_row(
-            "SELECT summary FROM orchestration_sidebar WHERE lead_id = ?1",
-            [id],
+/// Row id for a block: its own non-empty `id` when unused, else `~<index>`.
+fn block_row_id(block: &Value, index: usize, used: &mut HashSet<String>) -> String {
+    let own = block
+        .get("id")
+        .and_then(Value::as_str)
+        .filter(|id| !id.is_empty() && !used.contains(*id));
+    let row_id = match own {
+        Some(id) => id.to_string(),
+        None => format!("~{index}"),
+    };
+    used.insert(row_id.clone());
+    row_id
+}
+
+fn block_role(block: &Value) -> &str {
+    block
+        .get("role")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+}
+
+fn block_is_draft(block: &Value) -> bool {
+    block_role(block) == "user" && block.get("draft").and_then(Value::as_bool) == Some(true)
+}
+
+/// One `session_blocks` row built from a block the client sent.
+struct BlockRow {
+    id: String,
+    role: String,
+    is_draft: bool,
+    json: String,
+}
+
+fn block_rows(blocks: &[Value]) -> rusqlite::Result<Vec<BlockRow>> {
+    let mut used = HashSet::new();
+    blocks
+        .iter()
+        .enumerate()
+        .map(|(index, block)| -> rusqlite::Result<BlockRow> {
+            Ok(BlockRow {
+                id: block_row_id(block, index, &mut used),
+                role: block_role(block).to_string(),
+                is_draft: block_is_draft(block),
+                json: serde_json::to_string(block)
+                    .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
+            })
+        })
+        .collect()
+}
+
+/// Full write: replaces the session row and, when the blocks differ, every block row.
+fn upsert_session(conn: &Connection, session: &SessionUpsert) -> rusqlite::Result<SessionSummary> {
+    let blocks = session
+        .blocks
+        .as_array()
+        .map(Vec::as_slice)
+        .unwrap_or_default();
+    let rows = block_rows(blocks)?;
+    let tx = conn.unchecked_transaction()?;
+    let legacy: Option<String> = tx
+        .query_row(
+            "SELECT blocks_json FROM sessions WHERE id = ?1",
+            params![session.id],
             |row| row.get(0),
         )
-        .optional()?,
-    ))
+        .optional()?;
+    let blocks_changed = match legacy {
+        None => true,
+        Some(raw) if raw != "[]" => true,
+        Some(_) => {
+            let stored = stored_block_jsons(&tx, &session.id)?;
+            stored.len() != blocks.len()
+                || stored
+                    .iter()
+                    .zip(blocks)
+                    .any(|(raw, block)| !json_eq(raw, block))
+        }
+    };
+    // The session row has to exist before its block rows (foreign key).
+    let summary = write_session_meta(
+        &tx,
+        session,
+        has_user_block(&session.blocks),
+        has_draft_block(&session.blocks),
+        blocks_changed,
+    )?;
+    if blocks_changed {
+        tx.execute(
+            "DELETE FROM session_blocks WHERE session_id = ?1",
+            params![session.id],
+        )?;
+        for (index, row) in rows.iter().enumerate() {
+            tx.execute(
+                "INSERT INTO session_blocks (session_id, block_id, ord, role, is_draft, block_json)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                params![
+                    session.id,
+                    row.id,
+                    index as i64,
+                    row.role,
+                    i64::from(row.is_draft),
+                    row.json
+                ],
+            )?;
+        }
+    }
+    tx.commit()?;
+    Ok(summary)
 }
 
-fn upsert_session(conn: &Connection, session: &SessionUpsert) -> rusqlite::Result<SessionSummary> {
+/// Delta save: `order` is every block id in sequence, `changed` the blocks whose
+/// content is new. `Ok(None)` means the client must resend the whole session; the
+/// database is left unchanged in that case.
+fn upsert_session_blocks(
+    conn: &Connection,
+    session: &SessionUpsert,
+    order: &[String],
+    changed: &[ChangedBlock],
+) -> rusqlite::Result<Option<SessionSummary>> {
+    let mut order_set = HashSet::new();
+    if order
+        .iter()
+        .any(|id| id.is_empty() || !order_set.insert(id.as_str()))
+    {
+        return Ok(None);
+    }
+    let mut changed_set = HashSet::new();
+    for change in changed {
+        let id_matches = change.block.get("id").and_then(Value::as_str) == Some(change.id.as_str());
+        if !id_matches
+            || !changed_set.insert(change.id.as_str())
+            || !order_set.contains(change.id.as_str())
+        {
+            return Ok(None);
+        }
+    }
+
+    let tx = conn.unchecked_transaction()?;
+    let legacy: Option<String> = tx
+        .query_row(
+            "SELECT blocks_json FROM sessions WHERE id = ?1",
+            params![session.id],
+            |row| row.get(0),
+        )
+        .optional()?;
+    if legacy.as_deref() != Some("[]") {
+        return Ok(None);
+    }
+    let ords = stored_block_ords(&tx, &session.id)?;
+    if order
+        .iter()
+        .any(|id| !ords.contains_key(id) && !changed_set.contains(id.as_str()))
+    {
+        return Ok(None);
+    }
+
+    let mut blocks_changed = false;
+    let stale: Vec<String> = ords
+        .keys()
+        .filter(|id| !order_set.contains(id.as_str()))
+        .cloned()
+        .collect();
+    for id in &stale {
+        let removed = tx.execute(
+            "DELETE FROM session_blocks WHERE session_id = ?1 AND block_id = ?2",
+            params![session.id, id],
+        )?;
+        blocks_changed |= removed > 0;
+    }
+
+    let positions: HashMap<&str, usize> = order
+        .iter()
+        .enumerate()
+        .map(|(index, id)| (id.as_str(), index))
+        .collect();
+    for change in changed {
+        let Some(&index) = positions.get(change.id.as_str()) else {
+            return Ok(None);
+        };
+        let stored: Option<String> = tx
+            .query_row(
+                "SELECT block_json FROM session_blocks WHERE session_id = ?1 AND block_id = ?2",
+                params![session.id, change.id],
+                |row| row.get(0),
+            )
+            .optional()?;
+        if stored
+            .as_deref()
+            .is_some_and(|raw| json_eq(raw, &change.block))
+        {
+            continue;
+        }
+        let json = serde_json::to_string(&change.block)
+            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+        tx.execute(
+            "INSERT INTO session_blocks (session_id, block_id, ord, role, is_draft, block_json)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+             ON CONFLICT(session_id, block_id) DO UPDATE SET
+               block_json = excluded.block_json,
+               role = excluded.role,
+               is_draft = excluded.is_draft,
+               ord = excluded.ord",
+            params![
+                session.id,
+                change.id,
+                index as i64,
+                block_role(&change.block),
+                i64::from(block_is_draft(&change.block)),
+                json
+            ],
+        )?;
+        blocks_changed = true;
+    }
+
+    for (index, id) in order.iter().enumerate() {
+        let moved = tx.execute(
+            "UPDATE session_blocks SET ord = ?1
+             WHERE session_id = ?2 AND block_id = ?3 AND ord != ?1",
+            params![index as i64, session.id, id],
+        )?;
+        blocks_changed |= moved > 0;
+    }
+
+    let (has_user_message, is_draft) = block_flags(&tx, &session.id)?;
+    let summary = write_session_meta(&tx, session, has_user_message, is_draft, blocks_changed)?;
+    tx.commit()?;
+    Ok(Some(summary))
+}
+
+fn stored_block_jsons(conn: &Connection, session_id: &str) -> rusqlite::Result<Vec<String>> {
+    let mut statement =
+        conn.prepare("SELECT block_json FROM session_blocks WHERE session_id = ?1 ORDER BY ord")?;
+    let rows = statement.query_map(params![session_id], |row| row.get::<_, String>(0))?;
+    rows.collect()
+}
+
+fn stored_block_ords(
+    conn: &Connection,
+    session_id: &str,
+) -> rusqlite::Result<HashMap<String, i64>> {
+    let mut statement =
+        conn.prepare("SELECT block_id, ord FROM session_blocks WHERE session_id = ?1")?;
+    let rows = statement.query_map(params![session_id], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+    })?;
+    rows.collect()
+}
+
+/// Rebuilds the transcript array from its rows, in order.
+fn load_blocks(conn: &Connection, session_id: &str) -> rusqlite::Result<Value> {
+    let blocks = stored_block_jsons(conn, session_id)?
+        .iter()
+        .map(|raw| {
+            serde_json::from_str::<Value>(raw).map_err(|e| {
+                rusqlite::Error::FromSqlConversionFailure(
+                    0,
+                    rusqlite::types::Type::Text,
+                    Box::new(e),
+                )
+            })
+        })
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(Value::Array(blocks))
+}
+
+/// The session row without its blocks. Blocks are written separately, so the
+/// caller decides whether `updated_at` moves.
+fn write_session_meta(
+    conn: &Connection,
+    session: &SessionUpsert,
+    has_user_message: bool,
+    is_draft: bool,
+    blocks_changed: bool,
+) -> rusqlite::Result<SessionSummary> {
     let now = now_millis();
     let model_settings = serde_json::to_string(&session.model_settings)
-        .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
-    let blocks_json = serde_json::to_string(&session.blocks)
         .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
     let linked_work_item_json = session
         .linked_work_item
@@ -1064,11 +1370,6 @@ fn upsert_session(conn: &Connection, session: &SessionUpsert) -> rusqlite::Resul
         .map(serde_json::to_string)
         .transpose()
         .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
-    let automation_id = session
-        .automation_id
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty());
     let provider_session_id = session
         .provider_session_id
         .as_ref()
@@ -1106,43 +1407,28 @@ fn upsert_session(conn: &Connection, session: &SessionUpsert) -> rusqlite::Resul
         .map(str::trim)
         .filter(|value| !value.is_empty());
 
-    let has_user_message = has_user_block(&session.blocks);
-    let is_draft = has_draft_block(&session.blocks);
-
-    let existing: Option<(i64, i64, String, i64, i64)> = conn
+    let existing: Option<(i64, i64, i64, i64)> = conn
         .query_row(
-            "SELECT created_at, updated_at, blocks_json, archived, pinned FROM sessions WHERE id = ?1",
+            "SELECT created_at, updated_at, archived, pinned FROM sessions WHERE id = ?1",
             params![session.id],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
         )
         .optional()?;
-    let created_at = existing
-        .as_ref()
-        .map(|(value, _, _, _, _)| *value)
-        .unwrap_or(now);
-    let updated_at = match &existing {
-        Some((_, prev_updated, prev_blocks, _, _)) if json_eq(prev_blocks, &session.blocks) => {
-            *prev_updated
-        }
+    let created_at = existing.map_or(now, |(value, _, _, _)| value);
+    let updated_at = match existing {
+        Some((_, previous, _, _)) if !blocks_changed => previous,
         _ => now,
     };
-    let archived = existing
-        .as_ref()
-        .map(|(_, _, _, value, _)| *value != 0)
-        .unwrap_or(false);
-    let pinned = existing
-        .as_ref()
-        .map(|(_, _, _, _, value)| *value != 0)
-        .unwrap_or(false);
+    let archived = existing.is_some_and(|(_, _, value, _)| value != 0);
+    let pinned = existing.is_some_and(|(_, _, _, value)| value != 0);
 
     conn.execute(
         "INSERT INTO sessions (
            id, cwd, harness, model, model_settings, runtime_mode, title,
            provider_session_id, blocks_json, created_at, updated_at, branch,
            context_used, context_window, worktree_cwd, has_user_message,
-           linked_work_item_json, provider_account_id, worktree_removed, is_draft,
-           automation_id
-         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21)
+           linked_work_item_json, provider_account_id, worktree_removed, is_draft
+         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, '[]', ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)
          ON CONFLICT(id) DO UPDATE SET
            cwd = excluded.cwd,
            harness = excluded.harness,
@@ -1151,7 +1437,7 @@ fn upsert_session(conn: &Connection, session: &SessionUpsert) -> rusqlite::Resul
            runtime_mode = excluded.runtime_mode,
            title = excluded.title,
            provider_session_id = excluded.provider_session_id,
-           blocks_json = excluded.blocks_json,
+           blocks_json = '[]',
            updated_at = excluded.updated_at,
            branch = excluded.branch,
            context_used = excluded.context_used,
@@ -1161,8 +1447,7 @@ fn upsert_session(conn: &Connection, session: &SessionUpsert) -> rusqlite::Resul
            linked_work_item_json = excluded.linked_work_item_json,
            provider_account_id = excluded.provider_account_id,
            worktree_removed = excluded.worktree_removed,
-           is_draft = excluded.is_draft,
-           automation_id = excluded.automation_id",
+           is_draft = excluded.is_draft",
         params![
             session.id,
             session.cwd,
@@ -1172,7 +1457,6 @@ fn upsert_session(conn: &Connection, session: &SessionUpsert) -> rusqlite::Resul
             session.runtime_mode,
             session.title,
             provider_session_id,
-            blocks_json,
             created_at,
             updated_at,
             branch,
@@ -1184,15 +1468,11 @@ fn upsert_session(conn: &Connection, session: &SessionUpsert) -> rusqlite::Resul
             provider_account_id,
             i64::from(session.worktree_removed),
             i64::from(is_draft),
-            automation_id,
         ],
     )?;
 
-    remember_worker_from_blocks(conn, &session.id, &session.blocks)?;
     Ok(SessionSummary {
         id: session.id.clone(),
-        orchestration_lead_id: worker_parent(conn, &session.id)?,
-        orchestration: orchestration_summary(conn, &session.id)?,
         cwd: session.cwd.clone(),
         harness: session.harness.clone(),
         model: session.model.clone(),
@@ -1211,7 +1491,6 @@ fn upsert_session(conn: &Connection, session: &SessionUpsert) -> rusqlite::Resul
         pinned,
         draft: is_draft,
         linked_work_item: session.linked_work_item.clone(),
-        automation_id: automation_id.map(str::to_owned),
     })
 }
 
@@ -1233,32 +1512,31 @@ fn search_sessions(
     search_sessions_with_connection(conn, options, token.as_ref())
 }
 
+/// Blocks of one session that a search can hit. An oversized block comes back as
+/// an empty string with its flag set, so its text is never read off disk.
+const SEARCH_BLOCKS_SQL: &str =
+    "SELECT CASE WHEN octet_length(block_json) > ?2 THEN '' ELSE block_json END,
+            octet_length(block_json) > ?2
+     FROM session_blocks
+     WHERE session_id = ?1 AND role IN ('user','assistant','tool','tasks','plan','image')
+       AND (octet_length(block_json) > ?2 OR LOWER(block_json) LIKE LOWER(?3) ESCAPE '\\')
+     ORDER BY ord";
+
 fn search_sessions_sql(include_archived: bool, cwd_scoped: bool) -> String {
-    let mut sql = String::from(
-        "SELECT id, cwd, harness, title, updated_at, archived,
-                CASE WHEN octet_length(blocks_json) <= ?2
-                     THEN blocks_json ELSE NULL END
-         FROM sessions",
-    );
+    let mut sql =
+        String::from("SELECT id, cwd, harness, title, updated_at, archived FROM sessions");
     if !cwd_scoped {
-        // Without a `cwd` equality to anchor the leading index column, the
-        // planner answers this from a table scan, and every column it reads
-        // (`inbox_ask`, `archived`, `has_user_message`, `updated_at`) sits after
-        // `blocks_json` in the record, so it walks each transcript's overflow
-        // pages before the size guard can reject the row. The partial inbox
-        // index answers the same filter without the table, and pinning the
-        // covering index keeps the rest of the predicate and the projection
-        // inside it: the table is then reached only for `blocks_json` rows that
-        // are already known to fit the budget.
+        // Without a `cwd` equality to anchor the leading index column, the planner
+        // would scan the table. Pinning the covering index keeps the predicate and
+        // the projection inside the index.
         sql.push_str(" INDEXED BY sessions_cwd_cover_idx");
     }
     sql.push_str(
-        " WHERE id NOT IN (SELECT id FROM sessions WHERE inbox_ask IS NOT NULL)
-            AND has_user_message = 1
+        " WHERE has_user_message = 1
             AND (LOWER(title) LIKE LOWER(?1) ESCAPE '\\'
-                 OR CASE WHEN octet_length(blocks_json) <= ?2
-                         THEN LOWER(blocks_json) LIKE LOWER(?1) ESCAPE '\\'
-                         ELSE 0 END)",
+                 OR EXISTS (SELECT 1 FROM session_blocks WHERE session_blocks.session_id = sessions.id
+                            AND octet_length(session_blocks.block_json) <= ?2
+                            AND LOWER(session_blocks.block_json) LIKE LOWER(?1) ESCAPE '\\'))",
     );
     if !include_archived {
         sql.push_str(" AND archived = 0");
@@ -1373,19 +1651,17 @@ fn search_sessions_with_connection(
             continue;
         }
 
-        let blocks_raw = match row.get_ref(6).map_err(|e| e.to_string())? {
-            rusqlite::types::ValueRef::Null => {
-                truncated = true;
-                continue;
+        let block_values = match search_block_values(conn, &id, budget, &pattern, &mut truncated) {
+            Ok(values) => values,
+            Err(_) if !session_search_is_current(token) => {
+                return Ok(SessionSearchResult {
+                    hits: Vec::new(),
+                    truncated: false,
+                });
             }
-            value => {
-                String::from_utf8_lossy(value.as_bytes().map_err(|e| e.to_string())?).into_owned()
-            }
+            Err(error) => return Err(error.to_string()),
         };
-        let Ok(blocks) = serde_json::from_str::<Value>(&blocks_raw) else {
-            continue;
-        };
-        for hit in block_hits(&blocks, &needle) {
+        for hit in block_hits(&Value::Array(block_values), &needle) {
             messages.push(SessionSearchHit {
                 kind: "message".into(),
                 session_id: id.clone(),
@@ -1410,6 +1686,32 @@ fn search_sessions_with_connection(
     let mut hits = conversations;
     hits.extend(messages);
     Ok(SessionSearchResult { hits, truncated })
+}
+
+/// Reads one session's searchable blocks, skipping any over the per-block budget.
+fn search_block_values(
+    conn: &Connection,
+    session_id: &str,
+    budget: i64,
+    pattern: &str,
+    truncated: &mut bool,
+) -> rusqlite::Result<Vec<Value>> {
+    let mut statement = conn.prepare(SEARCH_BLOCKS_SQL)?;
+    let rows = statement.query_map(params![session_id, budget, pattern], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, bool>(1)?))
+    })?;
+    let mut blocks = Vec::new();
+    for row in rows {
+        let (raw, oversized) = row?;
+        if oversized {
+            *truncated = true;
+            continue;
+        }
+        if let Ok(block) = serde_json::from_str::<Value>(&raw) {
+            blocks.push(block);
+        }
+    }
+    Ok(blocks)
 }
 
 fn like_pattern(query: &str) -> String {
@@ -1543,14 +1845,9 @@ fn list_by_project(conn: &Connection, cwd: &str) -> rusqlite::Result<Vec<Session
     let mut statement = conn.prepare(
         "SELECT id, cwd, harness, model, runtime_mode, title, provider_session_id,
                 created_at, updated_at, branch, archived, pinned,
-                linked_work_item_json,
-                (SELECT summary FROM orchestration_sidebar WHERE lead_id = sessions.id), worktree_cwd,
-                worktree_removed, is_draft, automation_id
+                linked_work_item_json, worktree_cwd, worktree_removed, is_draft
          FROM sessions
-         WHERE cwd = ?1
-           AND has_user_message = 1
-           AND id NOT IN (SELECT id FROM sessions WHERE inbox_ask IS NOT NULL)
-           AND id NOT IN (SELECT session_id FROM orchestration_workers)
+         WHERE cwd = ?1 AND has_user_message = 1
          ORDER BY updated_at DESC, id ASC",
     )?;
     let rows = statement.query_map(params![cwd], |row| {
@@ -1560,8 +1857,6 @@ fn list_by_project(conn: &Connection, cwd: &str) -> rusqlite::Result<Vec<Session
         let linked_work_item = optional_json(row.get(12)?);
         Ok(SessionSummary {
             id: row.get(0)?,
-            orchestration_lead_id: None,
-            orchestration: optional_json(row.get(13)?),
             cwd: row.get(1)?,
             harness: row.get(2)?,
             model: row.get(3)?,
@@ -1570,21 +1865,20 @@ fn list_by_project(conn: &Connection, cwd: &str) -> rusqlite::Result<Vec<Session
             provider_session_id: row.get(6)?,
             created_at: row.get(7)?,
             updated_at: row.get(8)?,
-            branch: if row.get::<_, i64>(15)? != 0 {
+            branch: if row.get::<_, i64>(14)? != 0 {
                 None
             } else {
                 nonempty(stored_branch).or_else(|| git.branch.clone())
             },
-            worktree_cwd: row.get(14)?,
-            worktree_removed: row.get::<_, i64>(15)? != 0,
+            worktree_cwd: row.get(13)?,
+            worktree_removed: row.get::<_, i64>(14)? != 0,
             repo: git.repo.clone(),
             additions: 0,
             deletions: 0,
             archived: archived != 0,
             pinned: pinned != 0,
-            draft: row.get::<_, i64>(16)? != 0,
+            draft: row.get::<_, i64>(15)? != 0,
             linked_work_item,
-            automation_id: nonempty(row.get(17)?),
         })
     })?;
     rows.collect()
@@ -1601,12 +1895,9 @@ fn has_user_block(blocks: &Value) -> bool {
 }
 
 fn has_draft_block(blocks: &Value) -> bool {
-    blocks.as_array().is_some_and(|blocks| {
-        blocks.iter().any(|block| {
-            block.get("role").and_then(Value::as_str) == Some("user")
-                && block.get("draft").and_then(Value::as_bool) == Some(true)
-        })
-    })
+    blocks
+        .as_array()
+        .is_some_and(|blocks| blocks.iter().any(block_is_draft))
 }
 
 fn nonempty(value: Option<String>) -> Option<String> {
@@ -1625,113 +1916,13 @@ fn optional_json(raw: Option<String>) -> Option<Value> {
 }
 
 fn delete_session(conn: &Connection, session_id: &str) -> rusqlite::Result<()> {
+    // Not relying on the foreign key cascade: the block rows go in the same transaction.
     let tx = conn.unchecked_transaction()?;
-    let parent = worker_parent(&tx, session_id)?;
-    // Ownership is also carried in transcripts for older clients. Release
-    // that metadata along with the index so reopening a worker stays detached.
-    let workers = tx.prepare("SELECT id, blocks_json FROM sessions WHERE id IN (SELECT session_id FROM orchestration_workers WHERE lead_id = ?1)")?
-        .query_map([session_id], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))?
-        .collect::<rusqlite::Result<Vec<_>>>()?;
-    for (id, raw) in workers {
-        let mut blocks: Value = serde_json::from_str(&raw).map_err(|e| {
-            rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(e))
-        })?;
-        if let Some(blocks) = blocks.as_array_mut() {
-            for block in blocks {
-                if block["orchestrationLeadId"] == session_id {
-                    if let Some(block) = block.as_object_mut() {
-                        block.remove("orchestrationLeadId");
-                    }
-                }
-            }
-        }
-        tx.execute(
-            "UPDATE sessions SET blocks_json = ?1 WHERE id = ?2",
-            params![blocks.to_string(), id],
-        )?;
-    }
     tx.execute(
-        "DELETE FROM orchestration_runs WHERE lead_id = ?1",
-        [session_id],
+        "DELETE FROM session_blocks WHERE session_id = ?1",
+        params![session_id],
     )?;
-    tx.execute(
-        "DELETE FROM orchestration_sidebar WHERE lead_id = ?1",
-        [session_id],
-    )?;
-    if let Some(parent) = parent.filter(|id| id != session_id) {
-        let raw: Option<String> = tx
-            .query_row(
-                "SELECT state FROM orchestration_runs WHERE lead_id = ?1",
-                [&parent],
-                |row| row.get(0),
-            )
-            .optional()?;
-        if let Some(raw) = raw {
-            let mut run: Value = serde_json::from_str(&raw).map_err(|e| {
-                rusqlite::Error::FromSqlConversionFailure(
-                    0,
-                    rusqlite::types::Type::Text,
-                    Box::new(e),
-                )
-            })?;
-            let mut removed = false;
-            if let Some(tasks) = run["tasks"].as_array_mut() {
-                let ids: Vec<String> = tasks
-                    .iter()
-                    .filter(|task| task["sessionId"] == session_id)
-                    .filter_map(|task| task["id"].as_str().map(str::to_string))
-                    .collect();
-                let before = tasks.len();
-                tasks.retain(|task| task["sessionId"] != session_id);
-                removed = before != tasks.len();
-                if removed {
-                    for task in tasks {
-                        if let Some(deps) = task["dependsOn"].as_array_mut() {
-                            deps.retain(|dep| !ids.iter().any(|id| dep == id));
-                        }
-                        // Removing a prerequisite must not release queued work.
-                        // The app stops the run before deleting any current member.
-                        if matches!(
-                            task["status"].as_str(),
-                            Some("queued" | "running" | "cancelling")
-                        ) {
-                            task["status"] = json!("cancelled");
-                            task["accepted"] = json!(false);
-                            task["delivered"] = json!(true);
-                        }
-                    }
-                }
-            }
-            if removed {
-                if matches!(run["status"].as_str(), Some("active" | "paused")) {
-                    run["status"] = json!("stopped");
-                    run["error"] =
-                        json!("A worker conversation was deleted. Start a new run to continue.");
-                }
-                run["requests"] = json!({});
-                tx.execute(
-                    "UPDATE orchestration_runs SET state = ?1 WHERE lead_id = ?2",
-                    params![run.to_string(), parent],
-                )?;
-                index_orchestration(&tx, &parent, &run)?;
-            }
-        }
-        // Also handle summaries left by an older client without a run record.
-        if let Some(mut summary) = orchestration_summary(&tx, &parent)? {
-            if let Some(tasks) = summary["tasks"].as_array_mut() {
-                tasks.retain(|task| task["sessionId"] != session_id);
-            }
-            tx.execute(
-                "UPDATE orchestration_sidebar SET summary = ?1 WHERE lead_id = ?2",
-                params![summary.to_string(), parent],
-            )?;
-        }
-    }
-    tx.execute(
-        "DELETE FROM orchestration_workers WHERE session_id = ?1 OR lead_id = ?1",
-        [session_id],
-    )?;
-    tx.execute("DELETE FROM sessions WHERE id = ?1", [session_id])?;
+    tx.execute("DELETE FROM sessions WHERE id = ?1", params![session_id])?;
     tx.commit()
 }
 
@@ -1768,18 +1959,29 @@ fn set_linked_work_item(
 }
 
 fn get_session(conn: &Connection, session_id: &str) -> rusqlite::Result<Option<SessionRecord>> {
+    // Transcripts an older build wrote into `blocks_json` are folded into the rows first.
+    let legacy: Option<String> = conn
+        .query_row(
+            "SELECT blocks_json FROM sessions WHERE id = ?1 AND blocks_json != '[]'",
+            params![session_id],
+            |row| row.get(0),
+        )
+        .optional()?;
+    if let Some(raw) = legacy {
+        let tx = conn.unchecked_transaction()?;
+        merge_legacy_blocks(&tx, session_id, &raw)?;
+        tx.commit()?;
+    }
     conn.query_row(
         "SELECT id, cwd, harness, model, model_settings, runtime_mode, title,
-                provider_session_id, blocks_json, created_at, updated_at,
+                provider_session_id, created_at, updated_at,
                 context_used, context_window, branch, worktree_cwd,
-                linked_work_item_json, provider_account_id, worktree_removed,
-                automation_id
+                linked_work_item_json, provider_account_id, worktree_removed
          FROM sessions
-         WHERE id = ?1 AND inbox_ask IS NULL",
+         WHERE id = ?1",
         params![session_id],
         |row| {
             let model_settings_raw: String = row.get(4)?;
-            let blocks_raw: String = row.get(8)?;
             let model_settings = serde_json::from_str(&model_settings_raw).map_err(|e| {
                 rusqlite::Error::FromSqlConversionFailure(
                     4,
@@ -1787,16 +1989,8 @@ fn get_session(conn: &Connection, session_id: &str) -> rusqlite::Result<Option<S
                     Box::new(e),
                 )
             })?;
-            let blocks = serde_json::from_str(&blocks_raw).map_err(|e| {
-                rusqlite::Error::FromSqlConversionFailure(
-                    8,
-                    rusqlite::types::Type::Text,
-                    Box::new(e),
-                )
-            })?;
             Ok(SessionRecord {
                 id: row.get(0)?,
-                orchestration_lead_id: worker_parent(conn, session_id)?,
                 cwd: row.get(1)?,
                 harness: row.get(2)?,
                 model: row.get(3)?,
@@ -1804,17 +1998,16 @@ fn get_session(conn: &Connection, session_id: &str) -> rusqlite::Result<Option<S
                 runtime_mode: row.get(5)?,
                 title: row.get(6)?,
                 provider_session_id: row.get(7)?,
-                blocks,
-                context_used: row.get(11)?,
-                context_window: row.get(12)?,
-                branch: row.get(13)?,
-                worktree_cwd: row.get(14)?,
-                worktree_removed: row.get::<_, i64>(17)? != 0,
-                linked_work_item: optional_json(row.get(15)?),
-                provider_account_id: row.get(16)?,
-                automation_id: nonempty(row.get(18)?),
-                created_at: row.get(9)?,
-                updated_at: row.get(10)?,
+                blocks: load_blocks(conn, session_id)?,
+                context_used: row.get(10)?,
+                context_window: row.get(11)?,
+                branch: row.get(12)?,
+                worktree_cwd: row.get(13)?,
+                worktree_removed: row.get::<_, i64>(16)? != 0,
+                linked_work_item: optional_json(row.get(14)?),
+                provider_account_id: row.get(15)?,
+                created_at: row.get(8)?,
+                updated_at: row.get(9)?,
             })
         },
     )
@@ -1915,14 +2108,6 @@ mod tests {
     use serde_json::{json, Value};
     use std::sync::atomic::AtomicUsize;
 
-    // Production no longer writes orchestration runs; tests seed them here.
-    fn save_orchestration(conn: &Connection, lead: &str, run: &Value) -> rusqlite::Result<()> {
-        let tx = conn.unchecked_transaction()?;
-        tx.execute("INSERT INTO orchestration_runs(lead_id, state) VALUES (?1, ?2) ON CONFLICT(lead_id) DO UPDATE SET state = excluded.state", rusqlite::params![lead, run.to_string()])?;
-        index_orchestration(&tx, lead, run)?;
-        tx.commit()
-    }
-
     #[test]
     fn startup_does_not_read_saved_transcripts() {
         let data_dir = std::env::temp_dir().join(format!(
@@ -1941,8 +2126,18 @@ mod tests {
                 "INSERT INTO sessions (
                    id, cwd, harness, model, runtime_mode, title,
                    blocks_json, created_at, updated_at
-                 ) VALUES ('large', '/tmp', 'codex', 'test', 'supervised', 'Large', ?1, 1, 1)",
-                ["x".repeat(8_000_000)],
+                 ) VALUES ('large', '/tmp', 'codex', 'test', 'supervised', 'Large', '[]', 1, 1)",
+                [],
+            )
+            .unwrap();
+            let block = format!(
+                r#"{{"id":"b","role":"user","text":"{}"}}"#,
+                "x".repeat(8_000_000)
+            );
+            conn.execute(
+                "INSERT INTO session_blocks (session_id, block_id, ord, role, is_draft, block_json)
+                 VALUES ('large', 'b', 0, 'user', 0, ?1)",
+                [block],
             )
             .unwrap();
         }
@@ -1963,6 +2158,9 @@ mod tests {
                             AuthAction::Read {
                                 table_name: "sessions",
                                 column_name: "blocks_json"
+                            } | AuthAction::Read {
+                                table_name: "session_blocks",
+                                column_name: "block_json"
                             }
                         ) {
                             reads.fetch_add(1, Ordering::Relaxed);
@@ -2000,122 +2198,7 @@ mod tests {
             worktree_cwd: None,
             worktree_removed: false,
             linked_work_item: None,
-            automation_id: None,
         }
-    }
-
-    #[test]
-    fn legacy_inbox_chats_are_not_normal_sessions() {
-        let store = SessionStore::open_in_memory().unwrap();
-        let conn = store.lock_conn().unwrap();
-        upsert_session(&conn, &sample("project", "/tmp/project", "Login")).unwrap();
-        upsert_session(&conn, &sample("ask", "/tmp/project", "Login")).unwrap();
-        conn.execute("UPDATE sessions SET inbox_ask = '{}' WHERE id = 'ask'", [])
-            .unwrap();
-        migrate(&conn).unwrap();
-        let rows = list_by_project(&conn, "/tmp/project").unwrap();
-        assert_eq!(rows.len(), 1);
-        assert_eq!(rows[0].id, "project");
-        assert!(get_session(&conn, "ask").unwrap().is_none());
-        let search = search_sessions(
-            &conn,
-            &SessionSearchOptions {
-                query: "Login".into(),
-                cwd: None,
-                include_archived: true,
-                search_owner: String::new(),
-            },
-        )
-        .unwrap();
-        assert!(search.hits.iter().all(|hit| hit.session_id == "project"));
-        // Hiding the old implementation's records does not delete their data.
-        let count: i64 = conn
-            .query_row("SELECT COUNT(*) FROM sessions", [], |row| row.get(0))
-            .unwrap();
-        assert_eq!(count, 2);
-    }
-
-    #[test]
-    fn orchestration_history_groups_workers_and_keeps_their_transcripts() {
-        let store = SessionStore::open_in_memory().unwrap();
-        let conn = store.conn.lock().unwrap();
-        for id in ["lead", "worker-a", "worker-b", "unrelated"] {
-            upsert_session(&conn, &sample(id, "/tmp/a", id)).unwrap();
-        }
-        let run = json!({"status": "active", "tasks": [
-            {"sessionId": "worker-a", "title": "UI", "harness": "codex", "model": "one", "status": "running", "prompt": "private instructions", "result": "large result"},
-            {"sessionId": "worker-b", "title": "Tests", "harness": "claude", "model": "two", "status": "queued"}
-        ]});
-        save_orchestration(&conn, "lead", &run).unwrap();
-        // Reopening/migration must not hydrate, pause or otherwise mutate runs.
-        migrate(&conn).unwrap();
-        let rows = list_by_project(&conn, "/tmp/a").unwrap();
-        assert_eq!(rows.len(), 2);
-        let lead = rows.iter().find(|row| row.id == "lead").unwrap();
-        let summary = lead.orchestration.as_ref().unwrap();
-        assert_eq!(summary["tasks"].as_array().unwrap().len(), 2);
-        assert_eq!(summary["status"], "active");
-        assert!(summary["tasks"][0].get("prompt").is_none());
-        assert!(summary["tasks"][0].get("result").is_none());
-        let worker = get_session(&conn, "worker-a").unwrap().unwrap();
-        assert_eq!(worker.orchestration_lead_id.as_deref(), Some("lead"));
-        assert!(has_user_block(&worker.blocks));
-        // A later run replaces the card's agents without resurfacing old chats.
-        save_orchestration(&conn, "lead", &json!({"status": "active", "tasks": []})).unwrap();
-        assert_eq!(list_by_project(&conn, "/tmp/a").unwrap().len(), 2);
-    }
-
-    #[test]
-    fn worker_upserts_carry_ownership_before_the_run_is_saved() {
-        let store = SessionStore::open_in_memory().unwrap();
-        let conn = store.conn.lock().unwrap();
-        let mut worker = sample("worker", "/tmp/a", "Worker");
-        worker.blocks =
-            json!([{"id": "u", "role": "user", "text": "Task", "orchestrationLeadId": "lead"}]);
-        worker.linked_work_item = Some(json!({"kind": "pr", "number": 1}));
-        let summary = upsert_session(&conn, &worker).unwrap();
-        assert_eq!(summary.orchestration_lead_id.as_deref(), Some("lead"));
-        assert!(list_by_project(&conn, "/tmp/a").unwrap().is_empty());
-        // An older renderer's next write cannot accidentally detach a worker.
-        worker.blocks = json!([{"id": "u", "role": "user", "text": "Task"}]);
-        upsert_session(&conn, &worker).unwrap();
-        assert!(list_by_project(&conn, "/tmp/a").unwrap().is_empty());
-    }
-
-    #[test]
-    fn migration_groups_workers_from_the_earlier_preview() {
-        let store = SessionStore::open_in_memory().unwrap();
-        let conn = store.conn.lock().unwrap();
-        for id in ["lead", "old-worker", "current-worker"] {
-            upsert_session(&conn, &sample(id, "/tmp/a", id)).unwrap();
-        }
-        conn.execute(
-            "UPDATE sessions SET blocks_json = ?1 WHERE id = 'old-worker'",
-            [
-                json!([{"role": "user", "orchestrationLeadId": "lead", "text": "Old task"}])
-                    .to_string(),
-            ],
-        )
-        .unwrap();
-        conn.execute("INSERT INTO orchestration_runs(lead_id, state) VALUES ('lead', ?1)", [json!({"status": "paused", "tasks": [{"sessionId": "current-worker", "title": "Task", "harness": "codex", "model": "one", "status": "completed"}]}).to_string()]).unwrap();
-        conn.execute_batch("DROP TABLE orchestration_sidebar; DROP TABLE orchestration_workers;")
-            .unwrap();
-        migrate(&conn).unwrap();
-        let rows = list_by_project(&conn, "/tmp/a").unwrap();
-        assert_eq!(rows.len(), 1);
-        assert_eq!(rows[0].id, "lead");
-        assert_eq!(
-            rows[0].orchestration.as_ref().unwrap()["tasks"][0]["title"],
-            "Task"
-        );
-        assert_eq!(
-            worker_parent(&conn, "old-worker").unwrap().as_deref(),
-            Some("lead")
-        );
-        assert_eq!(
-            worker_parent(&conn, "current-worker").unwrap().as_deref(),
-            Some("lead")
-        );
     }
 
     /// The sidebar query must stay answerable from the index alone. Selecting a
@@ -2136,7 +2219,7 @@ mod tests {
                        ON sessions (cwd, has_user_message, updated_at DESC, id, harness,
                                     model, runtime_mode, title, provider_session_id,
                                     created_at, branch, archived, pinned, linked_work_item_json);
-                     DELETE FROM schema_migrations WHERE version IN (16, 17, 18);",
+                     DELETE FROM schema_migrations WHERE version >= 16;",
                 )
                 .unwrap();
                 migrate(&conn).unwrap();
@@ -2146,14 +2229,9 @@ mod tests {
                     "EXPLAIN QUERY PLAN
                  SELECT id, cwd, harness, model, runtime_mode, title, provider_session_id,
                         created_at, updated_at, branch, archived, pinned,
-                        linked_work_item_json, worktree_cwd, worktree_removed, is_draft,
-                        automation_id,
-                        (SELECT summary FROM orchestration_sidebar WHERE lead_id = sessions.id)
+                        linked_work_item_json, worktree_cwd, worktree_removed, is_draft
                  FROM sessions
-                 WHERE cwd = ?1
-                   AND has_user_message = 1
-                   AND id NOT IN (SELECT id FROM sessions WHERE inbox_ask IS NOT NULL)
-                   AND id NOT IN (SELECT session_id FROM orchestration_workers)
+                 WHERE cwd = ?1 AND has_user_message = 1
                  ORDER BY updated_at DESC, id ASC",
                     params!["/tmp/a"],
                     |row| row.get(3),
@@ -2317,21 +2395,6 @@ mod tests {
     }
 
     #[test]
-    fn automation_id_round_trips() {
-        let store = SessionStore::open_in_memory().unwrap();
-        let conn = store.conn.lock().unwrap();
-        let mut row = sample("s1", "/tmp/a", "Nightly review");
-        row.automation_id = Some("automation-id".into());
-
-        let summary = upsert_session(&conn, &row).unwrap();
-        assert_eq!(summary.automation_id.as_deref(), Some("automation-id"));
-        let listed = list_by_project(&conn, "/tmp/a").unwrap();
-        assert_eq!(listed[0].automation_id.as_deref(), Some("automation-id"));
-        let stored = get_session(&conn, "s1").unwrap().unwrap();
-        assert_eq!(stored.automation_id.as_deref(), Some("automation-id"));
-    }
-
-    #[test]
     fn context_usage_is_absent_until_a_harness_reports() {
         let store = SessionStore::open_in_memory().unwrap();
         let conn = store.conn.lock().unwrap();
@@ -2422,136 +2485,6 @@ mod tests {
         delete_session(&conn, "s1").unwrap();
         assert!(get_session(&conn, "s1").unwrap().is_none());
         assert!(list_by_project(&conn, "/tmp/a").unwrap().is_empty());
-    }
-
-    #[test]
-    fn deleting_a_lead_releases_current_and_earlier_workers() {
-        let store = SessionStore::open_in_memory().unwrap();
-        let conn = store.conn.lock().unwrap();
-        for id in ["lead", "earlier", "current", "other-lead", "other-worker"] {
-            let mut session = sample(id, "/tmp/a", id);
-            session.linked_work_item = Some(json!({"kind": "pr", "number": 1}));
-            if ["earlier", "current"].contains(&id) {
-                session.blocks = json!([{"id":"u","role":"user","text":"Keep this transcript","orchestrationLeadId":"lead"}]);
-            }
-            upsert_session(&conn, &session).unwrap();
-        }
-        save_orchestration(
-            &conn,
-            "lead",
-            &json!({"status":"stopped","tasks":[{"id":"task","sessionId":"current"}]}),
-        )
-        .unwrap();
-        let other =
-            json!({"status":"active","tasks":[{"id":"other-task","sessionId":"other-worker"}]});
-        save_orchestration(&conn, "other-lead", &other).unwrap();
-        delete_session(&conn, "lead").unwrap();
-
-        for id in ["earlier", "current"] {
-            let worker = get_session(&conn, id).unwrap().unwrap();
-            assert!(worker.orchestration_lead_id.is_none());
-            assert!(worker.blocks[0].get("orchestrationLeadId").is_none());
-            assert_eq!(worker.blocks[0]["text"], "Keep this transcript");
-            assert!(list_by_project(&conn, "/tmp/a")
-                .unwrap()
-                .iter()
-                .any(|row| row.id == id));
-        }
-        assert!(orchestration_summary(&conn, "lead").unwrap().is_none());
-        let count: i64 = conn
-            .query_row(
-                "SELECT COUNT(*) FROM orchestration_runs WHERE lead_id = 'lead'",
-                [],
-                |row| row.get(0),
-            )
-            .unwrap();
-        assert_eq!(count, 0);
-        assert_eq!(
-            worker_parent(&conn, "other-worker").unwrap().as_deref(),
-            Some("other-lead")
-        );
-        let raw: String = conn
-            .query_row(
-                "SELECT state FROM orchestration_runs WHERE lead_id = 'other-lead'",
-                [],
-                |row| row.get(0),
-            )
-            .unwrap();
-        assert_eq!(serde_json::from_str::<Value>(&raw).unwrap(), other);
-        migrate(&conn).unwrap();
-        assert!(worker_parent(&conn, "current").unwrap().is_none());
-    }
-
-    #[test]
-    fn deleting_a_worker_prunes_parent_state_and_does_not_release_dependencies() {
-        let store = SessionStore::open_in_memory().unwrap();
-        let conn = store.conn.lock().unwrap();
-        for id in ["lead", "worker", "dependent", "earlier"] {
-            upsert_session(&conn, &sample(id, "/tmp/a", id)).unwrap();
-        }
-        remember_worker(&conn, "earlier", "lead").unwrap();
-        save_orchestration(
-            &conn,
-            "lead",
-            &json!({"status":"active", "requests":{"old":{"result":"worker"}}, "tasks":[
-                {"id":"task", "sessionId":"worker", "status":"running", "dependsOn":[]},
-                {"id":"next", "sessionId":"dependent", "status":"queued", "dependsOn":["task"]}
-            ]}),
-        )
-        .unwrap();
-        delete_session(&conn, "worker").unwrap();
-        assert!(get_session(&conn, "worker").unwrap().is_none());
-        assert!(worker_parent(&conn, "worker").unwrap().is_none());
-        assert_eq!(
-            worker_parent(&conn, "earlier").unwrap().as_deref(),
-            Some("lead")
-        );
-        let raw: String = conn
-            .query_row(
-                "SELECT state FROM orchestration_runs WHERE lead_id = 'lead'",
-                [],
-                |row| row.get(0),
-            )
-            .unwrap();
-        let run: Value = serde_json::from_str(&raw).unwrap();
-        assert_eq!(run["status"], "stopped");
-        assert_eq!(run["requests"], json!({}));
-        assert_eq!(run["tasks"].as_array().unwrap().len(), 1);
-        assert_eq!(run["tasks"][0]["sessionId"], "dependent");
-        assert_eq!(run["tasks"][0]["status"], "cancelled");
-        assert_eq!(run["tasks"][0]["dependsOn"], json!([]));
-        let summary = orchestration_summary(&conn, "lead").unwrap().unwrap();
-        assert_eq!(summary["tasks"].as_array().unwrap().len(), 1);
-        assert_eq!(summary["tasks"][0]["sessionId"], "dependent");
-        assert_eq!(summary["tasks"][0]["status"], "cancelled");
-    }
-
-    #[test]
-    fn failed_session_deletion_rolls_back_orchestration_cleanup() {
-        let store = SessionStore::open_in_memory().unwrap();
-        let conn = store.conn.lock().unwrap();
-        for id in ["lead", "worker"] {
-            upsert_session(&conn, &sample(id, "/tmp/a", id)).unwrap();
-        }
-        save_orchestration(
-            &conn,
-            "lead",
-            &json!({"status":"stopped", "tasks":[{"id":"task", "sessionId":"worker"}]}),
-        )
-        .unwrap();
-        conn.execute_batch("CREATE TRIGGER reject_delete BEFORE DELETE ON sessions BEGIN SELECT RAISE(ABORT, 'test failure'); END;").unwrap();
-        for id in ["lead", "worker"] {
-            assert!(delete_session(&conn, id).is_err());
-            assert!(get_session(&conn, id).unwrap().is_some());
-            assert_eq!(
-                worker_parent(&conn, "worker").unwrap().as_deref(),
-                Some("lead")
-            );
-            assert_eq!(
-                orchestration_summary(&conn, "lead").unwrap().unwrap()["tasks"][0]["sessionId"],
-                "worker"
-            );
-        }
     }
 
     #[test]
@@ -3140,11 +3073,12 @@ mod tests {
             .collect();
         assert!(plan
             .iter()
-            .any(|step| step.contains("USING INDEX sessions_cwd_cover_idx")));
+            .any(|step| step.contains("sessions_cwd_cover_idx")));
         for step in &plan {
             if step.contains("sessions") {
-                assert!(step.contains("USING INDEX"), "table access: {step}");
+                assert!(step.contains("INDEX"), "table access: {step}");
             }
+            assert!(!step.contains("SCAN session_blocks"), "block scan: {step}");
         }
     }
 
@@ -3351,30 +3285,6 @@ mod tests {
     }
 
     #[test]
-    fn search_skips_inbox_ask_sessions_when_scoped_and_unscoped() {
-        let store = SessionStore::open_in_memory().unwrap();
-        let conn = store.conn.lock().unwrap();
-        upsert_session(&conn, &sample("ask", "/tmp/a", "Needle ask")).unwrap();
-        upsert_session(&conn, &sample("chat", "/tmp/a", "Needle chat")).unwrap();
-        conn.execute("UPDATE sessions SET inbox_ask = '{}' WHERE id = 'ask'", [])
-            .unwrap();
-
-        for cwd in [None, Some("/tmp/a".to_string())] {
-            let result = search_sessions(
-                &conn,
-                &SessionSearchOptions {
-                    query: "Needle".into(),
-                    cwd,
-                    include_archived: false,
-                    search_owner: String::new(),
-                },
-            )
-            .unwrap();
-            assert!(result.hits.iter().all(|hit| hit.session_id == "chat"));
-        }
-    }
-
-    #[test]
     fn search_respects_cwd_and_skips_archived() {
         let store = SessionStore::open_in_memory().unwrap();
         let conn = store.conn.lock().unwrap();
@@ -3441,6 +3351,468 @@ mod tests {
         assert!(!result.truncated);
     }
 
+    fn ids(list: &[&str]) -> Vec<String> {
+        list.iter().map(|id| id.to_string()).collect()
+    }
+
+    fn change(id: &str, block: Value) -> ChangedBlock {
+        ChangedBlock {
+            id: id.into(),
+            block,
+        }
+    }
+
+    fn stored_ids(conn: &Connection, session_id: &str) -> Vec<String> {
+        let mut statement = conn
+            .prepare("SELECT block_id FROM session_blocks WHERE session_id = ?1 ORDER BY ord")
+            .unwrap();
+        let rows = statement
+            .query_map(params![session_id], |row| row.get::<_, String>(0))
+            .unwrap();
+        rows.map(Result::unwrap).collect()
+    }
+
+    fn snapshot(conn: &Connection, session_id: &str) -> (Vec<String>, i64) {
+        let updated_at: i64 = conn
+            .query_row(
+                "SELECT updated_at FROM sessions WHERE id = ?1",
+                params![session_id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        (stored_ids(conn, session_id), updated_at)
+    }
+
+    /// Inserts a session the way an older build stored it: transcript in `blocks_json`, no rows.
+    fn insert_legacy_session(conn: &Connection, id: &str, blocks: &Value) {
+        conn.execute(
+            "INSERT INTO sessions (id, cwd, harness, model, runtime_mode, title, blocks_json, created_at, updated_at)
+             VALUES (?1, '/tmp/a', 'codex', 'test', 'supervised', 'Legacy', ?2, 1, 1)",
+            params![id, blocks.to_string()],
+        )
+        .unwrap();
+    }
+
+    fn set_legacy_blocks(conn: &Connection, id: &str, blocks: &Value) {
+        conn.execute(
+            "UPDATE sessions SET blocks_json = ?1 WHERE id = ?2",
+            params![blocks.to_string(), id],
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn migration_19_moves_transcripts_into_rows() {
+        let store = SessionStore::open_in_memory().unwrap();
+        let conn = store.conn.lock().unwrap();
+        conn.execute_batch(
+            "DROP TABLE session_blocks; DELETE FROM schema_migrations WHERE version = 19;",
+        )
+        .unwrap();
+        let blocks = json!([
+            { "id": "u1", "role": "user", "text": "start" },
+            { "id": "a1", "role": "assistant", "text": "done" },
+            { "id": "u2", "role": "user", "text": "hello", "draft": true }
+        ]);
+        insert_legacy_session(&conn, "s1", &blocks);
+
+        migrate(&conn).unwrap();
+
+        assert_eq!(stored_ids(&conn, "s1"), ["u1", "a1", "u2"]);
+        let raw: String = conn
+            .query_row(
+                "SELECT blocks_json FROM sessions WHERE id = 's1'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(raw, "[]");
+        assert_eq!(get_session(&conn, "s1").unwrap().unwrap().blocks, blocks);
+        let flags: (i64, i64) = conn
+            .query_row(
+                "SELECT has_user_message, is_draft FROM sessions WHERE id = 's1'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(flags, (1, 1));
+        let recorded: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM schema_migrations WHERE version = 19",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(recorded, 1);
+
+        migrate(&conn).unwrap();
+        assert_eq!(stored_ids(&conn, "s1"), ["u1", "a1", "u2"]);
+        assert_eq!(get_session(&conn, "s1").unwrap().unwrap().blocks, blocks);
+    }
+
+    #[test]
+    fn legacy_blocks_without_unique_ids_keep_their_order() {
+        let store = SessionStore::open_in_memory().unwrap();
+        let conn = store.conn.lock().unwrap();
+        insert_legacy_session(
+            &conn,
+            "s1",
+            &json!([
+                { "role": "user", "text": "no id" },
+                { "id": "x", "role": "assistant", "text": "first" },
+                { "id": "x", "role": "assistant", "text": "duplicate" }
+            ]),
+        );
+
+        migrate(&conn).unwrap();
+
+        assert_eq!(stored_ids(&conn, "s1"), ["~0", "x", "~2"]);
+        let blocks = get_session(&conn, "s1").unwrap().unwrap().blocks;
+        assert_eq!(blocks[0]["text"], "no id");
+        assert_eq!(blocks[1]["text"], "first");
+        assert_eq!(blocks[2]["text"], "duplicate");
+    }
+
+    #[test]
+    fn legacy_inbox_rows_stay_hidden() {
+        let store = SessionStore::open_in_memory().unwrap();
+        let conn = store.conn.lock().unwrap();
+        insert_legacy_session(
+            &conn,
+            "chat",
+            &json!([{ "id": "u1", "role": "user", "text": "Needle chat" }]),
+        );
+        insert_legacy_session(
+            &conn,
+            "ask",
+            &json!([{ "id": "u2", "role": "user", "text": "Needle ask" }]),
+        );
+        let present: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('sessions') WHERE name = 'inbox_ask'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        if present == 0 {
+            conn.execute("ALTER TABLE sessions ADD COLUMN inbox_ask TEXT", [])
+                .unwrap();
+        }
+        conn.execute("UPDATE sessions SET inbox_ask = '{}' WHERE id = 'ask'", [])
+            .unwrap();
+        // Roll back to v18 so the import and the hide step both run again.
+        conn.execute_batch(
+            "DROP TABLE session_blocks; DELETE FROM schema_migrations WHERE version = 19;",
+        )
+        .unwrap();
+
+        migrate(&conn).unwrap();
+
+        let listed = list_by_project(&conn, "/tmp/a").unwrap();
+        assert_eq!(
+            listed.iter().map(|row| row.id.as_str()).collect::<Vec<_>>(),
+            ["chat"]
+        );
+        for cwd in [None, Some("/tmp/a".to_string())] {
+            let result = search_sessions(
+                &conn,
+                &SessionSearchOptions {
+                    query: "Needle".into(),
+                    cwd,
+                    include_archived: false,
+                    search_owner: String::new(),
+                },
+            )
+            .unwrap();
+            assert!(result.hits.iter().any(|hit| hit.session_id == "chat"));
+            assert!(result.hits.iter().all(|hit| hit.session_id == "chat"));
+        }
+        // Hidden, not deleted: the row and its transcript are still there.
+        assert_eq!(stored_ids(&conn, "ask"), ["u2"]);
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM sessions", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(count, 2);
+    }
+
+    #[test]
+    fn old_build_writes_are_merged_on_startup() {
+        let store = SessionStore::open_in_memory().unwrap();
+        let conn = store.conn.lock().unwrap();
+        let mut session = sample("s1", "/tmp/a", "Merge");
+        session.blocks = json!([
+            { "id": "a", "role": "user", "text": "a" },
+            { "id": "b", "role": "assistant", "text": "b" }
+        ]);
+        upsert_session(&conn, &session).unwrap();
+        set_legacy_blocks(
+            &conn,
+            "s1",
+            &json!([
+                { "id": "b", "role": "assistant", "text": "b edited" },
+                { "id": "c", "role": "user", "text": "c" }
+            ]),
+        );
+
+        migrate(&conn).unwrap();
+
+        assert_eq!(stored_ids(&conn, "s1"), ["a", "b", "c"]);
+        let raw: String = conn
+            .query_row(
+                "SELECT blocks_json FROM sessions WHERE id = 's1'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(raw, "[]");
+        assert_eq!(
+            get_session(&conn, "s1").unwrap().unwrap().blocks[1]["text"],
+            "b edited"
+        );
+    }
+
+    #[test]
+    fn invalid_legacy_json_does_not_fail_startup() {
+        let store = SessionStore::open_in_memory().unwrap();
+        let conn = store.conn.lock().unwrap();
+        insert_legacy_session(&conn, "broken", &json!(["x"]));
+        conn.execute(
+            "UPDATE sessions SET blocks_json = 'not json' WHERE id = 'broken'",
+            [],
+        )
+        .unwrap();
+
+        migrate(&conn).unwrap();
+
+        let raw: String = conn
+            .query_row(
+                "SELECT blocks_json FROM sessions WHERE id = 'broken'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(raw, "not json");
+        assert!(stored_ids(&conn, "broken").is_empty());
+    }
+
+    #[test]
+    fn get_session_merges_a_legacy_row() {
+        let store = SessionStore::open_in_memory().unwrap();
+        let conn = store.conn.lock().unwrap();
+        let mut session = sample("s1", "/tmp/a", "Merge");
+        session.blocks = json!([
+            { "id": "a", "role": "user", "text": "a" },
+            { "id": "b", "role": "assistant", "text": "b" }
+        ]);
+        upsert_session(&conn, &session).unwrap();
+        set_legacy_blocks(
+            &conn,
+            "s1",
+            &json!([
+                { "id": "b", "role": "assistant", "text": "b edited" },
+                { "id": "c", "role": "user", "text": "c" }
+            ]),
+        );
+
+        let record = get_session(&conn, "s1").unwrap().unwrap();
+
+        assert_eq!(record.blocks[0]["id"], "a");
+        assert_eq!(record.blocks[1]["text"], "b edited");
+        assert_eq!(record.blocks[2]["id"], "c");
+        assert_eq!(stored_ids(&conn, "s1"), ["a", "b", "c"]);
+        let raw: String = conn
+            .query_row(
+                "SELECT blocks_json FROM sessions WHERE id = 's1'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(raw, "[]");
+    }
+
+    #[test]
+    fn delta_appends_and_bumps_updated_at() {
+        let store = SessionStore::open_in_memory().unwrap();
+        let conn = store.conn.lock().unwrap();
+        let mut session = sample("s1", "/tmp/a", "Delta");
+        session.blocks = json!([{ "id": "b1", "role": "user", "text": "one" }]);
+        let first = upsert_session(&conn, &session).unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        let appended = json!({ "id": "b2", "role": "assistant", "text": "two" });
+
+        let saved = upsert_session_blocks(
+            &conn,
+            &session,
+            &ids(&["b1", "b2"]),
+            &[change("b2", appended.clone())],
+        )
+        .unwrap()
+        .unwrap();
+
+        assert!(saved.updated_at > first.updated_at);
+        assert_eq!(stored_ids(&conn, "s1"), ["b1", "b2"]);
+        assert_eq!(
+            get_session(&conn, "s1").unwrap().unwrap().blocks,
+            json!([{ "id": "b1", "role": "user", "text": "one" }, appended])
+        );
+    }
+
+    #[test]
+    fn delta_resending_equal_blocks_keeps_updated_at() {
+        let store = SessionStore::open_in_memory().unwrap();
+        let conn = store.conn.lock().unwrap();
+        let mut session = sample("s1", "/tmp/a", "First");
+        let first = upsert_session(&conn, &session).unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        session.title = "Renamed".into();
+        let same = session.blocks[0].clone();
+
+        let saved = upsert_session_blocks(&conn, &session, &ids(&["b1"]), &[change("b1", same)])
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(saved.title, "Renamed");
+        assert_eq!(saved.updated_at, first.updated_at);
+        assert_eq!(get_session(&conn, "s1").unwrap().unwrap().title, "Renamed");
+    }
+
+    #[test]
+    fn delta_reorders_and_deletes() {
+        let store = SessionStore::open_in_memory().unwrap();
+        let conn = store.conn.lock().unwrap();
+        let mut session = sample("s1", "/tmp/a", "Order");
+        session.blocks = json!([
+            { "id": "b1", "role": "user", "text": "one" },
+            { "id": "b2", "role": "assistant", "text": "two" },
+            { "id": "b3", "role": "user", "text": "three" }
+        ]);
+        let first = upsert_session(&conn, &session).unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(5));
+
+        let saved = upsert_session_blocks(&conn, &session, &ids(&["b3", "b1"]), &[])
+            .unwrap()
+            .unwrap();
+
+        assert!(saved.updated_at > first.updated_at);
+        assert_eq!(stored_ids(&conn, "s1"), ["b3", "b1"]);
+        assert_eq!(
+            get_session(&conn, "s1").unwrap().unwrap().blocks,
+            json!([
+                { "id": "b3", "role": "user", "text": "three" },
+                { "id": "b1", "role": "user", "text": "one" }
+            ])
+        );
+    }
+
+    #[test]
+    fn delta_updates_draft_and_user_flags() {
+        let store = SessionStore::open_in_memory().unwrap();
+        let conn = store.conn.lock().unwrap();
+        let mut session = sample("s1", "/tmp/a", "Draft");
+        session.blocks = json!([{ "id": "b1", "role": "assistant", "text": "hi" }]);
+        upsert_session(&conn, &session).unwrap();
+        assert!(list_by_project(&conn, "/tmp/a").unwrap().is_empty());
+
+        let draft = json!({ "id": "u1", "role": "user", "text": "draft", "draft": true });
+        let saved =
+            upsert_session_blocks(&conn, &session, &ids(&["b1", "u1"]), &[change("u1", draft)])
+                .unwrap()
+                .unwrap();
+        assert!(saved.draft);
+        let listed = list_by_project(&conn, "/tmp/a").unwrap();
+        assert_eq!(listed.len(), 1);
+        assert!(listed[0].draft);
+
+        let sent = json!({ "id": "u1", "role": "user", "text": "draft" });
+        let saved =
+            upsert_session_blocks(&conn, &session, &ids(&["b1", "u1"]), &[change("u1", sent)])
+                .unwrap()
+                .unwrap();
+        assert!(!saved.draft);
+        assert!(!list_by_project(&conn, "/tmp/a").unwrap()[0].draft);
+    }
+
+    #[test]
+    fn delta_asks_for_a_full_write_when_it_cannot_apply() {
+        let store = SessionStore::open_in_memory().unwrap();
+        let conn = store.conn.lock().unwrap();
+        let mut session = sample("s1", "/tmp/a", "Guard");
+        session.blocks = json!([
+            { "id": "b1", "role": "user", "text": "one" },
+            { "id": "b2", "role": "assistant", "text": "two" }
+        ]);
+        upsert_session(&conn, &session).unwrap();
+        let before = snapshot(&conn, "s1");
+
+        let unknown = sample("nope", "/tmp/a", "Unknown");
+        assert!(upsert_session_blocks(&conn, &unknown, &ids(&["b1"]), &[])
+            .unwrap()
+            .is_none());
+        assert!(
+            upsert_session_blocks(&conn, &session, &ids(&["b1", "ghost"]), &[])
+                .unwrap()
+                .is_none()
+        );
+        assert_eq!(snapshot(&conn, "s1"), before);
+        assert!(
+            upsert_session_blocks(&conn, &session, &ids(&["b1", "b1"]), &[])
+                .unwrap()
+                .is_none()
+        );
+        assert_eq!(snapshot(&conn, "s1"), before);
+        let stray = change("b9", json!({ "id": "b9", "role": "user" }));
+        assert!(
+            upsert_session_blocks(&conn, &session, &ids(&["b1", "b2"]), &[stray])
+                .unwrap()
+                .is_none()
+        );
+        assert_eq!(snapshot(&conn, "s1"), before);
+
+        set_legacy_blocks(&conn, "s1", &session.blocks);
+        let legacy = snapshot(&conn, "s1");
+        assert!(
+            upsert_session_blocks(&conn, &session, &ids(&["b1", "b2"]), &[])
+                .unwrap()
+                .is_none()
+        );
+        assert_eq!(snapshot(&conn, "s1"), legacy);
+    }
+
+    #[test]
+    fn full_write_replaces_rows_and_handles_duplicate_ids() {
+        let store = SessionStore::open_in_memory().unwrap();
+        let conn = store.conn.lock().unwrap();
+        let mut session = sample("s1", "/tmp/a", "Full");
+        session.blocks = json!([
+            { "id": "x", "role": "user", "text": "first" },
+            { "id": "x", "role": "assistant", "text": "second" },
+            { "role": "user", "text": "third" }
+        ]);
+        upsert_session(&conn, &session).unwrap();
+        assert_eq!(stored_ids(&conn, "s1"), ["x", "~1", "~2"]);
+
+        session.blocks = json!([{ "id": "y", "role": "user", "text": "only" }]);
+        upsert_session(&conn, &session).unwrap();
+        assert_eq!(stored_ids(&conn, "s1"), ["y"]);
+        assert_eq!(
+            get_session(&conn, "s1").unwrap().unwrap().blocks,
+            session.blocks
+        );
+    }
+
+    #[test]
+    fn delete_removes_block_rows() {
+        let store = SessionStore::open_in_memory().unwrap();
+        let conn = store.conn.lock().unwrap();
+        upsert_session(&conn, &sample("s1", "/tmp/a", "Gone")).unwrap();
+        assert_eq!(stored_ids(&conn, "s1").len(), 1);
+
+        delete_session(&conn, "s1").unwrap();
+
+        assert!(stored_ids(&conn, "s1").is_empty());
+        assert!(get_session(&conn, "s1").unwrap().is_none());
+    }
+
     #[test]
     #[ignore = "writes a benchmark fixture; run scripts/bench/make-fixture.mjs"]
     fn write_bench_fixture() {
@@ -3470,5 +3842,16 @@ mod tests {
         // One self-contained file, so it can be copied and renamed (monocode.db).
         let conn = Connection::open(&db).unwrap();
         conn.execute_batch("PRAGMA journal_mode = DELETE;").unwrap();
+        drop(conn);
+        // MonoCode v0.6.0 reads only blocks_json, so its copy gets the transcripts back inline.
+        let monocode = db.with_file_name("monocode.db");
+        std::fs::copy(&db, &monocode).unwrap();
+        let conn = Connection::open(&monocode).unwrap();
+        conn.execute_batch(
+            "UPDATE sessions SET blocks_json = COALESCE(
+               (SELECT '[' || group_concat(block_json, ',' ORDER BY ord) || ']'
+                  FROM session_blocks WHERE session_id = sessions.id), '[]');",
+        )
+        .unwrap();
     }
 }
