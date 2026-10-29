@@ -746,7 +746,7 @@ mod tests {
         let path = Path::new(&tree.path);
         let store = SessionStore::open_in_memory().unwrap();
         let conn = store.lock_conn().unwrap();
-        let blocks = r#"[{"id":"u","role":"user","text":"Keep my conversation"}]"#;
+        let block = r#"{"id":"u","role":"user","text":"Keep my conversation"}"#;
         for (id, cwd, worktree, archived) in [
             ("shared", path_to_js(&root), Some(tree.path.clone()), 0),
             ("archived", path_to_js(&root), Some(tree.path.clone()), 1),
@@ -754,8 +754,12 @@ mod tests {
             ("main", path_to_js(&root), None, 0),
         ] {
             conn.execute(
-                "INSERT INTO sessions (id, cwd, harness, model, runtime_mode, title, blocks_json, created_at, updated_at, worktree_cwd, archived, branch, provider_session_id) VALUES (?1, ?2, 'codex', 'test', 'supervised', 'Keep title', ?3, 10, 20, ?4, ?5, 'feature', 'provider')",
-                rusqlite::params![id, cwd, blocks, worktree, archived],
+                "INSERT INTO sessions (id, cwd, harness, model, runtime_mode, title, blocks_json, created_at, updated_at, worktree_cwd, archived, branch, provider_session_id) VALUES (?1, ?2, 'codex', 'test', 'supervised', 'Keep title', '[]', 10, 20, ?3, ?4, 'feature', 'provider')",
+                rusqlite::params![id, cwd, worktree, archived],
+            ).unwrap();
+            conn.execute(
+                "INSERT INTO session_blocks (session_id, block_id, ord, role, is_draft, block_json) VALUES (?1, 'u', 0, 'user', 0, ?2)",
+                rusqlite::params![id, block],
             ).unwrap();
         }
         assert!(remove_with_sessions(&conn, &root, path, true, false).is_err());
@@ -771,9 +775,9 @@ mod tests {
         assert!(!path.exists());
         assert!(session_ids(&conn, path).unwrap().is_empty());
         for id in &removed.session_ids {
-            let row: (String, String, String, i64, i64, i64, Option<String>, Option<String>, String) = conn.query_row(
-                "SELECT cwd, title, blocks_json, created_at, updated_at, worktree_removed, branch, provider_session_id, worktree_cwd FROM sessions WHERE id = ?1", [id],
-                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get(5)?, row.get(6)?, row.get(7)?, row.get(8)?)),
+            let row: (String, String, i64, i64, i64, Option<String>, Option<String>, String) = conn.query_row(
+                "SELECT cwd, title, created_at, updated_at, worktree_removed, branch, provider_session_id, worktree_cwd FROM sessions WHERE id = ?1", [id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get(5)?, row.get(6)?, row.get(7)?)),
             ).unwrap();
             let expected_cwd = if id == "direct" {
                 removed.project_cwd.clone()
@@ -785,7 +789,6 @@ mod tests {
                 (
                     expected_cwd,
                     "Keep title".into(),
-                    blocks.into(),
                     10,
                     20,
                     1,
@@ -794,6 +797,15 @@ mod tests {
                     tree.path.clone()
                 )
             );
+            // The transcript lives in its own rows and survives the removal.
+            let stored: String = conn
+                .query_row(
+                    "SELECT block_json FROM session_blocks WHERE session_id = ?1",
+                    [id],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            assert_eq!(stored, block);
         }
         let archived: bool = conn
             .query_row(

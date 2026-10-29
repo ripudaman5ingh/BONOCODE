@@ -56,8 +56,12 @@ if (!fs.existsSync(db)) {
   console.error("make-fixture: the Rust step did not write bonocode.db");
   process.exit(1);
 }
-// MonoCode v0.6.0 reads monocode.db; same schema, so the same file works for the baseline.
-fs.copyFileSync(db, path.join(out, "monocode.db"));
+// The Rust step also writes monocode.db, the copy MonoCode v0.6.0 reads.
+const monocodeDb = path.join(out, "monocode.db");
+if (!fs.existsSync(monocodeDb)) {
+  console.error("make-fixture: the Rust step did not write monocode.db");
+  process.exit(1);
+}
 fs.rmSync(spec, { force: true });
 
 console.log(`\nFixture ready: ${out}`);
