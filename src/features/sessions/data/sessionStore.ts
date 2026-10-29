@@ -182,13 +182,15 @@ export function sanitizeSessionForPersist(
 }
 
 /**
- * `session_upsert` runs off the main thread, so two writes for the same
- * session could otherwise land in either order and let an older transcript
- * overwrite a newer one. Chain them per session; different sessions still
- * write concurrently.
+ * `session_upsert` and `session_upsert_blocks` run off the main thread, so two
+ * writes for the same session could otherwise land in either order and let an
+ * older transcript overwrite a newer one. Chain them per session; different
+ * sessions still write concurrently.
  */
 const sessionWriteQueues = new Map<string, Promise<unknown>>();
 const deletedSessionIds = new Set<string>();
+/** Per session: the in-memory blocks whose sanitized form the DB holds, as of the last successful write. Blocks are replaced, never mutated, so identity means content (same rule as persistFingerprint). */
+const persistedBlocks = new Map<string, WeakSet<Block>>();
 
 function enqueueSessionWrite<T>(
   sessionId: string,
@@ -215,12 +217,133 @@ export async function upsertSession(
   if (!shouldPersistSession(session) || deletedSessionIds.has(session.id)) {
     return null;
   }
-  const payload = sanitizeSessionForPersist(session);
+  const meta = persistableMeta(session);
+  const blocks = [...session.blocks];
   const summary = await enqueueSessionWrite(session.id, async () => {
     if (deletedSessionIds.has(session.id)) return null;
-    return invoke<SessionSummary>("session_upsert", { session: payload });
+    // Planned inside the queue so the plan sees the last successful write.
+    const plan = planSessionWrite(session.id, meta, blocks);
+    try {
+      const written = await writeSessionPlan(meta, blocks, plan);
+      persistedBlocks.set(session.id, new WeakSet(written.included));
+      return written.summary;
+    } catch (error) {
+      persistedBlocks.delete(session.id);
+      throw error;
+    }
   });
   return summary ? normalizeSummary(summary) : null;
+}
+
+type SessionWriteEntry = { block: Block; next?: Block | null };
+
+type SessionWritePlan =
+  | {
+      kind: "delta";
+      meta: Omit<SessionUpsertPayload, "blocks">;
+      order: string[];
+      changed: { id: string; block: Block }[];
+      included: Block[];
+    }
+  | { kind: "full"; payload: SessionUpsertPayload; included: Block[] };
+
+/**
+ * Chooses a delta when the DB already holds some of these blocks. `next` is the
+ * sanitized block; it is undefined for a reused block, which the DB holds in
+ * sanitized form already.
+ */
+function planSessionWrite(
+  sessionId: string,
+  meta: Omit<SessionUpsertPayload, "blocks">,
+  blocks: Block[],
+): SessionWritePlan {
+  const persisted = persistedBlocks.get(sessionId);
+  const entries: SessionWriteEntry[] = [];
+  const order: string[] = [];
+  const changed: { id: string; block: Block }[] = [];
+  for (const block of blocks) {
+    if (persisted?.has(block)) {
+      entries.push({ block });
+      order.push(block.id);
+      continue;
+    }
+    const next = sanitizeBlock(block);
+    if (!next) continue;
+    entries.push({ block, next });
+    order.push(next.id);
+    changed.push({ id: next.id, block: next });
+  }
+  if (
+    persisted &&
+    changed.length < entries.length &&
+    order.every((id) => typeof id === "string" && id.length > 0) &&
+    new Set(order).size === order.length
+  ) {
+    return {
+      kind: "delta",
+      meta,
+      order,
+      changed,
+      included: entries.map((entry) => entry.block),
+    };
+  }
+  return fullPlan(meta, entries);
+}
+
+/** Sanitizes whatever the entry has not sanitized yet, dropping blocks that come back null. */
+function fullPlan(
+  meta: Omit<SessionUpsertPayload, "blocks">,
+  entries: SessionWriteEntry[],
+): Extract<SessionWritePlan, { kind: "full" }> {
+  const included: Block[] = [];
+  const blocks: Block[] = [];
+  for (const entry of entries) {
+    const next =
+      entry.next !== undefined ? entry.next : sanitizeBlock(entry.block);
+    if (!next) continue;
+    included.push(entry.block);
+    blocks.push(next);
+  }
+  return { kind: "full", payload: { ...meta, blocks }, included };
+}
+
+async function writeSessionPlan(
+  meta: Omit<SessionUpsertPayload, "blocks">,
+  blocks: Block[],
+  plan: SessionWritePlan,
+): Promise<{ summary: SessionSummary; included: Block[] }> {
+  if (plan.kind === "delta") {
+    try {
+      const summary = await invoke<SessionSummary>("session_upsert_blocks", {
+        session: plan.meta,
+        order: plan.order,
+        changed: plan.changed,
+      });
+      return { summary, included: plan.included };
+    } catch (error) {
+      if (!isNeedsFullWrite(error)) throw error;
+    }
+  } else {
+    const summary = await invoke<SessionSummary>("session_upsert", {
+      session: plan.payload,
+    });
+    return { summary, included: plan.included };
+  }
+  // The DB disagrees with the delta. Resend the whole session, treating every block as new.
+  const full = fullPlan(
+    meta,
+    blocks.map((block) => ({ block })),
+  );
+  const summary = await invoke<SessionSummary>("session_upsert", {
+    session: full.payload,
+  });
+  return { summary, included: full.included };
+}
+
+/** `session_upsert_blocks` rejects with this message when its DB rows do not match the delta. */
+function isNeedsFullWrite(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes("needs full write");
 }
 
 /**
@@ -313,6 +436,8 @@ export function cancelSessionSearch(searchOwner: string): Promise<void> {
 }
 
 export async function getSession(sessionId: string): Promise<Session | null> {
+  // A loaded session's blocks are new objects, so its first save is a full write.
+  persistedBlocks.delete(sessionId);
   const record = await invoke<SessionRecord | null>("session_get", {
     sessionId,
   });
@@ -455,6 +580,7 @@ export async function deleteSession(
   imagePaths: string[] = [],
 ): Promise<void> {
   deletedSessionIds.add(sessionId);
+  persistedBlocks.delete(sessionId);
   try {
     // Finish in-flight writes before the deletion transaction runs.
     await sessionWriteQueues.get(sessionId);
@@ -473,6 +599,7 @@ export async function deleteSession(
 export async function discardDraftSessionRecord(
   sessionId: string,
 ): Promise<void> {
+  persistedBlocks.delete(sessionId);
   await enqueueSessionWrite(sessionId, () =>
     invoke<void>("session_delete", { sessionId, imagePaths: [] }),
   );
