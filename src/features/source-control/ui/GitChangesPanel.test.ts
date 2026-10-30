@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { act, createElement } from "react";
+import { act, createElement, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -83,6 +83,7 @@ function index(overrides: Partial<GitDiffIndex> = {}): GitDiffIndex {
   };
 }
 
+const PR_URL = "https://github.com/acme/app/pull/9";
 let container: HTMLDivElement;
 let root: Root;
 
@@ -99,6 +100,7 @@ beforeEach(() => {
   vi.mocked(gitPull).mockReset();
   vi.mocked(gitFetch).mockClear();
   vi.mocked(gitPrCreate).mockReset();
+  vi.mocked(gitPrCreate).mockResolvedValue(PR_URL);
   vi.mocked(generateCommitMessage).mockReset();
   vi.mocked(generatePrContent).mockReset();
   vi.mocked(gitPrStatus).mockResolvedValue(null);
@@ -186,7 +188,10 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-async function renderPanel(cwd = "/repo") {
+async function renderPanel(
+  cwd = "/repo",
+  overrides: Partial<ComponentProps<typeof GitChangesPanel>> = {},
+) {
   act(() =>
     root.render(
       createElement(GitChangesPanel, {
@@ -196,6 +201,7 @@ async function renderPanel(cwd = "/repo") {
         onOpenAllChanges: vi.fn(),
         onOpenCommit: vi.fn(),
         onOpenPr: vi.fn(),
+        ...overrides,
       }),
     ),
   );
@@ -295,7 +301,7 @@ describe("GitChangesPanel PR checks", () => {
 describe("GitChangesPanel auto fetch", () => {
   it("fetches when enabled and again every five minutes", async () => {
     vi.useFakeTimers();
-    vi.mocked(gitDiffIndex).mockResolvedValue(index());
+    vi.mocked(gitDiffIndex).mockResolvedValue(index({ remote: "origin" }));
     const props = {
       cwd: "/repo-fetch",
       onOpenFile: vi.fn(),
@@ -322,6 +328,52 @@ describe("GitChangesPanel auto fetch", () => {
   });
 });
 
+describe("GitChangesPanel auto fetch scope", () => {
+  it("does not auto-fetch without a remote", async () => {
+    vi.useFakeTimers();
+    vi.mocked(gitDiffIndex).mockResolvedValue(index({ remote: null }));
+    await renderPanel("/repo-local");
+
+    await act(async () => {
+      vi.advanceTimersByTime(5 * 60_000);
+    });
+    expect(gitFetch).not.toHaveBeenCalled();
+  });
+
+  it("refreshes remote refs without invalidating watched files", async () => {
+    vi.useFakeTimers();
+    vi.mocked(gitDiffIndex).mockResolvedValue(
+      index({ remote: "origin", upstream: "origin/feature/pull" }),
+    );
+    await renderPanel("/repo-quiet");
+    invalidateWatchedFiles.mockClear();
+
+    await act(async () => {
+      vi.advanceTimersByTime(5 * 60_000);
+    });
+    expect(gitFetch).toHaveBeenCalledTimes(2);
+    expect(invalidateWatchedFiles).not.toHaveBeenCalled();
+  });
+});
+
+const findButton = (text: string) =>
+  [...document.querySelectorAll<HTMLButtonElement>("button")].find(
+    (button) => button.textContent?.trim() === text,
+  )!;
+const titleInput = () =>
+  document.querySelector<HTMLInputElement>('[aria-label="Pull request title"]');
+const typeInto = (
+  element: HTMLInputElement | HTMLTextAreaElement,
+  value: string,
+) => {
+  const proto =
+    element instanceof HTMLTextAreaElement
+      ? HTMLTextAreaElement.prototype
+      : HTMLInputElement.prototype;
+  Object.getOwnPropertyDescriptor(proto, "value")!.set!.call(element, value);
+  element.dispatchEvent(new Event("input", { bubbles: true }));
+};
+
 describe("GitChangesPanel pull request dialog", () => {
   it("prefills generated text, creates with the edited title, and cancel creates nothing", async () => {
     vi.mocked(gitDiffIndex).mockResolvedValue(
@@ -339,29 +391,10 @@ describe("GitChangesPanel pull request dialog", () => {
     });
     await renderPanel();
 
-    const findButton = (text: string) =>
-      [...document.querySelectorAll<HTMLButtonElement>("button")].find(
-        (button) => button.textContent?.trim() === text,
-      )!;
-    const titleInput = () =>
-      document.querySelector<HTMLInputElement>(
-        '[aria-label="Pull request title"]',
-      )!;
     const bodyInput = () =>
       document.querySelector<HTMLTextAreaElement>(
         '[aria-label="Pull request body"]',
       )!;
-    const typeInto = (
-      element: HTMLInputElement | HTMLTextAreaElement,
-      value: string,
-    ) => {
-      const proto =
-        element instanceof HTMLTextAreaElement
-          ? HTMLTextAreaElement.prototype
-          : HTMLInputElement.prototype;
-      Object.getOwnPropertyDescriptor(proto, "value")!.set!.call(element, value);
-      element.dispatchEvent(new Event("input", { bubbles: true }));
-    };
 
     await act(async () => findButton("Create PR").click());
     await act(async () => {});
@@ -374,7 +407,7 @@ describe("GitChangesPanel pull request dialog", () => {
 
     await act(async () => findButton("Create PR").click());
     await act(async () => {});
-    await act(async () => typeInto(titleInput(), "Edited title"));
+    await act(async () => typeInto(titleInput()!, "Edited title"));
     await act(async () => findButton("Create").click());
     await act(async () => {});
 
@@ -386,5 +419,39 @@ describe("GitChangesPanel pull request dialog", () => {
       "main",
       "feature/pull",
     );
+  });
+});
+
+describe("GitChangesPanel pull request open failure", () => {
+  it("closes the dialog once the PR exists, and reports an open failure without creating again", async () => {
+    vi.mocked(gitDiffIndex).mockResolvedValue(
+      index({
+        remote: "origin",
+        upstream: "origin/feature/pull",
+        aheadOfDefault: 2,
+      }),
+    );
+    vi.mocked(generatePrContent).mockResolvedValue({
+      title: "Generated title",
+      body: "Generated body",
+      base: "main",
+      head: "feature/pull",
+    });
+    const alert = vi.spyOn(window, "alert").mockImplementation(() => undefined);
+    await renderPanel("/repo", {
+      onOpenPr: () => {
+        throw new Error("cannot open");
+      },
+    });
+
+    await act(async () => findButton("Create PR").click());
+    await act(async () => {});
+    await act(async () => findButton("Create").click());
+    await act(async () => {});
+
+    expect(gitPrCreate).toHaveBeenCalledOnce();
+    expect(titleInput()).toBeNull();
+    expect(alert).toHaveBeenCalledWith("cannot open");
+    alert.mockRestore();
   });
 });

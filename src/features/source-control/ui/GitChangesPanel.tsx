@@ -317,6 +317,10 @@ export function GitChangesPanel({
           invalidateWatchedFiles(paths);
           window.setTimeout(() => invalidateWatchedFiles(paths), 150);
         }}
+        onRemoteRefsChanged={() => {
+          reload();
+          notifyGitChanged();
+        }}
       />
       {graphExpanded ? (
         <GraphResizeSash
@@ -369,6 +373,7 @@ function ChangedFiles({
   onOpenFile,
   onOpenAllChanges,
   onMutated,
+  onRemoteRefsChanged,
   ciRepair,
   onOpenPr,
 }: {
@@ -385,6 +390,8 @@ function ChangedFiles({
   onOpenFile: (path: string, kind: GitFileDiffKind, pin?: boolean) => void;
   onOpenAllChanges: (kind: GitFileDiffKind) => void;
   onMutated: (paths?: string[]) => void;
+  /** A fetch moves only remote refs, so open files stay as they are. */
+  onRemoteRefsChanged: () => void;
   ciRepair?: GitCiRepair;
   onOpenPr?: (item: LinkedWorkItem) => void;
 }) {
@@ -447,20 +454,20 @@ function ChangedFiles({
   const canEditMessage = (staged.length > 0 || amend) && !busy;
 
   // The timer reads the latest busy state and callbacks without restarting.
-  const latestRef = useRef({ busy, onMutated, reloadPr });
+  const latestRef = useRef({ busy, onRemoteRefsChanged, reloadPr });
   useEffect(() => {
-    latestRef.current = { busy, onMutated, reloadPr };
+    latestRef.current = { busy, onRemoteRefsChanged, reloadPr };
   });
 
   useEffect(() => {
-    if (!enabled || !cwd || cwd === "~") return;
+    if (!enabled || !hasRemote || !cwd || cwd === "~") return;
     let current = true;
     const fetchSilently = () => {
       if (latestRef.current.busy !== null) return;
       gitFetch(cwd)
         .then(() => {
           if (!current) return;
-          latestRef.current.onMutated();
+          latestRef.current.onRemoteRefsChanged();
           latestRef.current.reloadPr();
         })
         .catch((error: unknown) => {
@@ -473,7 +480,7 @@ function ChangedFiles({
       current = false;
       window.clearInterval(timer);
     };
-  }, [cwd, enabled]);
+  }, [cwd, enabled, hasRemote]);
 
   useEffect(() => {
     if (!amendTarget) return;
@@ -716,11 +723,10 @@ function ChangedFiles({
     setBusy("fetch");
     try {
       await gitFetch(cwd);
-      onMutated();
+      onRemoteRefsChanged();
       reloadPr();
     } catch (error) {
       fail(error);
-      onMutated();
     } finally {
       setBusy(null);
     }
@@ -746,14 +752,20 @@ function ChangedFiles({
         prDraft.base,
         prDraft.head,
       );
-      const number = Number(/\/pull\/(\d+)(?:[/?#]|$)/.exec(url)?.[1]);
-      if (Number.isInteger(number) && number > 0) recordPrActivity(number);
-      onMutated();
-      reloadPr();
-      const item = parseGithubWorkItemUrl(url.trim());
-      if (item && onOpenPr) onOpenPr(item);
-      else await openUrl(url.trim());
+      // The PR now exists, so the dialog must not allow another create.
       setPrDraft(null);
+      setPrError(null);
+      try {
+        const number = Number(/\/pull\/(\d+)(?:[/?#]|$)/.exec(url)?.[1]);
+        if (Number.isInteger(number) && number > 0) recordPrActivity(number);
+        onMutated();
+        reloadPr();
+        const item = parseGithubWorkItemUrl(url.trim());
+        if (item && onOpenPr) onOpenPr(item);
+        else await openUrl(url.trim());
+      } catch (error) {
+        fail(error);
+      }
     } catch (error) {
       setPrError(error instanceof Error ? error.message : String(error));
     } finally {
