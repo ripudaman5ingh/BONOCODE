@@ -1,5 +1,9 @@
 # MonoCode — Project Context
 
+> **Historical.** Written for MonoCode v0.6.0 at the fork. Bonocode has since removed
+> several subsystems (see CLAUDE.md). Where this file and the code disagree, the code
+> and CLAUDE.md win.
+
 Deep reference for someone who cannot see the code. Everything below was read from source at v0.6.0 (`package.json`). Paths are relative to the repo root (`monocode/`).
 
 ---
@@ -428,44 +432,10 @@ To add a persisted Session field you touch: the `Session` type → `sanitizeSess
 
 `main.rs` is also a CLI: `monocode control …` → `control_cli::run` (orchestration workers), `monocode app …` → `control_cli::run_app` (`/operator` agent CLI), plus an SSH askpass mode. Managed state: `HarnessHost`, `PtyHost`, `RemoteConnections`, `WindowTransferState`, `SessionStore`, plus control, checkpoint and reminder stores.
 
-### remote (`remote.rs`, `remote_ssh.rs`)
-- `remote_machines`: list saved machines (no tokens).
-- `remote_connect`: pair with a host by URL and token, then store it in `remote-machines.json`.
-- `remote_disconnect`: remove a machine, optionally revoking its credential on the host.
-- `remote_request`: proxy one JSON-RPC call (`/rpc`) to a host with the stored bearer token.
-- `remote_ssh_begin`: start the SSH bootstrap job (download host, install service, pair, tunnel).
-- `remote_ssh_reconnect`: re-open the SSH tunnel for a saved machine.
-- `remote_ssh_poll`: poll setup job progress or prompts.
-- `remote_ssh_answer`: answer an SSH host-key or password prompt.
-- `remote_ssh_cancel`: cancel a setup job.
-
-### control (`control.rs`): authenticated loopback for agent CLIs
-- `control_enable` / `control_disable`: start or stop the control grant for an orchestration lead session.
-- `control_reply`: reply to a pending CLI request that the window executed.
-- `control_save` / `control_load`: persist and load orchestration control state.
-- `control_scopes`: list the write scopes granted to workers.
-- `control_write_path`: resolve a reported write path (symlink-safe) against scopes.
-- `control_attach_worker`: bind a worker session to its lead.
-- `control_authorize_turn`: open the per-turn window for app/control CLI access (called by the registry).
-- `control_turn_finished`: close that window.
-- `app_cli_path`: path of the binary used as the `app` CLI.
-
 ### app basics (`lib.rs`)
 - `default_cwd`: process cwd, else home. `home_dir`: home directory.
 - `set_traffic_lights_visible`, `set_window_background_blur`, `set_dock_badge`: native window and dock tweaks.
 - `open_new_window`: open another workspace window.
-
-### notifications / reminders
-- `notification_permission`, `request_notification_permission`, `show_notification`, `open_notification_settings`.
-- `reminder_list`, `reminder_set`, `reminder_clear`: per-session reminders in SQLite.
-- `reminder_configure`: reminder settings. `reminder_register_window`: window that receives reminder opens.
-- `reminder_open` / `reminder_take_open`: queue and claim "open this session" from a fired reminder.
-
-### automations (`automations.rs`)
-- `automations_list`, `automations_upsert`, `automations_delete`: CRUD.
-- `automation_runs_list`: run history. `automation_runs_recover`: recover runs interrupted by a quit.
-- `automation_run_now`: manual trigger. `automations_claim_due`: claim schedule-due runs (one window wins).
-- `automations_claim_event`: claim event-triggered runs (e.g. Inbox). `automation_run_update`: update run status.
 
 ### external editor
 - `list_external_editors`: detect installed editors. `open_in_external_editor`: open a path in one.
@@ -478,14 +448,6 @@ To add a persisted Session field you touch: the `Session` type → `sanitizeSess
 - Git actions: `git_commit`, `git_head_message`, `git_push`, `git_pull`, `git_sync`, `git_branches`, `git_checkout`, `git_create_branch`, `git_stash`.
 - LLM context: `git_staged_context` (staged summary and patch for commit messages), `git_range_context` (branch range for PR text).
 - PR/GitHub (via `gh`): `git_pr_status`, `git_pr_create`, `git_github_status`, `git_github_repo`, `git_github_repositories`, `git_github_work_item`, `git_github_work_items`, `git_github_work_item_details`, `git_github_work_item_thread`, `git_github_work_item_comment`, `git_github_pr_action`, `git_github_pr_diff`, `git_github_pr_checks`, `git_github_check_details`, `github_monocode_star_status`, `github_star_monocode`.
-
-### inbox integrations
-- `fetch_inbox_media`: proxy images in work-item bodies.
-- GitLab: `gitlab_status`, `gitlab_set_config`, `gitlab_repo`, `gitlab_list_work_items`, `gitlab_list_todos`, `gitlab_work_item_details`, `gitlab_work_item_thread`, `gitlab_work_item_comment`, `gitlab_mr_diff`.
-- Azure DevOps: `azure_devops_status`, `azure_devops_set_config`, `azure_devops_repo`, `azure_devops_list_work_items`, `azure_devops_list_todos`, `azure_devops_work_item_details`, `azure_devops_work_item_thread`, `azure_devops_work_item_comment`, `azure_devops_mr_diff`.
-- Linear: `linear_status`, `linear_set_token`, `linear_list_teams`, `linear_list_issues`, `linear_issue_details`, `linear_issue_thread`, `linear_issue_comment`.
-- Jira: `jira_status`, `jira_set_config`, `jira_list_projects`, `jira_list_issues`, `jira_issue_details`, `jira_issue_thread`, `jira_issue_comment`.
-- `fetch_link_preview`: OpenGraph preview for links in user messages.
 
 ### worktrees (`worktrees.rs`)
 - `git_worktrees`: list. `git_worktree_create`: create on a new or existing branch. `git_worktree_rename_branch`: rename an auto-named branch after the first turn.
@@ -516,9 +478,6 @@ To add a persisted Session field you touch: the `Session` type → `sanitizeSess
 
 ### session_store: see §5
 - `session_upsert`, `session_list_by_project`, `session_rebase_project` (project moved), `session_list_linked` (sessions with linked work items), `session_search`, `cancel_session_search`, `session_get`, `session_delete`, `session_set_archived`, `session_set_pinned`, `session_set_linked_work_item`, `session_set_in_flight`, `session_list_in_flight`, `session_take_in_flight`, `workspace_set_snapshot`, `workspace_get_snapshot`.
-
-### notes (`notes.rs`)
-- `notes_list`, `notes_get`, `notes_upsert`, `notes_delete`, `notes_save_image`, `notes_image_path`.
 
 ### checkpoint (`checkpoint.rs`): per-session file snapshots for "changes this session made" and undo
 - `session_checkpoint_ensure` (create the store for a session), `_prepare` (snapshot before a turn), `_capture` (after a turn), `_status` (files changed, with `exact`/`undoable`), `_apply`, `_file_diff` (original vs current), `_undo` (restore files), `_keep` (accept), `_forget`, `_cleanup_safe`.
@@ -576,59 +535,6 @@ export type WorkspaceTab = {
 - Rust commands: `snake_case`, grouped by module prefix (`git_*`, `session_*`, `harness_*`). Args are camelCase on the TS side (Tauri converts).
 - Model ids are namespaced `"<harness>:<native>"`. `nativeModelId()` strips the prefix.
 - Comments explain *why* (usually a past bug), in full sentences. Match that density.
-
----
-
-## 8. Remote host (`host/`)
-
-### Reuse of harness code
-- `host/cli.ts` (the entry) creates `HostChildBackend` (`host/child-backend.ts`, implements `ChildBackend` with Node `child_process`, an EventEmitter for `harness-*` events and `fetch` for OpenCode HTTP/SSE). It calls **`configureChildBackend(backend)`** and then `acquireHarnessBridge()`. From then on **every provider module in `src/integrations/harness/providers/*` runs unmodified** on Node.
-- `host/providers.ts` maps each provider to a separate, smaller interface (it does not use `HarnessAdapter`/the registry):
-
-```ts
-export interface HostProvider {
-  send(input: SendTurnInput): Promise<void>;
-  compact?(input: CompactContextInput): Promise<void>;
-  cancel(id: string): Promise<void>;
-  stop(id: string): Promise<void>;          // NOTE: wired to forget<X>Session, not stop<X>Session
-  bind(id: string, providerId: string, cwd: string): void;
-  approve(id: string, request: number, decision: ApprovalDecision): void;
-  answer(id: string, request: number, reply: UserQuestionReply): void;
-  generateTitle?(input: { sessionId; cwd; message }): Promise<GeneratedSessionTitle | null>;
-  generateBranchName?(cwd: string, message: string): Promise<string | null>;
-}
-export const hostProviders: Record<RemoteProvider, HostProvider> = { codex: {...}, claude: {...}, ... };
-```
-
-- `host/engine.ts` `HostEngine` owns the sessions. `command(raw)` validates a `HostCommand` and calls `provider.send({... onEvent: (e) => this.event(id, runId, e)})`. `event()` runs the **same `applyHarnessEvent`** from `src/` on the host-side `Session`, bumps the revision and records events. Deltas, `tool.updated`, `agent.step` and `status` are batched every 120 ms; everything else flushes immediately.
-- `host/store.ts` `HostStore` persists with Node's built-in `node:sqlite` (`DatabaseSync`) in `~/.monocode-host`.
-- Other host modules: `workspace.ts` / `workspace-commands.ts` (files, git, search for the remote UI), `git-worktrees.ts`, `git-branches.ts`, `attachments.ts` (chunked upload, 20 MiB per file), `browse.ts`, `service.ts` (systemd, launchd or Task Scheduler install), `windows.ts` + `windows-acl.ps1`, `owner.ts` (single-instance lock), `provider-guard.mjs`.
-
-### Wire protocol
-- Transport: HTTP `POST /rpc` on `127.0.0.1:3774`, reached through an SSH `-L` tunnel that `remote_ssh.rs` sets up. Requests with an `Origin` header or any other route are rejected (403). Auth is `Authorization: Bearer <43-char token>`, checked again after the body is read in case the device was revoked meanwhile.
-- The desktop never exposes the token to JS. The renderer calls `invoke("remote_request", {machineId, method, params})` (`features/connections/model/connections.ts`), and Rust adds the credential.
-- Envelope: `{ version: HOST_PROTOCOL_VERSION /* 1 */, environmentId, method, params }`. `environmentId` must match the host's, except for `environment.describe`.
-- Methods (`host/server.ts` switch): `environment.describe` (→ `HostDescriptor` with `providers` and capability strings), `projects.list|browse|open`, `models.list`, `sessions.list|update|delete|sync|syncChunk|get`, `events.read`, `commands.dispatch`, `attachments.upload|read`, `devices.revokeSelf`, `git.diff|branches|switch|createBranch|worktrees|worktreeCreate|index|fileDiff|action`, `files.read|list|index|search|searchContent|create|write`, `workspace.run`.
-- Commands (`src/features/connections/model/protocol.ts`), all idempotent by `commandId` and returning a `CommandReceipt {commandId, sessionId, revision}`:
-
-```ts
-export type HostCommand =
-  | { type: "create"; commandId; projectId; worktreeCwd?; autoWorktreeBranch?; harness: RemoteProvider; model; modelSettings?; runtimeMode }
-  | { type: "configure"; commandId; sessionId; model; modelSettings; runtimeMode }
-  | { type: "compact"; commandId; sessionId }
-  | { type: "send"; commandId; sessionId; text; attachments?: RemoteAttachment[]; intent?: "default" | "plan" | "build"; draftBlockId?; planBlockId? }
-  | { type: "draft"; commandId; sessionId; text; attachments? }
-  | { type: "removeDraft"; commandId; sessionId; draftBlockId }
-  | { type: "cancel"; commandId; sessionId; runId }
-  | { type: "approve"; commandId; sessionId; runId; requestId; decision: "allow" | "deny" }
-  | { type: "answer"; commandId; sessionId; runId; requestId; reply: UserQuestionReply };
-```
-
-- Sync: the client polls `sessions.sync {sessionId, revision}` and gets back `SessionSync`: `unchanged`, a full `snapshot`, or a `delta` (changed blocks plus the ordered `blockIds`). `applySessionSync(known, sync)` merges it and throws if the base revision does not match, in which case the client asks for a snapshot. Large syncs come back `chunked` and are read with `sessions.syncChunk`.
-- Poll cadence (`connections/ui/RemoteSession.tsx`): 750 ms while running, 3 s when visible, 10 s when hidden, with exponential backoff on failure. There is no push channel.
-- `HostSession = { session: Session; projectId; revision; runId?; status: "idle" | "running" | "interrupted"; … }`.
-- Remote sessions are never saved to the local SQLite (`shouldPersistSession` excludes remote paths). Remote paths use the `remote://` prefix (`shared/lib/remotePaths.ts`).
-- Tests: `npm run test:host` (it builds first). Uses `host/vitest.config.ts` and runs real git, node and PowerShell processes.
 
 ---
 
