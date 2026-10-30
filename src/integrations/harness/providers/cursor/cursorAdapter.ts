@@ -9,11 +9,6 @@ import {
   stopCursorSession,
 } from "./cursor";
 import { refreshCursorCatalog } from "./cursorCatalog";
-import {
-  generateCursorBranchName,
-  generateCursorCommitMessage,
-  generateCursorPrContent,
-} from "./cursorGit";
 import { generateCursorSessionTitle } from "./cursorTitle";
 import {
   runCursorTextPrompt,
@@ -35,9 +30,6 @@ export const cursorAdapter: HarnessAdapter = {
   bindSession: bindCursorSession,
   refreshCatalog: refreshCursorCatalog,
   generateTitle: generateCursorSessionTitle,
-  generateCommitMessage: generateCursorCommitMessage,
-  generatePrContent: generateCursorPrContent,
-  generateBranchName: generateCursorBranchName,
   warmupText: warmupCursorText,
   runTextPrompt: runCursorTextPrompt,
   stopTextPrompt: stopCursorTextPrompt,

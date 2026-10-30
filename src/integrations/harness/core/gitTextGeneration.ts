@@ -1,7 +1,7 @@
 import {
   gitRangeContext,
   gitStagedContext,
-} from "../../../../platform/tauri/fs";
+} from "../../../platform/tauri/fs";
 import {
   buildBranchNamePrompt,
   buildCommitMessagePrompt,
@@ -11,26 +11,29 @@ import {
   parseCommitMessage,
   parsePrContent,
   type PrContent,
-} from "../../../../features/source-control/model/gitText";
-import { runClaudeTextPrompt } from "./claudeText";
+} from "../../../features/source-control/model/gitText";
+import type { TextPromptInput } from "./registry";
 
-const GIT_TIMEOUT_MS = 90_000;
+export type TextRunner = (input: TextPromptInput) => Promise<string>;
 
-export async function generateClaudeCommitMessage(
+const GIT_TEXT_TIMEOUT_MS = 90_000;
+
+export async function generateCommitMessageWith(
+  run: TextRunner,
   cwd: string,
   signal?: AbortSignal,
 ): Promise<string> {
   signal?.throwIfAborted();
   const context = await gitStagedContext(cwd);
   signal?.throwIfAborted();
-  const output = await runClaudeTextPrompt({
+  const output = await run({
     cwd,
     prompt: buildCommitMessagePrompt({
       branch: context.branch,
       stagedSummary: context.summary,
       stagedPatch: context.patch,
     }),
-    timeoutMs: GIT_TIMEOUT_MS,
+    timeoutMs: GIT_TEXT_TIMEOUT_MS,
     signal,
   });
   const parsed = parseCommitMessage(output);
@@ -39,17 +42,18 @@ export async function generateClaudeCommitMessage(
   throw new Error(
     snippet
       ? `Could not generate a commit message. Model replied: ${snippet}`
-      : "Could not generate a commit message. Claude Code returned no text.",
+      : "Could not generate a commit message. The agent returned no text.",
   );
 }
 
-export async function generateClaudePrContent(
+export async function generatePrContentWith(
+  run: TextRunner,
   cwd: string,
 ): Promise<(PrContent & { base: string; head: string }) | null> {
   const range = await gitRangeContext(cwd);
   let parsed: PrContent | null = null;
   try {
-    const output = await runClaudeTextPrompt({
+    const output = await run({
       cwd,
       prompt: buildPrContentPrompt({
         baseBranch: range.base,
@@ -58,11 +62,11 @@ export async function generateClaudePrContent(
         diffSummary: range.diffSummary,
         diffPatch: range.diffPatch,
       }),
-      timeoutMs: GIT_TIMEOUT_MS,
+      timeoutMs: GIT_TEXT_TIMEOUT_MS,
     });
     parsed = parsePrContent(output);
   } catch (error) {
-    console.debug("[monocode] pr content", error);
+    console.debug("[bonocode] pr content", error);
   }
   const title =
     parsed?.title ||
@@ -76,19 +80,20 @@ export async function generateClaudePrContent(
   };
 }
 
-export async function generateClaudeBranchName(
+export async function generateBranchNameWith(
+  run: TextRunner,
   cwd: string,
   message: string,
 ): Promise<string | null> {
   try {
-    const output = await runClaudeTextPrompt({
+    const output = await run({
       cwd,
       prompt: buildBranchNamePrompt(message),
-      timeoutMs: GIT_TIMEOUT_MS,
+      timeoutMs: GIT_TEXT_TIMEOUT_MS,
     });
     return parseBranchName(output);
   } catch (error) {
-    console.debug("[monocode] branch name", error);
+    console.debug("[bonocode] branch name", error);
     return null;
   }
 }

@@ -1,4 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("../../../platform/tauri/fs", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../../platform/tauri/fs")>()),
+  gitStagedContext: vi.fn(async () => ({
+    branch: "main",
+    summary: "M change.ts",
+    patch: "+x",
+  })),
+}));
 import {
   resetHarnessModelOverlays,
   setHarnessModels,
@@ -9,7 +18,9 @@ import {
   bindHarnessSession,
   canCompactHarnessContext,
   canRunHarnessTextPrompt,
+  generateHarnessCommitMessage,
   runHarnessTextPrompt,
+  textCapableHarnesses,
   canRewindHarnessLastTurn,
   compactHarnessContext,
   isLiveHarness,
@@ -234,7 +245,39 @@ describe("harness registry", () => {
     expect(adapter.bindSession).toBeTypeOf("function");
     expect(adapter.refreshCatalog).toBeTypeOf("function");
     expect(adapter.generateTitle).toBeUndefined();
-    expect(adapter.generateCommitMessage).toBeUndefined();
+    expect(adapter.runTextPrompt).toBeUndefined();
+  });
+
+  it("generates a commit message through any adapter with runTextPrompt", async () => {
+    const runTextPrompt = vi.fn(
+      async () => '{"subject":"Add x","body":""}',
+    );
+    registerHarness(stub("pi", { runTextPrompt }));
+
+    await expect(generateHarnessCommitMessage("pi", "/repo")).resolves.toBe(
+      "Add x",
+    );
+    expect(runTextPrompt).toHaveBeenCalledOnce();
+  });
+
+  it("rejects commit messages for a harness without text prompts", async () => {
+    registerHarness(stub("codex"));
+
+    await expect(generateHarnessCommitMessage("codex", "/repo")).rejects.toThrow(
+      "codex does not support commit message generation",
+    );
+  });
+
+  it("lists only registered harnesses that can run text prompts", () => {
+    registerHarness(stub("cursor"));
+    registerHarness(stub("claude", { runTextPrompt: vi.fn() }));
+    registerHarness(stub("pi", { runTextPrompt: vi.fn() }));
+    registerHarness(stub("codex"));
+
+    const capable = textCapableHarnesses();
+    expect(capable).toEqual(expect.arrayContaining(["claude", "pi"]));
+    expect(capable).not.toContain("cursor");
+    expect(capable).not.toContain("codex");
   });
 
   it("refreshes only the requested catalogs", async () => {

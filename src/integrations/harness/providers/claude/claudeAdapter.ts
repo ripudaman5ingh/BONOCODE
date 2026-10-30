@@ -11,11 +11,6 @@ import {
   stopClaudeSession,
 } from "./claude";
 import { refreshClaudeCatalog } from "./claudeCatalog";
-import {
-  generateClaudeBranchName,
-  generateClaudeCommitMessage,
-  generateClaudePrContent,
-} from "./claudeGit";
 import { generateClaudeSessionTitle } from "./claudeTitle";
 import {
   runClaudeTextPrompt,
@@ -39,9 +34,6 @@ export const claudeAdapter: HarnessAdapter = {
   restoreTaskLists: restoreClaudeTaskLists,
   refreshCatalog: refreshClaudeCatalog,
   generateTitle: generateClaudeSessionTitle,
-  generateCommitMessage: generateClaudeCommitMessage,
-  generatePrContent: generateClaudePrContent,
-  generateBranchName: generateClaudeBranchName,
   warmupText: warmupClaudeText,
   runTextPrompt: runClaudeTextPrompt,
   stopTextPrompt: stopClaudeTextPrompt,

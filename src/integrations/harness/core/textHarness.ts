@@ -4,27 +4,22 @@ import type { PrContent } from "../../../features/source-control/model/gitText";
 import {
   generateHarnessCommitMessage,
   generateHarnessPrContent,
+  textCapableHarnesses,
   warmupHarnessText,
 } from "./registry";
 
-const TEXT_HARNESSES: HarnessId[] = [
-  "claude",
-  "cursor",
-  "codex",
-  "grok",
-  "opencode",
-];
-
 /** Pick the harness used for titles, commit messages, and PR text. */
 export function pickTextHarness(preferred?: HarnessId): HarnessId {
-  const ordered =
-    preferred && TEXT_HARNESSES.includes(preferred)
-      ? [preferred, ...TEXT_HARNESSES.filter((id) => id !== preferred)]
-      : TEXT_HARNESSES;
-  for (const id of ordered) {
-    if (isHarnessAvailable(id)) return id;
+  const capable = textCapableHarnesses();
+  if (
+    preferred &&
+    capable.includes(preferred) &&
+    isHarnessAvailable(preferred)
+  ) {
+    return preferred;
   }
-  return preferred && TEXT_HARNESSES.includes(preferred) ? preferred : "cursor";
+  const fallback = capable.find((id) => isHarnessAvailable(id));
+  return fallback ?? preferred ?? "claude";
 }
 
 export function warmupText(cwd: string, preferred?: HarnessId): Promise<void> {
