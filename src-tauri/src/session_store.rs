@@ -656,6 +656,27 @@ fn ensure_column(conn: &Connection, name: &str, decl: &str) -> rusqlite::Result<
     Ok(())
 }
 
+/// Runs one numbered migration and records its version in the same
+/// transaction, so a crash can never keep the schema change without its
+/// version row, or the version row without the change.
+fn apply_migration(
+    conn: &Connection,
+    current: i64,
+    version: i64,
+    apply: impl FnOnce(&Connection) -> rusqlite::Result<()>,
+) -> rusqlite::Result<()> {
+    if current >= version {
+        return Ok(());
+    }
+    let tx = conn.unchecked_transaction()?;
+    apply(&tx)?;
+    tx.execute(
+        "INSERT INTO schema_migrations (version, applied_at) VALUES (?1, ?2)",
+        params![version, now_millis()],
+    )?;
+    tx.commit()
+}
+
 fn migrate(conn: &Connection) -> rusqlite::Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -669,29 +690,20 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
         [],
         |row| row.get(0),
     )?;
-    if current < 1 {
+    apply_migration(conn, current, 1, |conn| {
         conn.execute_batch(MIGRATION_V1)?;
-        conn.execute(
-            "INSERT INTO schema_migrations (version, applied_at) VALUES (1, ?1)",
-            params![now_millis()],
-        )?;
-    }
-    if current < 2 {
+        Ok(())
+    })?;
+    apply_migration(conn, current, 2, |conn| {
         conn.execute("ALTER TABLE sessions ADD COLUMN branch TEXT", [])?;
-        conn.execute(
-            "INSERT INTO schema_migrations (version, applied_at) VALUES (2, ?1)",
-            params![now_millis()],
-        )?;
-    }
-    if current < 3 {
+        Ok(())
+    })?;
+    apply_migration(conn, current, 3, |conn| {
         conn.execute("ALTER TABLE sessions ADD COLUMN context_used INTEGER", [])?;
         conn.execute("ALTER TABLE sessions ADD COLUMN context_window INTEGER", [])?;
-        conn.execute(
-            "INSERT INTO schema_migrations (version, applied_at) VALUES (3, ?1)",
-            params![now_millis()],
-        )?;
-    }
-    if current < 4 {
+        Ok(())
+    })?;
+    apply_migration(conn, current, 4, |conn| {
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS in_flight_sessions (
                session_id TEXT PRIMARY KEY,
@@ -699,12 +711,9 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
                sort_index INTEGER NOT NULL
              );",
         )?;
-        conn.execute(
-            "INSERT INTO schema_migrations (version, applied_at) VALUES (4, ?1)",
-            params![now_millis()],
-        )?;
-    }
-    if current < 5 {
+        Ok(())
+    })?;
+    apply_migration(conn, current, 5, |conn| {
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS workspace_snapshot (
                id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -712,29 +721,20 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
                updated_at INTEGER NOT NULL
              );",
         )?;
-        conn.execute(
-            "INSERT INTO schema_migrations (version, applied_at) VALUES (5, ?1)",
-            params![now_millis()],
-        )?;
-    }
-    if current < 6 {
+        Ok(())
+    })?;
+    apply_migration(conn, current, 6, |conn| {
         conn.execute(
             "ALTER TABLE sessions ADD COLUMN archived INTEGER NOT NULL DEFAULT 0",
             [],
         )?;
-        conn.execute(
-            "INSERT INTO schema_migrations (version, applied_at) VALUES (6, ?1)",
-            params![now_millis()],
-        )?;
-    }
-    if current < 7 {
+        Ok(())
+    })?;
+    apply_migration(conn, current, 7, |conn| {
         conn.execute("ALTER TABLE sessions ADD COLUMN worktree_cwd TEXT", [])?;
-        conn.execute(
-            "INSERT INTO schema_migrations (version, applied_at) VALUES (7, ?1)",
-            params![now_millis()],
-        )?;
-    }
-    if current < 8 {
+        Ok(())
+    })?;
+    apply_migration(conn, current, 8, |conn| {
         // `list_by_project` used to filter with
         // `blocks_json LIKE '%"role":"user"%'`, which reads and substring-scans
         // every transcript in the project on each switch. Materialize the
@@ -751,11 +751,8 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
              CREATE INDEX IF NOT EXISTS sessions_cwd_listed_idx
                ON sessions (cwd, has_user_message, updated_at DESC);",
         )?;
-        conn.execute(
-            "INSERT INTO schema_migrations (version, applied_at) VALUES (8, ?1)",
-            params![now_millis()],
-        )?;
-    }
+        Ok(())
+    })?;
     // A recorded version row can outlive the schema it describes when another
     // build reuses the same numbers, leaving columns that every listing query
     // (and the covering index below) depends on missing. Repair before use.
@@ -775,7 +772,7 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
     ] {
         ensure_session_column(conn, column, decl)?;
     }
-    if current < 9 {
+    apply_migration(conn, current, 9, |conn| {
         // v8 stopped the blob scan but still cost a table seek per row, and
         // every summary column (`created_at`, `updated_at`, `branch`,
         // `archived`) is stored *after* `blocks_json` in the record — so
@@ -796,18 +793,10 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
                             model, runtime_mode, title, provider_session_id,
                             created_at, branch, archived);",
         )?;
-        conn.execute(
-            "INSERT INTO schema_migrations (version, applied_at) VALUES (9, ?1)",
-            params![now_millis()],
-        )?;
-    }
-    if current < 10 {
-        conn.execute(
-            "INSERT INTO schema_migrations (version, applied_at) VALUES (10, ?1)",
-            params![now_millis()],
-        )?;
-    }
-    if current < 11 {
+        Ok(())
+    })?;
+    apply_migration(conn, current, 10, |_| Ok(()))?;
+    apply_migration(conn, current, 11, |conn| {
         // Pinning is a listing column, so it has to live in the covering
         // index with `archived`. Selecting it off the table would walk past
         // `blocks_json` on every project switch.
@@ -819,12 +808,9 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
                             model, runtime_mode, title, provider_session_id,
                             created_at, branch, archived, pinned);",
         )?;
-        conn.execute(
-            "INSERT INTO schema_migrations (version, applied_at) VALUES (11, ?1)",
-            params![now_millis()],
-        )?;
-    }
-    if current < 12 {
+        Ok(())
+    })?;
+    apply_migration(conn, current, 12, |conn| {
         // The sidebar renders this metadata for every row, so keep it in the
         // same covering index as the rest of the session-card projection.
         ensure_column(conn, "linked_work_item_json", "TEXT")?;
@@ -836,32 +822,18 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
                             created_at, branch, archived, pinned,
                             linked_work_item_json);",
         )?;
-        conn.execute(
-            "INSERT INTO schema_migrations (version, applied_at) VALUES (12, ?1)",
-            params![now_millis()],
-        )?;
-    }
-    if current < 13 {
-        conn.execute(
-            "INSERT INTO schema_migrations (version, applied_at) VALUES (13, ?1)",
-            params![now_millis()],
-        )?;
-    }
-    if current < 14 {
+        Ok(())
+    })?;
+    apply_migration(conn, current, 13, |_| Ok(()))?;
+    apply_migration(conn, current, 14, |conn| {
         ensure_session_column(conn, "provider_account_id", "TEXT")?;
-        conn.execute(
-            "INSERT INTO schema_migrations (version, applied_at) VALUES (14, ?1)",
-            params![now_millis()],
-        )?;
-    }
-    if current < 15 {
+        Ok(())
+    })?;
+    apply_migration(conn, current, 15, |conn| {
         ensure_session_column(conn, "worktree_removed", "INTEGER NOT NULL DEFAULT 0")?;
-        conn.execute(
-            "INSERT INTO schema_migrations (version, applied_at) VALUES (15, ?1)",
-            params![now_millis()],
-        )?;
-    }
-    if current < 16 {
+        Ok(())
+    })?;
+    apply_migration(conn, current, 16, |conn| {
         conn.execute_batch(
             "DROP INDEX IF EXISTS sessions_cwd_cover_idx;
              CREATE INDEX sessions_cwd_cover_idx
@@ -870,12 +842,9 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
                             created_at, branch, archived, pinned,
                             linked_work_item_json, worktree_cwd, worktree_removed);",
         )?;
-        conn.execute(
-            "INSERT INTO schema_migrations (version, applied_at) VALUES (16, ?1)",
-            params![now_millis()],
-        )?;
-    }
-    if current < 17 {
+        Ok(())
+    })?;
+    apply_migration(conn, current, 17, |conn| {
         // Draft is rendered on every session card. Materialize it alongside
         // `has_user_message` so listing never has to read transcript blobs.
         ensure_session_column(conn, "is_draft", "INTEGER NOT NULL DEFAULT 0")?;
@@ -895,12 +864,9 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
                             linked_work_item_json, worktree_cwd, worktree_removed,
                             is_draft);",
         )?;
-        conn.execute(
-            "INSERT INTO schema_migrations (version, applied_at) VALUES (17, ?1)",
-            params![now_millis()],
-        )?;
-    }
-    if current < 18 {
+        Ok(())
+    })?;
+    apply_migration(conn, current, 18, |conn| {
         // Sidebar cards show whether a session came from an automation.
         ensure_session_column(conn, "automation_id", "TEXT")?;
         conn.execute_batch(
@@ -912,11 +878,8 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
                             linked_work_item_json, worktree_cwd, worktree_removed,
                             is_draft, automation_id);",
         )?;
-        conn.execute(
-            "INSERT INTO schema_migrations (version, applied_at) VALUES (18, ?1)",
-            params![now_millis()],
-        )?;
-    }
+        Ok(())
+    })?;
     // Create even when a version row already exists (another build may have
     // used the same numbers, or a previous run recorded the version without
     // the table). Restore writes into these; missing tables look like a
@@ -953,13 +916,10 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
     )?;
     ensure_session_blocks(conn)?;
     import_legacy_blocks(conn)?;
-    if current < 19 {
+    apply_migration(conn, current, 19, |conn| {
         hide_legacy_inbox_rows(conn)?;
-        conn.execute(
-            "INSERT INTO schema_migrations (version, applied_at) VALUES (19, ?1)",
-            params![now_millis()],
-        )?;
-    }
+        Ok(())
+    })?;
     Ok(())
 }
 
@@ -2107,6 +2067,58 @@ mod tests {
     use rusqlite::hooks::{AuthAction, Authorization};
     use serde_json::{json, Value};
     use std::sync::atomic::AtomicUsize;
+
+    fn recorded_versions(conn: &Connection) -> Vec<i64> {
+        conn.prepare("SELECT version FROM schema_migrations ORDER BY version")
+            .unwrap()
+            .query_map([], |row| row.get(0))
+            .unwrap()
+            .collect::<rusqlite::Result<Vec<i64>>>()
+            .unwrap()
+    }
+
+    #[test]
+    fn migrate_records_each_version_once_and_leaves_no_open_transaction() {
+        let conn = Connection::open_in_memory().unwrap();
+        migrate(&conn).unwrap();
+        migrate(&conn).unwrap();
+        assert_eq!(recorded_versions(&conn), (1..=19).collect::<Vec<i64>>());
+        assert!(conn.is_autocommit());
+    }
+
+    #[test]
+    fn failed_migration_rolls_back_schema_and_version() {
+        let conn = Connection::open_in_memory().unwrap();
+        migrate(&conn).unwrap();
+        let result = apply_migration(&conn, 19, 20, |conn| {
+            conn.execute("ALTER TABLE sessions ADD COLUMN half_applied TEXT", [])?;
+            conn.execute("THIS IS NOT SQL", [])?;
+            Ok(())
+        });
+        assert!(result.is_err());
+        let column: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('sessions') WHERE name = 'half_applied'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(column, 0, "the ALTER must roll back with the failed step");
+        assert!(!recorded_versions(&conn).contains(&20));
+    }
+
+    #[test]
+    fn already_applied_migration_is_skipped() {
+        let conn = Connection::open_in_memory().unwrap();
+        migrate(&conn).unwrap();
+        let mut ran = false;
+        apply_migration(&conn, 19, 19, |_| {
+            ran = true;
+            Ok(())
+        })
+        .unwrap();
+        assert!(!ran);
+    }
 
     #[test]
     fn startup_does_not_read_saved_transcripts() {
