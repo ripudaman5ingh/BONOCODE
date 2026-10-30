@@ -85,8 +85,13 @@ import type { SessionSummary } from "../../sessions/data/sessionStore";
 import type { CiRepairRequest } from "../model/ciRepair";
 import { useGithubPrChecks } from "../hooks/useGithubPrChecks";
 import { PrChecks } from "./PrChecks";
+import { CreatePrDialog } from "./CreatePrDialog";
+import type { PrContent } from "../model/gitText";
+
+type PrDraft = PrContent & { base: string; head: string };
 
 const GIT_POLL_MS = 2000;
+const AUTO_FETCH_MS = 5 * 60_000;
 
 function confirmNative(message: string, okLabel?: string): Promise<boolean> {
   return ask(message, {
@@ -312,6 +317,10 @@ export function GitChangesPanel({
           invalidateWatchedFiles(paths);
           window.setTimeout(() => invalidateWatchedFiles(paths), 150);
         }}
+        onRemoteRefsChanged={() => {
+          reload();
+          notifyGitChanged();
+        }}
       />
       {graphExpanded ? (
         <GraphResizeSash
@@ -364,6 +373,7 @@ function ChangedFiles({
   onOpenFile,
   onOpenAllChanges,
   onMutated,
+  onRemoteRefsChanged,
   ciRepair,
   onOpenPr,
 }: {
@@ -380,6 +390,8 @@ function ChangedFiles({
   onOpenFile: (path: string, kind: GitFileDiffKind, pin?: boolean) => void;
   onOpenAllChanges: (kind: GitFileDiffKind) => void;
   onMutated: (paths?: string[]) => void;
+  /** A fetch moves only remote refs, so open files stay as they are. */
+  onRemoteRefsChanged: () => void;
   ciRepair?: GitCiRepair;
   onOpenPr?: (item: LinkedWorkItem) => void;
 }) {
@@ -391,6 +403,8 @@ function ChangedFiles({
   const [amendTarget, setAmendTarget] = useState<AmendTarget | null>(null);
   const amend = amendTarget !== null;
   const [menuOpen, setMenuOpen] = useState(false);
+  const [prDraft, setPrDraft] = useState<PrDraft | null>(null);
+  const [prError, setPrError] = useState<string | null>(null);
   const [stagedExpanded, setStagedExpanded] = useState(stagedOpen);
   const [changesExpanded, setChangesExpanded] = useState(changesOpen);
   const [view, setView] = useState<ChangesView>(changesView);
@@ -438,6 +452,35 @@ function ChangedFiles({
     canCommit && hasRemote && !diverged && (!amend || !index?.headPushed);
   const canCommitPushPr = canCommitPush && !hasOpenPr && !onDefault;
   const canEditMessage = (staged.length > 0 || amend) && !busy;
+
+  // The timer reads the latest busy state and callbacks without restarting.
+  const latestRef = useRef({ busy, onRemoteRefsChanged, reloadPr });
+  useEffect(() => {
+    latestRef.current = { busy, onRemoteRefsChanged, reloadPr };
+  });
+
+  useEffect(() => {
+    if (!enabled || !hasRemote || !cwd || cwd === "~") return;
+    let current = true;
+    const fetchSilently = () => {
+      if (latestRef.current.busy !== null) return;
+      gitFetch(cwd)
+        .then(() => {
+          if (!current) return;
+          latestRef.current.onRemoteRefsChanged();
+          latestRef.current.reloadPr();
+        })
+        .catch((error: unknown) => {
+          console.debug("[bonocode] auto fetch", error);
+        });
+    };
+    fetchSilently();
+    const timer = window.setInterval(fetchSilently, AUTO_FETCH_MS);
+    return () => {
+      current = false;
+      window.clearInterval(timer);
+    };
+  }, [cwd, enabled, hasRemote]);
 
   useEffect(() => {
     if (!amendTarget) return;
@@ -646,8 +689,8 @@ function ChangedFiles({
       setAmendTarget(null);
       onMutated();
       if (createPr) {
-        await openCreatedPr();
         reloadPr();
+        await preparePr();
       }
     } catch (error) {
       fail(error);
@@ -680,34 +723,54 @@ function ChangedFiles({
     setBusy("fetch");
     try {
       await gitFetch(cwd);
-      onMutated();
+      onRemoteRefsChanged();
       reloadPr();
     } catch (error) {
       fail(error);
-      onMutated();
     } finally {
       setBusy(null);
     }
   };
 
-  const openCreatedPr = async () => {
+  // Generates the title and body; the dialog decides whether the PR is created.
+  const preparePr = async () => {
     const content = await generatePrContent(cwd, textHarness);
     if (!content) throw new Error("Could not prepare pull request content");
-    const url = await gitPrCreate(
-      cwd,
-      content.title,
-      content.body,
-      content.base,
-      content.head,
-    );
-    const number = Number(/\/pull\/(\d+)(?:[/?#]|$)/.exec(url)?.[1]);
-    if (Number.isInteger(number) && number > 0) recordPrActivity(number);
-    const item = parseGithubWorkItemUrl(url.trim());
-    if (item && onOpenPr) {
-      onOpenPr(item);
-      return;
+    setPrError(null);
+    setPrDraft(content);
+  };
+
+  const submitPr = async (title: string, body: string) => {
+    if (!prDraft) return;
+    setBusy("pr");
+    setPrError(null);
+    try {
+      const url = await gitPrCreate(
+        cwd,
+        title,
+        body,
+        prDraft.base,
+        prDraft.head,
+      );
+      // The PR now exists, so the dialog must not allow another create.
+      setPrDraft(null);
+      setPrError(null);
+      try {
+        const number = Number(/\/pull\/(\d+)(?:[/?#]|$)/.exec(url)?.[1]);
+        if (Number.isInteger(number) && number > 0) recordPrActivity(number);
+        onMutated();
+        reloadPr();
+        const item = parseGithubWorkItemUrl(url.trim());
+        if (item && onOpenPr) onOpenPr(item);
+        else await openUrl(url.trim());
+      } catch (error) {
+        fail(error);
+      }
+    } catch (error) {
+      setPrError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setBusy(null);
     }
-    await openUrl(url.trim());
   };
 
   const createPr = async () => {
@@ -715,10 +778,11 @@ function ChangedFiles({
     if (!(await confirmDefault("pr"))) return;
     setBusy("pr");
     try {
-      if ((index?.ahead ?? 0) > 0) await gitPush(cwd);
-      await openCreatedPr();
-      onMutated();
-      reloadPr();
+      if ((index?.ahead ?? 0) > 0) {
+        await gitPush(cwd);
+        onMutated();
+      }
+      await preparePr();
     } catch (error) {
       fail(error);
       onMutated();
@@ -1031,6 +1095,21 @@ function ChangedFiles({
           </>
         )}
       </div>
+      {prDraft ? (
+        <CreatePrDialog
+          base={prDraft.base}
+          head={prDraft.head}
+          initialTitle={prDraft.title}
+          initialBody={prDraft.body}
+          busy={busy === "pr"}
+          error={prError}
+          onCreate={(title, body) => void submitPr(title, body)}
+          onCancel={() => {
+            setPrDraft(null);
+            setPrError(null);
+          }}
+        />
+      ) : null}
     </aside>
   );
 }

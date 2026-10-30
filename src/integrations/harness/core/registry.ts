@@ -8,6 +8,12 @@ import type { GeneratedSessionTitle } from "../../../features/sessions/model/ses
 import type { PrContent } from "../../../features/source-control/model/gitText";
 import { hasLiveCatalog } from "../../../features/sessions/model/models";
 import type { UserQuestionReply } from "../../../features/sessions/model/userQuestion";
+import {
+  generateBranchNameWith,
+  generateCommitMessageWith,
+  generatePrContentWith,
+  type TextRunner,
+} from "./gitTextGeneration";
 import type { NativeCommandProvider } from "./nativeCommands";
 import type {
   ApprovalDecision,
@@ -88,14 +94,6 @@ export type HarnessAdapter = {
   refreshCatalog?(): Promise<void>;
   /** Optional LLM tab title for the first turn. */
   generateTitle?(input: TitleInput): Promise<GeneratedSessionTitle | null>;
-  /** Optional LLM commit message from staged changes. */
-  generateCommitMessage?(cwd: string, signal?: AbortSignal): Promise<string>;
-  /** Optional LLM pull request title/body from branch diff context. */
-  generatePrContent?(
-    cwd: string,
-  ): Promise<(PrContent & { base: string; head: string }) | null>;
-  /** Optional LLM branch name from a user message. */
-  generateBranchName?(cwd: string, message: string): Promise<string | null>;
   /** Optional warmup for text-generation backends. */
   warmupText?(cwd: string): Promise<void>;
   /** Run an isolated, read-only prompt without mutating the main session. */
@@ -411,17 +409,23 @@ export async function generateHarnessTitle(
   return adapter.generateTitle(input);
 }
 
+/** Git text runs through the adapter's isolated text prompt, so any text-capable harness can write it. */
+function gitTextRunner(adapter: HarnessAdapter): TextRunner | null {
+  if (!adapter.runTextPrompt) return null;
+  return (input) => adapter.runTextPrompt!(input);
+}
+
 export async function generateHarnessCommitMessage(
   harness: HarnessId,
   cwd: string,
   signal?: AbortSignal,
 ): Promise<string> {
   const adapter = requireHarness(harness);
-  if (!adapter.generateCommitMessage) {
+  const run = gitTextRunner(adapter);
+  if (!run) {
     throw new Error(`${harness} does not support commit message generation`);
   }
-  signal?.throwIfAborted();
-  return adapter.generateCommitMessage(cwd, signal);
+  return generateCommitMessageWith(run, cwd, signal);
 }
 
 export async function generateHarnessPrContent(
@@ -429,8 +433,9 @@ export async function generateHarnessPrContent(
   cwd: string,
 ): Promise<(PrContent & { base: string; head: string }) | null> {
   const adapter = getHarness(harness);
-  if (!adapter?.generatePrContent) return null;
-  return adapter.generatePrContent(cwd);
+  const run = adapter && gitTextRunner(adapter);
+  if (!run) return null;
+  return generatePrContentWith(run, cwd);
 }
 
 export async function generateHarnessBranchName(
@@ -439,8 +444,9 @@ export async function generateHarnessBranchName(
   message: string,
 ): Promise<string | null> {
   const adapter = getHarness(harness);
-  if (!adapter?.generateBranchName) return null;
-  return adapter.generateBranchName(cwd, message);
+  const run = adapter && gitTextRunner(adapter);
+  if (!run) return null;
+  return generateBranchNameWith(run, cwd, message);
 }
 
 export async function warmupHarnessText(
@@ -453,6 +459,11 @@ export async function warmupHarnessText(
 export function canRunHarnessTextPrompt(harness: HarnessId): boolean {
   const adapter = getHarness(harness);
   return adapter?.live === true && adapter.runTextPrompt != null;
+}
+
+/** Registered harnesses that can run an isolated text prompt, in registration order. */
+export function textCapableHarnesses(): HarnessId[] {
+  return [...adapters.keys()].filter(canRunHarnessTextPrompt);
 }
 
 function stopTextPrompt(adapter: HarnessAdapter): Promise<void> {

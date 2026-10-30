@@ -11,11 +11,6 @@ import {
   steerCodexTurn,
   stopCodexSession,
 } from "./codex";
-import {
-  generateCodexBranchName,
-  generateCodexCommitMessage,
-  generateCodexPrContent,
-} from "./codexGit";
 import { refreshCodexCatalog } from "./codexCatalog";
 import { generateCodexSessionTitle } from "./codexTitle";
 import {
@@ -45,9 +40,6 @@ export const codexAdapter: HarnessAdapter = {
   bindSession: bindCodexSession,
   refreshCatalog: refreshCodexCatalog,
   generateTitle: generateCodexSessionTitle,
-  generateCommitMessage: generateCodexCommitMessage,
-  generatePrContent: generateCodexPrContent,
-  generateBranchName: generateCodexBranchName,
   warmupText: warmupCodexText,
   runTextPrompt: runCodexTextPrompt,
   stopTextPrompt: stopCodexTextPrompt,
