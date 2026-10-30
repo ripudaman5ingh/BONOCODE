@@ -22,7 +22,7 @@ export type InboxReplyTarget = {
   threadId: string;
 };
 
-type InboxComment = {
+export type InboxComment = {
   id: string;
   kind: string;
   author: string;
@@ -50,6 +50,9 @@ type Props = {
   cwd: string;
   provider: InboxProvider;
   onReply?: (target: InboxReplyTarget) => void;
+  onResolve?: (threadId: string, resolved: boolean) => void;
+  onSendToAgent?: (comment: InboxComment) => void;
+  sendingToAgent?: boolean;
 };
 
 export function InboxComments({
@@ -59,6 +62,9 @@ export function InboxComments({
   cwd,
   provider,
   onReply,
+  onResolve,
+  onSendToAgent,
+  sendingToAgent = false,
 }: Props) {
   if (thread && thread.comments.length === 0 && !thread.truncated) {
     if (loading) return <CommentsPending />;
@@ -100,6 +106,9 @@ export function InboxComments({
               cwd={cwd}
               provider={provider}
               onReply={onReply}
+              onResolve={onResolve}
+              onSendToAgent={onSendToAgent}
+              sendingToAgent={sendingToAgent}
             />
           </li>
         ))}
@@ -223,12 +232,18 @@ function InboxComment({
   provider,
   nested = false,
   onReply,
+  onResolve,
+  onSendToAgent,
+  sendingToAgent = false,
 }: {
   comment: InboxComment;
   cwd: string;
   provider: InboxProvider;
   nested?: boolean;
   onReply?: (target: InboxReplyTarget) => void;
+  onResolve?: (threadId: string, resolved: boolean) => void;
+  onSendToAgent?: (comment: InboxComment) => void;
+  sendingToAgent?: boolean;
 }) {
   const time = formatRelativeTime(comment.createdAt);
   const review = githubReviewStateLabel(comment.state);
@@ -241,8 +256,11 @@ function InboxComment({
   ].filter((part) => part.length > 0);
   const hasBody = comment.body.trim().length > 0;
   const hasReplies = !nested && comment.replies.length > 0;
-  const canReply =
-    onReply != null && (comment.threadId ?? "").trim().length > 0;
+  const threadId = (comment.threadId ?? "").trim();
+  const canReply = onReply != null && threadId.length > 0;
+  const canResolve = !nested && onResolve != null && threadId.length > 0;
+  const canSendToAgent =
+    !nested && onSendToAgent != null && threadId.length > 0;
 
   const inner = (
     <>
@@ -300,12 +318,37 @@ function InboxComment({
                 onReply({
                   id: comment.id,
                   author: comment.author || "ghost",
-                  threadId: (comment.threadId ?? "").trim(),
+                  threadId,
                 })
               }
               className="hover:text-content"
             >
               Reply
+            </button>
+          </span>
+        ) : null}
+        {canResolve ? (
+          <span className="flex items-center gap-2">
+            <span aria-hidden>·</span>
+            <button
+              type="button"
+              onClick={() => onResolve(threadId, !comment.resolved)}
+              className="hover:text-content"
+            >
+              {comment.resolved ? "Unresolve" : "Resolve"}
+            </button>
+          </span>
+        ) : null}
+        {canSendToAgent ? (
+          <span className="flex items-center gap-2">
+            <span aria-hidden>·</span>
+            <button
+              type="button"
+              disabled={sendingToAgent}
+              onClick={() => onSendToAgent(comment)}
+              className="hover:text-content disabled:cursor-default disabled:opacity-40"
+            >
+              Send to agent
             </button>
           </span>
         ) : null}

@@ -1104,6 +1104,21 @@ pub async fn git_pull(cwd: String) -> Result<(), String> {
     .map_err(|e| e.to_string())?
 }
 
+/// Update remote-tracking refs without touching the working tree.
+fn git_fetch_for(root: &Path) -> Result<(), String> {
+    if git_remote_name(root).is_none() {
+        return Ok(());
+    }
+    git_checked(root, &["fetch", "--prune", "--quiet"])
+}
+
+#[tauri::command]
+pub async fn git_fetch(cwd: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || git_fetch_for(&expand_home(&cwd)))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
 /// Pull incoming commits, then push local commits.
 #[tauri::command]
 pub async fn git_sync(cwd: String) -> Result<(), String> {
@@ -1381,6 +1396,22 @@ pub async fn git_github_work_item_comment(
             &body,
             &in_reply_to,
         )
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Resolve or unresolve a pull request review thread via `gh api graphql`.
+#[tauri::command]
+pub async fn git_github_review_thread_resolve(
+    cwd: String,
+    thread_id: String,
+    resolved: bool,
+) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
+        let args = github_review_thread_resolve_args(&thread_id, resolved)?;
+        let refs: Vec<&str> = args.iter().map(String::as_str).collect();
+        gh_checked(&expand_home(&cwd), &refs).map(|_| ())
     })
     .await
     .map_err(|e| e.to_string())?
@@ -2650,6 +2681,29 @@ fn github_pr_action_args(repo: &str, number: i64, action: &str) -> Result<Vec<St
         _ => return Err("Unknown GitHub pull request action".into()),
     };
     Ok(args.into_iter().map(str::to_string).collect())
+}
+
+fn github_review_thread_resolve_args(
+    thread_id: &str,
+    resolved: bool,
+) -> Result<Vec<String>, String> {
+    let thread_id = thread_id.trim();
+    if !valid_github_node_id(thread_id) {
+        return Err("Invalid review thread".into());
+    }
+    let mutation = if resolved {
+        "mutation($threadId: ID!) { resolveReviewThread(input: {threadId: $threadId}) { thread { id isResolved } } }"
+    } else {
+        "mutation($threadId: ID!) { unresolveReviewThread(input: {threadId: $threadId}) { thread { id isResolved } } }"
+    };
+    Ok(vec![
+        "api".into(),
+        "graphql".into(),
+        "-f".into(),
+        format!("query={mutation}"),
+        "-f".into(),
+        format!("threadId={thread_id}"),
+    ])
 }
 
 fn git_github_pr_action_for(
@@ -7438,6 +7492,44 @@ mod tests {
         assert!(github_pr_action_args("acme/web", 42, "delete").is_err());
         assert!(github_pr_action_args("acme/web", 0, "merge").is_err());
         assert!(github_pr_action_args("invalid", 42, "merge").is_err());
+    }
+
+    #[test]
+    fn github_review_thread_resolve_maps_to_graphql_mutations() {
+        assert_eq!(
+            github_review_thread_resolve_args(" PRRT_kwDO1-=x ", true).unwrap(),
+            [
+                "api",
+                "graphql",
+                "-f",
+                "query=mutation($threadId: ID!) { resolveReviewThread(input: {threadId: $threadId}) { thread { id isResolved } } }",
+                "-f",
+                "threadId=PRRT_kwDO1-=x",
+            ]
+        );
+        assert_eq!(
+            github_review_thread_resolve_args("PRRT_kwDO1", false).unwrap(),
+            [
+                "api",
+                "graphql",
+                "-f",
+                "query=mutation($threadId: ID!) { unresolveReviewThread(input: {threadId: $threadId}) { thread { id isResolved } } }",
+                "-f",
+                "threadId=PRRT_kwDO1",
+            ]
+        );
+        assert!(github_review_thread_resolve_args("", true).is_err());
+        assert!(github_review_thread_resolve_args("a b", true).is_err());
+        assert!(github_review_thread_resolve_args("x;y", false).is_err());
+    }
+
+    #[test]
+    fn git_fetch_is_ok_without_a_remote() {
+        let dir = tmp("git-fetch-none");
+        if !init_git(&dir.0, "main", None) {
+            return;
+        }
+        assert!(git_fetch_for(&dir.0).is_ok());
     }
 
     #[test]

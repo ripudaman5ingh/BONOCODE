@@ -40,6 +40,7 @@ import type { CiRepairRequest } from "../../source-control/model/ciRepair";
 import {
   formatRelativeTime,
   githubPrDiff,
+  githubResolveReviewThread,
   githubReviewDecisionLabel,
   githubWorkItem,
   githubWorkItemComment,
@@ -59,9 +60,11 @@ import {
   type GithubWorkItemThread,
   type InboxItem,
 } from "../model/githubTasks";
+import { buildReviewCommentPrompt } from "../model/reviewToAgent";
 import {
   InboxComments,
   InboxCommentForm,
+  type InboxComment,
   type InboxReplyTarget,
 } from "./InboxComments";
 import { InboxPrDiff } from "./InboxPrDiff";
@@ -120,6 +123,7 @@ export function LinkedWorkItemPanel({
   repairSessions,
   onRepairChecks,
   onOpenSession,
+  onSendToChat,
   target,
   cwd,
   visible = true,
@@ -128,6 +132,7 @@ export function LinkedWorkItemPanel({
   repairSessions?: CiRepairProps["repairSessions"];
   onRepairChecks?: CiRepairProps["onRepairChecks"];
   onOpenSession?: (sessionId: string) => void | Promise<void>;
+  onSendToChat?: (text: string) => Promise<void>;
   target: LinkedWorkItem;
   cwd: string;
   visible?: boolean;
@@ -245,6 +250,7 @@ export function LinkedWorkItemPanel({
             repairSessions={repairSessions}
             onRepairChecks={onRepairChecks}
             onOpenSession={onOpenSession}
+            onSendToChat={onSendToChat}
             onItemChange={setItem}
           />
         ) : error ? (
@@ -282,6 +288,7 @@ export function InboxDetailBody({
   repairSessions,
   onRepairChecks,
   onOpenSession,
+  onSendToChat,
   onItemChange,
 }: {
   item: InboxItem | null;
@@ -293,6 +300,7 @@ export function InboxDetailBody({
   repairSessions?: CiRepairProps["repairSessions"];
   onRepairChecks?: CiRepairProps["onRepairChecks"];
   onOpenSession?: (sessionId: string) => void | Promise<void>;
+  onSendToChat?: (text: string) => Promise<void>;
   onItemChange?: (item: InboxItem) => void;
 }) {
   if (!item) {
@@ -315,6 +323,7 @@ export function InboxDetailBody({
       repairSessions={repairSessions}
       onRepairChecks={onRepairChecks}
       onOpenSession={onOpenSession}
+      onSendToChat={onSendToChat}
       onItemChange={onItemChange}
     />
   );
@@ -377,6 +386,7 @@ export function InboxDetail({
   repairSessions,
   onRepairChecks,
   onOpenSession,
+  onSendToChat,
   onItemChange,
 }: {
   item: InboxItem;
@@ -390,6 +400,7 @@ export function InboxDetail({
   repairSessions?: CiRepairProps["repairSessions"];
   onRepairChecks?: CiRepairProps["onRepairChecks"];
   onOpenSession?: (sessionId: string) => void | Promise<void>;
+  onSendToChat?: (text: string) => Promise<void>;
   onItemChange?: (item: InboxItem) => void;
 }) {
   const detailLock = useLockOverscroll<HTMLDivElement>();
@@ -422,6 +433,11 @@ export function InboxDetail({
   const [replyTo, setReplyTo] = useState<InboxReplyTarget | null>(null);
   const [posting, setPosting] = useState(false);
   const [postError, setPostError] = useState<string | null>(null);
+  const [sendingToAgent, setSendingToAgent] = useState(false);
+  const [agentNote, setAgentNote] = useState<{
+    text: string;
+    failed: boolean;
+  } | null>(null);
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
   const status = inboxItemStatus(item);
@@ -618,6 +634,59 @@ export function InboxDetail({
       throw err;
     } finally {
       setPosting(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!agentNote) return;
+    const timer = window.setTimeout(() => setAgentNote(null), 4000);
+    return () => window.clearTimeout(timer);
+  }, [agentNote]);
+
+  const resolveThread = async (threadId: string, resolved: boolean) => {
+    setPostError(null);
+    try {
+      await githubResolveReviewThread(item.projectPath, threadId, resolved);
+      setThread(
+        await githubWorkItemThread(
+          item.projectPath,
+          item.repo,
+          githubKind,
+          item.number,
+          {
+            force: true,
+          },
+        ),
+      );
+    } catch (err: unknown) {
+      setPostError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const sendToAgent = async (comment: InboxComment) => {
+    if (!onSendToChat) return;
+    setSendingToAgent(true);
+    setAgentNote(null);
+    try {
+      const text = buildReviewCommentPrompt({
+        repo: item.repo,
+        number: item.number,
+        path: comment.path,
+        line: comment.line,
+        comments: [comment, ...comment.replies].map((reply) => ({
+          author: reply.author || "ghost",
+          body: reply.body,
+        })),
+      });
+      await onSendToChat(text);
+      setAgentNote({ text: "Sent to the chat", failed: false });
+    } catch (err: unknown) {
+      setAgentNote({
+        text: err instanceof Error ? err.message : String(err),
+        failed: true,
+      });
+    } finally {
+      setSendingToAgent(false);
     }
   };
 
@@ -1025,7 +1094,21 @@ export function InboxDetail({
                   cwd={markdownCwd}
                   provider={item.provider}
                   onReply={setReplyTo}
+                  onResolve={isPr ? resolveThread : undefined}
+                  onSendToAgent={
+                    isPr && onSendToChat ? sendToAgent : undefined
+                  }
+                  sendingToAgent={sendingToAgent}
                 />
+                {agentNote ? (
+                  <p
+                    className={`text-[12px] ${
+                      agentNote.failed ? "text-red-400/90" : "text-content/50"
+                    }`}
+                  >
+                    {agentNote.text}
+                  </p>
+                ) : null}
                 <InboxCommentForm
                   replyTo={replyTo}
                   posting={posting}

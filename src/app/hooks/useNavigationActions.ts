@@ -93,6 +93,22 @@ export function useNavigationActions(deps: UseNavigationActionsDeps) {
     ],
   );
 
+  const sendToChat = useCallback(
+    async (sessionId: string, text: string) => {
+      const session = await ensureOpenSession(sessionId);
+      if (!session) throw new Error("This chat is no longer open.");
+      if (
+        session.busy ||
+        session.pendingSwitch ||
+        isPreparingHandoff(session)
+      ) {
+        throw new Error("This chat is busy. Wait for it to finish.");
+      }
+      onSubmit(sessionId, text, []);
+    },
+    [ensureOpenSession, onSubmit],
+  );
+
   const onRepairChecks = useCallback(
     (item: InboxItem, request: CiRepairRequest, sessionId?: string) =>
       startCiRepair(
@@ -117,6 +133,7 @@ export function useNavigationActions(deps: UseNavigationActionsDeps) {
 
   return {
     startCiRepair,
+    sendToChat,
     onRepairChecks,
     onOpenSettings,
     onManageWorktrees,

@@ -975,6 +975,7 @@ function Workspace({
 
   const {
     startCiRepair,
+    sendToChat,
     onRepairChecks,
     onOpenSettings,
     onManageWorktrees,
@@ -1430,6 +1431,7 @@ function Workspace({
                     closeLinkedWorkItemPanel(panel.sessionId);
                     onOpenLinkedSession(sessionId);
                   }}
+                  onSendToChat={(text) => sendToChat(panel.sessionId, text)}
                   key={panel.sessionId}
                   target={panel.item}
                   cwd={panel.cwd}

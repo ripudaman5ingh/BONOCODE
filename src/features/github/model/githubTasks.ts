@@ -331,6 +331,18 @@ export async function githubWorkItemComment(
   return url;
 }
 
+export function githubResolveReviewThread(
+  cwd: string,
+  threadId: string,
+  resolved: boolean,
+): Promise<void> {
+  return invoke<void>("git_github_review_thread_resolve", {
+    cwd,
+    threadId,
+    resolved,
+  });
+}
+
 /** Run a state-changing pull request action and return GitHub's fresh PR state. */
 export async function githubPrAction(
   cwd: string,
