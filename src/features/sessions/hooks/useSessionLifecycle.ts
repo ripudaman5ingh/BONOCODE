@@ -194,26 +194,38 @@ export function useSessionLifecycle(deps: UseSessionLifecycleDeps) {
         !(keepUnseen && unseenFinishedRef.current.has(session.id)),
     );
     if (idleDetached.length === 0) return;
+    const saves: Promise<readonly [string, boolean]>[] = [];
     for (const session of idleDetached) {
       if (skipForgetSessionIds.current.has(session.id)) continue;
       if (shouldPersistSession(session)) {
         rememberLoadedSession(loadedSessionCache.current, session);
       }
-      persistSession(session);
+      saves.push(
+        persistSession(session).then((ok) => [session.id, ok] as const),
+      );
       for (const harness of sessionChildHarnesses(session)) {
         void forgetHarnessSession(harness, session.id);
       }
     }
-    setSessions((prev) =>
-      prev.filter(
-        (session) =>
-          visibleIds.has(session.id) ||
-          session.busy ||
-          openingSessionIds.current.has(session.id) ||
-          (keepUnseen && unseenFinishedRef.current.has(session.id)) ||
-          skipForgetSessionIds.current.has(session.id),
-      ),
-    );
+    void Promise.all(saves).then((results) => {
+      const unsaved = new Set(
+        results.filter(([, ok]) => !ok).map(([id]) => id),
+      );
+      // A failed write must not drop the only full copy of the session.
+      // Recomputed after the await: the user may have reopened a tab meanwhile.
+      const visibleNow = openSessionIds(tabsRef.current);
+      setSessions((prev) =>
+        prev.filter(
+          (session) =>
+            unsaved.has(session.id) ||
+            visibleNow.has(session.id) ||
+            session.busy ||
+            openingSessionIds.current.has(session.id) ||
+            (keepUnseen && unseenFinishedRef.current.has(session.id)) ||
+            skipForgetSessionIds.current.has(session.id),
+        ),
+      );
+    });
   }, [persistSession]);
 
   useEffect(() => {

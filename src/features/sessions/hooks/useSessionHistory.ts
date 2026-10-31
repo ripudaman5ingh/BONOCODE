@@ -26,6 +26,7 @@ import {
 } from "../data/sessionHistory";
 import { normalizeProjectPath } from "../../projects/model/recents";
 import { rememberLoadedSession } from "../data/sessionCache";
+import { createPersistThrottle } from "../model/persistThrottle";
 import {
   useCallback,
   useEffect,
@@ -162,28 +163,67 @@ export function useSessionHistory(deps: SessionHistoryDeps) {
     void refreshHistory(sidebarCwd);
   }, [sidebarCwd, refreshHistory]);
 
-  const persistSession = useCallback((session: Session | undefined) => {
-    if (
-      !session ||
-      !shouldPersistSession(session) ||
-      removingSessionIds.current.has(session.id) ||
-      switchingWorktrees.current.has(session.id)
-    )
-      return;
-    const fingerprint = persistFingerprint(session);
-    // Leaving a session flushes it. An unchanged one would still rewrite and
-    // re-diff its whole transcript under the store lock, stalling the next load.
-    if (lastPersisted.current.get(session.id) === fingerprint) return;
-    void upsertSession(session)
-      .then((summary) => {
+  /** Resolves `false` only when the write failed, so the caller keeps the session. */
+  const persistSession = useCallback(
+    (session: Session | undefined): Promise<boolean> => {
+      if (
+        !session ||
+        !shouldPersistSession(session) ||
+        removingSessionIds.current.has(session.id) ||
+        switchingWorktrees.current.has(session.id)
+      )
+        return Promise.resolve(true);
+      const fingerprint = persistFingerprint(session);
+      // Leaving a session flushes it. An unchanged one would still rewrite and
+      // re-diff its whole transcript under the store lock, stalling the next load.
+      if (lastPersisted.current.get(session.id) === fingerprint)
+        return Promise.resolve(true);
+      return upsertSession(session)
+        .then((summary) => {
+          if (!summary) return false;
+          lastPersisted.current.set(session.id, fingerprint);
+          if (summary.cwd === sidebarCwdRef.current) {
+            setHistory((current) =>
+              mergeProjectHistorySummary(current, summary),
+            );
+          }
+          return true;
+        })
+        .catch(() => false);
+    },
+    [],
+  );
+
+  const flushPendingPersist = () => {
+    const dirty = [...pendingPersist.current.values()];
+    pendingPersist.current.clear();
+    void Promise.all(
+      dirty.map(async (session) => {
+        if (
+          removingSessionIds.current.has(session.id) ||
+          switchingWorktrees.current.has(session.id)
+        )
+          return;
+        const fingerprint = persistFingerprint(session);
+        if (lastPersisted.current.get(session.id) === fingerprint) return;
+        const summary = await upsertSession(session).catch(() => null);
         if (!summary) return;
         lastPersisted.current.set(session.id, fingerprint);
         if (summary.cwd === sidebarCwdRef.current) {
           setHistory((current) => mergeProjectHistorySummary(current, summary));
         }
-      })
-      .catch(() => undefined);
-  }, []);
+      }),
+    );
+  };
+  // The throttle outlives renders, so it calls the latest flush through a ref.
+  const flushPendingPersistRef = useRef(flushPendingPersist);
+  flushPendingPersistRef.current = flushPendingPersist;
+  const persistThrottle = useRef<ReturnType<typeof createPersistThrottle> | null>(
+    null,
+  );
+  persistThrottle.current ??= createPersistThrottle(650, () =>
+    flushPendingPersistRef.current(),
+  );
 
   useEffect(() => {
     const liveIds = new Set(sessions.map((session) => session.id));
@@ -230,32 +270,12 @@ export function useSessionHistory(deps: SessionHistoryDeps) {
       pendingPersist.current.delete(sessionId);
     }
     if (pendingPersist.current.size === 0) return;
-
-    const timer = window.setTimeout(() => {
-      const dirty = [...pendingPersist.current.values()];
-      pendingPersist.current.clear();
-      void Promise.all(
-        dirty.map(async (session) => {
-          if (
-            removingSessionIds.current.has(session.id) ||
-            switchingWorktrees.current.has(session.id)
-          )
-            return;
-          const fingerprint = persistFingerprint(session);
-          if (lastPersisted.current.get(session.id) === fingerprint) return;
-          const summary = await upsertSession(session).catch(() => null);
-          if (!summary) return;
-          lastPersisted.current.set(session.id, fingerprint);
-          if (summary.cwd === sidebarCwdRef.current) {
-            setHistory((current) =>
-              mergeProjectHistorySummary(current, summary),
-            );
-          }
-        }),
-      );
-    }, 650);
-    return () => window.clearTimeout(timer);
+    // Not cancelled on re-run: a throttle keeps the first deadline, so a stream
+    // that changes `sessions` every frame still gets saved.
+    persistThrottle.current?.schedule();
   }, [persistSession, sessions]);
+
+  useEffect(() => () => persistThrottle.current?.cancel(), []);
 
   useEffect(() => {
     const refs = inFlightRefs(sessions, tabs);
