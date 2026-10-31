@@ -180,7 +180,7 @@ export function useSessionHistory(deps: SessionHistoryDeps) {
         return Promise.resolve(true);
       return upsertSession(session)
         .then((summary) => {
-          if (!summary) return false;
+          if (!summary) return true;
           lastPersisted.current.set(session.id, fingerprint);
           if (summary.cwd === sidebarCwdRef.current) {
             setHistory((current) =>
