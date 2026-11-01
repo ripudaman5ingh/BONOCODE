@@ -26,7 +26,7 @@ import {
   workspaceSnapshotKey,
   type WorkspaceSnapshot,
 } from "./workspaceSnapshot";
-import { DEFAULT_CHANGES_DOCK } from "./dockLayout";
+import { DEFAULT_CHANGES_DOCK, INITIAL_CHANGES_DOCK } from "./dockLayout";
 
 function chat(id: string, cwd: string): Session {
   const session = newSession("cursor", cwd);
@@ -658,13 +658,15 @@ describe("hydrateWorkspaceSnapshot", () => {
 describe("changes dock snapshots", () => {
   const tabs = [{ ...newTab("s1"), id: "t1" }];
 
-  it("gives an old snapshot without changesDock the default", () => {
+  it("gives an old snapshot without changesDock a fresh window's open dock", () => {
     const old = collectWorkspaceSnapshot(tabs, [], "t1", "/tmp/a", new Map());
     expect(old).not.toHaveProperty("changesDock");
     const parsed = parseWorkspaceSnapshot(JSON.parse(JSON.stringify(old)));
     expect(parsed?.changesDock).toBeUndefined();
     const workspace = hydrateWorkspaceSnapshot(old, new Map());
-    expect(workspace?.changesDock).toEqual(DEFAULT_CHANGES_DOCK);
+    expect(workspace?.changesDock).toEqual(INITIAL_CHANGES_DOCK);
+    expect(INITIAL_CHANGES_DOCK).toEqual({ side: "right", size: 520, open: true });
+    // Bad saved values still fall back to a closed dock.
     expect(DEFAULT_CHANGES_DOCK).toEqual({ side: "right", size: 360, open: false });
   });
 

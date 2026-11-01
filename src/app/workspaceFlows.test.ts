@@ -7,6 +7,11 @@ import { type ResumedWorkspace } from "../features/sessions/model/inFlight";
 import { newSession } from "../features/sessions/model/session";
 import { newTab, leafIds, type WorkspaceTab } from "../features/workspace/model/layout";
 import { type WorkspaceSnapshot } from "../features/workspace/model/workspaceSnapshot";
+import { LAYOUT_PRESETS_KEY } from "../features/workspace/model/layoutPresets";
+import {
+  loadProjectRailOpen,
+  loadSessionSidebarOpen,
+} from "../features/settings/model/appearance";
 
 type ListenEvent = { event: string; id: number; payload: unknown };
 type ListenHandler = (event: ListenEvent) => void;
@@ -117,6 +122,9 @@ function buildFixture(): Fixture {
       tabs,
       activeTabId: tabC.id,
       projectCwd: ALPHA,
+      // Explicitly closed, so these flows start from the dock layout they were
+      // written for rather than a fresh window's open changes dock.
+      changesDock: { side: "right", size: 360, open: false },
     },
     A: tabA.id,
     B: tabB.id,
@@ -450,5 +458,82 @@ describe("workspace flows through the App's menu events", () => {
     expect(beta.changesDock).toEqual({ side: "right", size: 360, open: true });
     expect(beta.projectTerminals.map((dock) => dock.projectPath)).toEqual([ALPHA]);
     expect(beta.projectTerminals[0]?.open).toBe(true);
+  });
+
+  it("boot without a resumed workspace saves the changes dock open on the right", async () => {
+    await act(async () => root.unmount());
+    tauri.invoke.mockClear();
+    root = createRoot(container);
+    await act(async () => {
+      root.render(createElement(App, {}));
+    });
+    expect((await lastSnapshot()).changesDock).toEqual({
+      side: "right",
+      size: 520,
+      open: true,
+    });
+  });
+
+  // Docks clamp to 70% of the window, which happy-dom makes 1024 px wide.
+  const reviewSize = () => Math.min(760, Math.floor(window.innerWidth * 0.7));
+  const DEFAULT_DOCK = { side: "right", size: 520, open: true };
+
+  it("reset_layout after toggling docks and sidebars restores the Default layout", async () => {
+    await fire("toggle_terminal");
+    await fire("toggle_changes");
+    await fire("toggle_sidebar");
+    const toggled = await lastSnapshot();
+    expect(toggled.changesDock?.open).toBe(true);
+    expect(loadProjectRailOpen()).toBe(false);
+
+    await fire("reset_layout");
+    const snap = await lastSnapshot();
+    expect(snap.changesDock).toEqual(DEFAULT_DOCK);
+    const terminal = snap.projectTerminals.find((dock) => dock.projectPath === ALPHA);
+    expect(terminal).toMatchObject({ side: "bottom", size: 220, open: false });
+    expect(loadProjectRailOpen()).toBe(true);
+    expect(loadSessionSidebarOpen()).toBe(true);
+  });
+
+  it("next_layout cycles Default → Focus → Review → Default", async () => {
+    const docks: unknown[] = [];
+    const rails: boolean[] = [];
+    for (let step = 0; step < 4; step++) {
+      await fire("next_layout");
+      docks.push((await lastSnapshot()).changesDock);
+      rails.push(loadProjectRailOpen() && loadSessionSidebarOpen());
+    }
+    expect(docks).toEqual([
+      DEFAULT_DOCK,
+      { side: "right", size: 520, open: false },
+      { side: "right", size: reviewSize(), open: true },
+      DEFAULT_DOCK,
+    ]);
+    expect(rails).toEqual([true, false, true, true]);
+  });
+
+  it("a saved user preset joins the next_layout cycle after Review", async () => {
+    localStorage.setItem(
+      LAYOUT_PRESETS_KEY,
+      JSON.stringify([
+        {
+          name: "Mine",
+          projectRailOpen: true,
+          sessionSidebarOpen: false,
+          changesDock: { side: "left", size: 300, open: true },
+          terminalDock: { side: "bottom", size: 220, open: false },
+        },
+      ]),
+    );
+    for (let step = 0; step < 4; step++) await fire("next_layout");
+    expect((await lastSnapshot()).changesDock).toEqual({
+      side: "left",
+      size: 300,
+      open: true,
+    });
+    expect(loadSessionSidebarOpen()).toBe(false);
+
+    await fire("next_layout");
+    expect((await lastSnapshot()).changesDock).toEqual(DEFAULT_DOCK);
   });
 });

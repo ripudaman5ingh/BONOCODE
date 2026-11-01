@@ -5,9 +5,11 @@ const statFiles = vi.hoisted(() => vi.fn());
 vi.mock("../../../platform/tauri/fs", () => ({ statFiles }));
 
 import {
+  announceFileSaved,
   invalidateWatchedFiles,
   nudgeWatchedFiles,
   watchFile,
+  watchFileSaves,
 } from "./fileWatch";
 
 describe("file watch", () => {
@@ -62,5 +64,27 @@ describe("file watch", () => {
 
     await vi.waitFor(() => expect(statFiles).toHaveBeenCalledTimes(2));
     expect(changed).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("file saves", () => {
+  it("tells every other editor of the path, but not the saver", () => {
+    const saver = vi.fn();
+    const peer = vi.fn();
+    const elsewhere = vi.fn();
+    const stops = [
+      watchFileSaves("/repo/a.ts", saver),
+      watchFileSaves("/repo/a.ts", peer),
+      watchFileSaves("/repo/b.ts", elsewhere),
+    ];
+    announceFileSaved("/repo/a.ts", saver);
+    expect(saver).not.toHaveBeenCalled();
+    expect(peer).toHaveBeenCalledOnce();
+    expect(elsewhere).not.toHaveBeenCalled();
+
+    stops[1]!();
+    announceFileSaved("/repo/a.ts", saver);
+    expect(peer).toHaveBeenCalledOnce();
+    for (const stop of stops) stop();
   });
 });

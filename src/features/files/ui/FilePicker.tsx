@@ -31,6 +31,7 @@ type Action = {
   label: string;
   hint?: string;
 };
+export type { Action as PaletteAction };
 
 type RankedAction = Action & FuzzyHit;
 export function reloadActionHint(mod = MOD, shift = SHIFT) {
@@ -40,6 +41,7 @@ export function reloadActionHint(mod = MOD, shift = SHIFT) {
 const ACTIONS: Action[] = [
   { id: "reload", label: "Reload Bonocode", hint: reloadActionHint() },
 ];
+const NO_ACTIONS: readonly Action[] = [];
 
 type Props = {
   open: boolean;
@@ -47,6 +49,8 @@ type Props = {
   openPaths?: string[];
   initialQuery?: string;
   onOpenFile: OpenFileFn;
+  /** Palette actions after the built-in ones, run through `onRunAction`. */
+  extraActions?: readonly Action[];
   onRunAction: (id: string) => void;
   onClose: () => void;
 };
@@ -57,6 +61,7 @@ export function FilePicker({
   openPaths = [],
   initialQuery = "",
   onOpenFile,
+  extraActions = NO_ACTIONS,
   onRunAction,
   onClose,
 }: Props) {
@@ -89,18 +94,19 @@ export function FilePicker({
   );
   const actionResults = useMemo((): RankedAction[] => {
     if (!paletteMode) return [];
+    const actions = [...ACTIONS, ...extraActions];
     if (!actionQuery) {
-      return ACTIONS.map((action) => ({
+      return actions.map((action) => ({
         ...action,
         score: 0,
         positions: [],
       }));
     }
-    return ACTIONS.flatMap((action) => {
+    return actions.flatMap((action) => {
       const hit = fuzzyMatch(actionQuery, action.label);
       return hit ? [{ ...action, ...hit }] : [];
     }).sort((a, b) => b.score - a.score);
-  }, [actionQuery, paletteMode]);
+  }, [actionQuery, extraActions, paletteMode]);
   const optionCount = paletteMode ? actionResults.length : results.length;
 
   useEffect(() => {

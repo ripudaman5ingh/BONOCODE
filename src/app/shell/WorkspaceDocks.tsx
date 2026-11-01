@@ -20,6 +20,7 @@ type Props = {
   changes: ReturnType<typeof useChangesDock>;
   onAddTerminal: () => void;
   onTerminalMetaChange: (fileId: string, patch: TerminalMetaPatch) => void;
+  onOpenFile: (path: string) => void;
   /** The main area: the workspace tabs. */
   children: ReactNode;
 };
@@ -32,6 +33,7 @@ export function WorkspaceDocks({
   changes,
   onAddTerminal,
   onTerminalMetaChange,
+  onOpenFile,
   children,
 }: Props) {
   const { projectTerminals, projectTerminalFocused, currentProjectDock } =
@@ -118,6 +120,8 @@ export function WorkspaceDocks({
             onSideChange={changes.onChangesDockSide}
             onSizePaint={paint("changes")}
             onSizeCommit={commit(changes.onChangesDockSize)}
+            onOpenFile={onOpenFile}
+            onDirtyChange={changes.onChangesDirty}
           />
         </div>
       ) : null}

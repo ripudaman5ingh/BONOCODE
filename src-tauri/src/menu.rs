@@ -153,10 +153,12 @@ pub fn dispatch(app: &AppHandle, id: &str) {
         | "check_for_updates" => {
             let _ = app.emit(id, ());
         }
-        // Sidebar, Zoom, Reload, Command Palette, and Close All Tabs target one window: a broadcast would
-        // make every window act on a single menu click.
+        // Sidebar, Layout, Zoom, Reload, Command Palette, and Close All Tabs target one window: a
+        // broadcast would make every window act on a single menu click.
         "toggle_sidebar"
         | "toggle_session_sidebar"
+        | "reset_layout"
+        | "next_layout"
         | "zoom_in"
         | "zoom_out"
         | "zoom_reset"
@@ -282,6 +284,17 @@ fn build(
         "Toggle Changes",
         "CmdOrCtrl+Alt+B",
         "Changes: Toggle Dock",
+        overrides,
+    )?;
+    // No default shortcut, so no accelerator: menu_item would hand an empty
+    // string to the accelerator parser. A rebind still works in the webview.
+    let reset_layout = MenuItemBuilder::with_id("reset_layout", "Reset Layout").build(app)?;
+    let next_layout = menu_item(
+        app,
+        "next_layout",
+        "Next Layout",
+        "CmdOrCtrl+Alt+L",
+        "Layout: Next",
         overrides,
     )?;
     let split_right = menu_item(
@@ -486,6 +499,8 @@ fn build(
         .item(&toggle_session_sidebar)
         .item(&toggle_terminal)
         .item(&toggle_changes)
+        .item(&reset_layout)
+        .item(&next_layout)
         .item(&open_model_picker)
         .separator()
         .item(&focus_left)

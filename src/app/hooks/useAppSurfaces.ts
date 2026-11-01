@@ -227,6 +227,8 @@ export function useAppSurfaces(deps: UseAppSurfacesDeps) {
   return {
     projectRailOpen,
     sessionSidebarOpen,
+    setProjectRailOpen,
+    setSessionSidebarOpen,
     filesSearchOpen,
     setFilesSearchOpen,
     searchFocusToken,

@@ -146,3 +146,30 @@ if (typeof document !== "undefined") {
     if (!document.hidden) nudgeWatchedFiles();
   });
 }
+
+const saveListeners = new Map<string, Set<Listener>>();
+
+/**
+ * Hears saves of `path` by other editors in this window. A saver hides its
+ * own write from `watchFile` with `syncWatchedMtime`, which hides it from
+ * every other editor of that file too, such as a tab and the changes dock.
+ */
+export function watchFileSaves(path: string, onSaved: Listener): () => void {
+  let set = saveListeners.get(path);
+  if (!set) {
+    set = new Set();
+    saveListeners.set(path, set);
+  }
+  set.add(onSaved);
+  return () => {
+    set.delete(onSaved);
+    if (set.size === 0) saveListeners.delete(path);
+  };
+}
+
+/** Tells the other editors of `path` that `source` saved it. */
+export function announceFileSaved(path: string, source: Listener): void {
+  for (const listener of [...(saveListeners.get(path) ?? [])]) {
+    if (listener !== source) listener();
+  }
+}

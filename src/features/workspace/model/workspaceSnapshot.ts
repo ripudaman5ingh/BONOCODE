@@ -22,7 +22,11 @@ import {
   type ProjectTerminalDock,
 } from "../../projects/model/projectTerminal";
 import { normalizeProjectPath } from "../../projects/model/recents";
-import { DEFAULT_CHANGES_DOCK, type DockPlacement } from "./dockLayout";
+import {
+  DEFAULT_CHANGES_DOCK,
+  initialChangesDock,
+  type DockPlacement,
+} from "./dockLayout";
 import { pathKey } from "../../../shared/lib/paths";
 import {
   reconcileProjectReturn,
@@ -281,8 +285,8 @@ export function hydrateWorkspaceSnapshot(
       activeTabId,
     }),
     lastDockSide: parsed.lastDockSide,
-    // Snapshots from before the changes dock existed open with it closed.
-    changesDock: parsed.changesDock ?? DEFAULT_CHANGES_DOCK,
+    // Snapshots from before the changes dock existed get a fresh window's dock.
+    changesDock: parsed.changesDock ?? initialChangesDock(),
   };
 }
 

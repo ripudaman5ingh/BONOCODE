@@ -81,6 +81,17 @@ export function zoomOutUiScale(current: number = loadUiScale()) {
   return normalizeUiScale(current - UI_SCALE_STEP);
 }
 
+/** Saves and applies one zoom command, as the menus and zoom keys do. */
+export function stepUiScale(command: "zoom-in" | "zoom-out" | "zoom-reset") {
+  const next =
+    command === "zoom-in"
+      ? zoomInUiScale()
+      : command === "zoom-out"
+        ? zoomOutUiScale()
+        : UI_SCALE_DEFAULT;
+  void applyUiScale(saveUiScale(next));
+}
+
 /**
  * Ctrl/Cmd + +, -, 0 — the browser-standard zoom keys. `+` arrives as `=`
  * (unshifted) or `+` (shifted) depending on layout; `-` arrives as `-`

@@ -930,6 +930,8 @@ export const KEYBINDINGS: KeybindingRow[] = [
   { command: "Terminal: New Tab", keys: `${MOD}${SHIFT}\``, when: "Always" },
   { command: "Terminal: Toggle Dock", keys: `${MOD}J`, when: "Always" },
   { command: "Changes: Toggle Dock", keys: `${MOD}${ALT}B`, when: "Always" },
+  { command: "Layout: Reset", keys: "", when: "Always" },
+  { command: "Layout: Next", keys: `${MOD}${ALT}L`, when: "Always" },
   { command: "Editor: Find", keys: `${MOD}F`, when: "editorFocus" },
   { command: "Editor: Replace", keys: `${MOD}${ALT}F`, when: "editorFocus" },
 ];
