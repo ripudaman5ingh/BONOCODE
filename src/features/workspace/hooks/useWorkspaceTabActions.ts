@@ -13,11 +13,10 @@ import { isEqualOrInside, projectName, rebasePath } from "../../../shared/lib/pa
 import { looksLikeProject, normalizeProjectPath, rememberProject, sameProjectPath } from "../../projects/model/recents";
 import { applyDetachPaneToTab, filterTabsForProject, planWorkspaceTabClose, workspaceTabCwd, focusedWorkspaceTabCwd } from "../model/workspaceTabGroups";
 import { newDefaultSession, newSession, sessionWorkCwd, type Session } from "../../sessions/model/session";
-import { saveWorkspaceSnapshot } from "../../sessions/data/sessionStore";
 import { canTabVisitBack, canTabVisitForward, pruneTabVisitHistory, recordTabVisit, tabVisitBack, tabVisitForward, type TabVisitHistory } from "../model/tabVisitHistory";
 import { loadFileTabMode } from "../../settings/model/settings";
-import { isBlankSession, reconcileProjectReturn, type ProjectReturnMemory } from "../../projects/model/projectReturn";
-import { collectWorkspaceSnapshot, workspaceSnapshotKey } from "../model/workspaceSnapshot";
+import { isBlankSession, type ProjectReturnMemory } from "../../projects/model/projectReturn";
+import { useWorkspaceSnapshotSync } from "./useWorkspaceSnapshotSync";
 import { type useProjectState } from "../../projects/hooks/useProjectState";
 import { type useSessionHistory } from "../../sessions/hooks/useSessionHistory";
 import { type useOpenFiles } from "../../files/hooks/useOpenFiles";
@@ -163,38 +162,17 @@ export function useWorkspaceTabActions(deps: UseWorkspaceTabActionsDeps) {
     });
   }, []);
 
-  useEffect(() => {
-    if (windowTransfer) return;
-    const snapshot = collectWorkspaceSnapshot(
-      tabs,
-      sessions,
-      activeTabId,
-      projectCwd,
-      reconcileProjectReturn({
-        memory: projectReturnRef.current,
-        tabs,
-        sessions,
-        activeTabId,
-      }),
-      projectTerminals,
-      lastDockSide ?? undefined,
-    );
-    const key = workspaceSnapshotKey(snapshot);
-    if (workspaceSyncKey.current === key) return;
-    workspaceSyncKey.current = key;
-    const timer = window.setTimeout(() => {
-      void saveWorkspaceSnapshot(snapshot).catch(() => undefined);
-    }, 250);
-    return () => window.clearTimeout(timer);
-  }, [
+  useWorkspaceSnapshotSync({
     tabs,
     sessions,
     activeTabId,
     projectCwd,
+    projectReturnRef,
     projectTerminals,
     lastDockSide,
     windowTransfer,
-  ]);
+    workspaceSyncKey,
+  });
 
   useEffect(() => {
     setTabs((prev) => {
