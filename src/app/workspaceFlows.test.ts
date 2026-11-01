@@ -373,6 +373,32 @@ describe("workspace flows through the App's menu events", () => {
     expect(snap.activeTabId).toBe(fx.C);
   });
 
+  it("open_project to beta then next_tab in one act: next_tab cycles within beta's tabs", async () => {
+    // Give beta a second tab, then leave for alpha so the next open of beta
+    // restores that new tab.
+    tauri.open.mockResolvedValue([BETA]);
+    await fire("open_project");
+    await fire("new_tab");
+    const betaTab = (await lastSnapshot()).activeTabId;
+    expect(betaTab).not.toBe(fx.D);
+    tauri.open.mockResolvedValue([ALPHA]);
+    await fire("open_project");
+    expect((await lastSnapshot()).activeTabId).toBe(fx.C);
+
+    tauri.open.mockResolvedValue([BETA]);
+    await act(async () => {
+      fireNow("open_project");
+      // The folder picker resolves asynchronously, and React 19 flushes the
+      // store's sync updates on a microtask even inside act, so one render
+      // lands before next_tab. This pins the end state of the sequence.
+      await sleep(0);
+      fireNow("next_tab");
+    });
+    const snap = await lastSnapshot();
+    expect(snap.projectCwd).toBe(BETA);
+    expect(snap.activeTabId).toBe(fx.D);
+  });
+
   it("a new tab is saved even when a later render lands inside the 250 ms window", async () => {
     await fire("new_tab");
     await act(async () => {

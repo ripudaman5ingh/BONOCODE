@@ -35,6 +35,7 @@ import {
   type RefObject,
 } from "react";
 import type { LiveSessionStore } from "../model/liveSessions";
+import { useWorkspaceStore, type WorkspaceStore } from "../../workspace/model/workspaceStore";
 
 export type SessionHistoryDeps = {
   windowTransfer: WindowTransferPayload | null;
@@ -44,8 +45,7 @@ export type SessionHistoryDeps = {
   sessions: Session[];
   sessionsRef: LiveSessionStore["ref"];
   setSessions: LiveSessionStore["set"];
-  tabs: WorkspaceTab[];
-  tabsRef: RefObject<WorkspaceTab[]>;
+  workspace: WorkspaceStore;
   sidebarCwd: string;
   sidebarCwdRef: RefObject<string>;
   removingSessionIds: RefObject<Set<string>>;
@@ -76,13 +76,14 @@ export function useSessionHistory(deps: SessionHistoryDeps) {
     sessions,
     sessionsRef,
     setSessions,
-    tabs,
-    tabsRef,
+    workspace,
     sidebarCwd,
     sidebarCwdRef,
     removingSessionIds,
     switchingWorktrees,
   } = deps;
+  const { tabsRef } = workspace;
+  const tabs = useWorkspaceStore(workspace, (state) => state.tabs);
 
   const [history, setHistory] = useState<SessionSummary[]>(() => bootHistory);
   /**

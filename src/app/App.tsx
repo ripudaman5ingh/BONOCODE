@@ -70,8 +70,12 @@ import { pathKey } from "../shared/lib/paths";
 import {
   lastProjectPath,
   isLocalProject,
+  loadRecents,
+  looksLikeProject,
+  rememberProject,
   sameProjectPath,
 } from "../features/projects/model/recents";
+import { createWorkspaceStore } from "../features/workspace/model/workspaceStore";
 import {
   newDefaultSession,
   type Session,
@@ -166,23 +170,39 @@ function Workspace({
   history: bootHistory = [],
   historyCwd: bootHistoryCwd = null,
 }: AppProps) {
-  const {
-    projectCwd,
-    setProjectCwd,
-    recents,
-    setRecents,
-    projectCwdRef,
-    projectReturnRef,
-  } = useProjectState({
-    windowTransfer,
-    resumed,
-  });
-
-  const [seed] = useState(() => {
-    const cwd = lastProjectPath() ?? "~";
-    const session = newDefaultSession(cwd);
+  // One initializer, in the order the old per-hook ones ran: remembering the
+  // resumed project can change what `lastProjectPath` returns for the seed.
+  const [{ seed, workspace }] = useState(() => {
+    const projectCwd =
+      windowTransfer?.projectCwd ??
+      resumed?.projectCwd ??
+      lastProjectPath() ??
+      "~";
+    const recents =
+      resumed?.projectCwd && looksLikeProject(resumed.projectCwd)
+        ? rememberProject(resumed.projectCwd)
+        : loadRecents();
+    const session = newDefaultSession(lastProjectPath() ?? "~");
     const tab = newTab(session.id);
-    return { session, tab };
+    return {
+      seed: { session, tab },
+      workspace: createWorkspaceStore({
+        tabs: windowTransfer?.tabs ?? resumed?.tabs ?? [tab],
+        activeTabId:
+          windowTransfer?.activeTabId ?? resumed?.activeTabId ?? tab.id,
+        projectCwd,
+        recents,
+        projectTerminals:
+          windowTransfer?.projectTerminals ?? resumed?.projectTerminals ?? [],
+        lastDockSide: resumed?.lastDockSide ?? null,
+        projectTerminalFocused: false,
+        dirtyFiles: new Set(windowTransfer?.dirtyFileIds ?? []),
+      }),
+    };
+  });
+  const { projectCwd, recents, projectReturnRef } = useProjectState({
+    workspace,
+    resumed,
   });
   const [liveSessions] = useState(() =>
     createLiveSessionStore(
@@ -215,28 +235,24 @@ function Workspace({
     removingWorktreePaths,
   } = useWorktreeState();
   const {
-    workspace,
     tabs,
-    setTabs,
     activeTabId,
-    setActiveTabId,
     composerFocused,
     setComposerFocused,
     composerFocusToken,
     setComposerFocusToken,
     tabProjectsRef,
-    tabsRef,
-    activeTabIdRef,
     tabVisitRef,
     tabVisitFromHistoryRef,
     tabVisitNav,
     setTabVisitNav,
     workspaceSyncKey,
   } = useWorkspaceTabState({
+    workspace,
     windowTransfer,
     resumed,
-    seed,
   });
+  const { tabsRef, activeTabIdRef, projectTerminalFocusedRef } = workspace;
 
   const {
     activeTab,
@@ -248,10 +264,8 @@ function Workspace({
     activeSkillContext,
     activeSkillCwd,
   } = useWorkspaceFocus({
+    workspace,
     sessions,
-    tabs,
-    activeTabId,
-    projectCwd,
   });
 
   const onOpenTerminalRef = useRef<(cwd: string) => void>(() => undefined);
@@ -264,14 +278,8 @@ function Workspace({
 
   const {
     projectTerminals,
-    setProjectTerminals,
-    lastDockSide,
-    lastDockSideRef,
     projectTerminalFocused,
-    setProjectTerminalFocused,
     currentProjectDock,
-    projectTerminalsRef,
-    projectTerminalFocusedRef,
     focusProjectTerminal,
     openProjectTerminal,
     onShowProjectTerminal,
@@ -286,10 +294,7 @@ function Workspace({
     paintDockSize,
     commitDockSize,
   } = useTerminalDock({
-    windowTransfer,
-    resumed,
-    projectCwd,
-    projectCwdRef,
+    workspace,
     gitCwd,
     setComposerFocused,
     onOpenTerminal: bridgedOpenTerminal,
@@ -390,13 +395,11 @@ function Workspace({
     setEditorNavigation,
     editorNavigationToken,
     dirtyFiles,
-    setDirtyFiles,
     fileErrorCounts,
-    dirtyFilesRef,
     onFileDirtyChange,
     onFileErrorCountChange,
   } = useOpenFiles({
-    windowTransfer,
+    workspace,
     onPinFile: bridgedOnPinFile,
   });
 
@@ -427,8 +430,7 @@ function Workspace({
     sessions,
     sessionsRef,
     setSessions,
-    tabs,
-    tabsRef,
+    workspace,
     sidebarCwd,
     sidebarCwdRef,
     removingSessionIds,
@@ -455,7 +457,7 @@ function Workspace({
     dismissNoticesForContinuedSession,
     onOpenLinkedWorkItem,
   } = useLinkedWorkItemPanels({
-    tabs,
+    workspace,
     sessionsRef,
     setSessions,
     history,
@@ -500,32 +502,23 @@ function Workspace({
     tabProjectsRef,
     workspace,
     sessionsRef,
-    projectCwdRef,
-    setProjectCwd,
-    setRecents,
     setComposerFocused,
     tabVisitRef,
     setTabVisitNav,
     tabVisitFromHistoryRef,
     sessionDefaults,
-    projectCwd,
     setSessions,
     tabCloseScope,
-    dirtyFilesRef,
     persistSession,
-    setDirtyFiles,
     refreshHistory,
     sidebarCwd,
     sessions,
-    setProjectTerminalFocused,
     gitCwdRef,
     sidebarCwdRef,
     editorNavigationToken,
     setEditorNavigation,
     windowTransfer,
     projectReturnRef,
-    projectTerminals,
-    lastDockSide,
     workspaceSyncKey,
   });
   const turnGen = liveSessions.turnGen;
@@ -543,29 +536,20 @@ function Workspace({
     onNavigateProjectList,
   } = useProjectActions({
     projectReturnRef,
-    tabsRef,
+    workspace,
     sessionsRef,
-    activeTabIdRef,
-    activeTabId,
-    tabs,
     sessions,
-    recents,
-    setProjectCwd,
-    setRecents,
     setSessions,
     sidebarTabSelection,
     sidebarCwd,
     sidebarCwdRef,
     setSidebarTabSelection,
     appendTab,
-    setActiveTabId,
     setComposerFocused,
-    setTabs,
     projectOfTab,
     setSearchViewOpen,
     insertBeside,
     activateTab,
-    projectCwdRef,
     loadedSessionCache,
     sessionLoads,
     invalidateLoadedSession,
@@ -573,11 +557,8 @@ function Workspace({
     turnGen,
     lastPersisted,
     persistSession,
-    setDirtyFiles,
-    setProjectTerminals,
     setHistory,
     setLoadedProjects,
-    projectTerminalsRef,
     onFileMoved,
   });
   const {
@@ -597,7 +578,7 @@ function Workspace({
     sessionsRef,
     setSessions,
     appendTab,
-    setActiveTabId,
+    workspace,
     setComposerFocused,
   });
 
@@ -646,17 +627,11 @@ function Workspace({
     liveSessions,
     flushHarnessEvents,
     sessionsRef,
-    tabsRef,
-    activeTabIdRef,
-    projectCwdRef,
-    projectTerminalsRef,
-    lastDockSideRef,
-    projectTerminalFocusedRef,
+    workspace,
     activeSkillContext,
     activeSkillCwd,
     active,
     gitCwd,
-    activeTabId,
     searchViewOpen,
     settingsOpen,
     setComposerFocused,
@@ -695,8 +670,7 @@ function Workspace({
     sessionsRef,
     setSessions,
     activeSessionId,
-    activeTabId,
-    tabs,
+    workspace,
     composerFocused,
     liveAgentsEnabled,
     setLinkedWorkItemUpdateCard,
@@ -715,11 +689,10 @@ function Workspace({
     runningTerminals,
     runningTerminalOpen,
   } = useWorkspaceView({
+    workspace,
     sessions,
-    tabs,
     activeTab,
     active,
-    projectCwd,
     sidebarCwd,
     gitCwd,
     history,
@@ -727,11 +700,9 @@ function Workspace({
     loadedProjects,
     projectBranches,
     gitCwdBranches,
-    projectTerminals,
     currentProjectDock,
     linkedWorkItemPanels,
     deckProjectTabs,
-    dirtyFiles,
     unseenFinishedIds,
     tabProjectsRef,
   });
@@ -759,24 +730,15 @@ function Workspace({
     onCloseOtherTabs,
     onCloseTitleTab,
   } = useTerminalTabActions({
+    workspace,
     gitCwd,
-    projectCwd,
     sidebarCwd,
-    activeTab,
     tabCloseScope,
     appendTab,
     onClosePane,
     onCloseTab,
     onCloseTabs,
-    setActiveTabId,
     setComposerFocused,
-    setTabs,
-    tabsRef,
-    activeTabIdRef,
-    projectCwdRef,
-    projectTerminalsRef,
-    setProjectTerminals,
-    setProjectTerminalFocused,
     openProjectTerminal,
     focusProjectTerminal,
     sessionsRef,
@@ -803,10 +765,9 @@ function Workspace({
     onToggleChanges,
     onOpenWorkingTreeDiff,
   } = useWorktreeActions({
+    workspace,
     history,
     sessions,
-    tabsRef,
-    projectTerminalsRef,
     removingWorktreePaths,
     switchingWorktrees,
     sessionsRef,
@@ -815,20 +776,14 @@ function Workspace({
     invalidateLoadedSession,
     stopSessionForRemoval,
     setSessions,
-    projectCwdRef,
-    setProjectCwd,
-    setRecents,
     lastPersisted,
     setHistory,
     appendTab,
-    setActiveTabId,
     setComposerFocused,
     refreshHistory,
     persistSession,
     gitCwdRef,
     sidebarCwdRef,
-    setTabs,
-    activeTabId,
     setSidebarTab,
   });
   const {
@@ -850,35 +805,28 @@ function Workspace({
     onSaveDraft,
     onRemoveDraft,
   } = useSessionLifecycle({
+    workspace,
     detachTimer,
     sessions,
     sessionsRef,
     liveAgentsEnabled,
     detachInputs,
-    tabsRef,
     openingSessionIds,
     loadedSessionCache,
     unseenFinishedRef,
     skipForgetSessionIds,
     persistSession,
     setSessions,
-    tabs,
     setSearchViewOpen,
     active,
     sessionDefaults,
-    projectCwd,
     appendTab,
-    setActiveTabId,
     setComposerFocused,
     ensureOpenSession,
     linkedSessionUpdatesRef,
     revealLinkedSessionUpdate,
-    setTabs,
-    activeTabIdRef,
     lastPersisted,
     tabCloseScope,
-    projectCwdRef,
-    setProjectTerminalFocused,
     sessionNavigationIdsRef,
     onPrefetchHistorySession,
     invalidateLoadedSession,
@@ -890,13 +838,10 @@ function Workspace({
     history,
     setSessionDeleteDialog,
     pendingPersist,
-    dirtyFilesRef,
-    setDirtyFiles,
     activateTab,
     setHistory,
     stopSessionForRemoval,
     onRemoveWorktree,
-    projectTerminalFocusedRef,
     searchViewOpenRef,
     settingsOpenRef,
     filePickerOpenRef,
@@ -920,15 +865,12 @@ function Workspace({
     onOpenLinkedSession,
     onOpenArchivedSession,
   } = useSessionListActions({
-    activeTab,
+    workspace,
     history,
     sessionsRef,
-    tabsRef,
-    setTabs,
     setSettingsOpen,
     setSidebarTab,
     onFocusPane,
-    dirtyFilesRef,
     onArchiveHistorySession,
     onPinHistorySession,
     onRemoveHistorySession,

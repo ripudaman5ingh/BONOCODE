@@ -5,9 +5,9 @@ import { isBlankSession } from "../../projects/model/projectReturn";
 import { mapProjectTerminal, patchProjectTerminals, selectDockTerminal, withDockOpen } from "../../projects/model/projectTerminal";
 import { sessionWorkCwd } from "../../sessions/model/session";
 import type { LiveSessionStore } from "../../sessions/model/liveSessions";
-import { newTerminalFile, newTerminalWorkspaceTab, nextTerminalTitle, openTerminalTab, updateTerminalTab, withSurfacePanes, type WorkspaceTab } from "../../workspace/model/layout";
+import { newTerminalFile, newTerminalWorkspaceTab, nextTerminalTitle, openTerminalTab, updateTerminalTab, withSurfacePanes } from "../../workspace/model/layout";
 import { planWorkspaceTabClose } from "../../workspace/model/workspaceTabGroups";
-import type { useProjectState } from "../../projects/hooks/useProjectState";
+import { selectActiveTab, type WorkspaceStore } from "../../workspace/model/workspaceStore";
 import type { useSessionHistory } from "../../sessions/hooks/useSessionHistory";
 import type { useWorkspaceTabActions } from "../../workspace/hooks/useWorkspaceTabActions";
 import type { useWorkspaceTabState } from "../../workspace/hooks/useWorkspaceTabState";
@@ -15,24 +15,15 @@ import type { TerminalMetaPatch } from "../model/terminalTab";
 import type { useTerminalDock } from "./useTerminalDock";
 
 export type UseTerminalTabActionsDeps = {
+  workspace: WorkspaceStore;
   gitCwd: string;
-  projectCwd: string;
   sidebarCwd: string;
-  activeTab: WorkspaceTab | undefined;
   tabCloseScope: "project";
   appendTab: ReturnType<typeof useWorkspaceTabActions>["appendTab"];
   onClosePane: ReturnType<typeof useWorkspaceTabActions>["onClosePane"];
   onCloseTab: ReturnType<typeof useWorkspaceTabActions>["onCloseTab"];
   onCloseTabs: ReturnType<typeof useWorkspaceTabActions>["onCloseTabs"];
-  setActiveTabId: ReturnType<typeof useWorkspaceTabState>["setActiveTabId"];
   setComposerFocused: ReturnType<typeof useWorkspaceTabState>["setComposerFocused"];
-  setTabs: ReturnType<typeof useWorkspaceTabState>["setTabs"];
-  tabsRef: ReturnType<typeof useWorkspaceTabState>["tabsRef"];
-  activeTabIdRef: ReturnType<typeof useWorkspaceTabState>["activeTabIdRef"];
-  projectCwdRef: ReturnType<typeof useProjectState>["projectCwdRef"];
-  projectTerminalsRef: ReturnType<typeof useTerminalDock>["projectTerminalsRef"];
-  setProjectTerminals: ReturnType<typeof useTerminalDock>["setProjectTerminals"];
-  setProjectTerminalFocused: ReturnType<typeof useTerminalDock>["setProjectTerminalFocused"];
   openProjectTerminal: ReturnType<typeof useTerminalDock>["openProjectTerminal"];
   focusProjectTerminal: ReturnType<typeof useTerminalDock>["focusProjectTerminal"];
   sessionsRef: LiveSessionStore["ref"];
@@ -42,36 +33,29 @@ export type UseTerminalTabActionsDeps = {
 
 export function useTerminalTabActions(deps: UseTerminalTabActionsDeps) {
   const {
+    workspace,
     gitCwd,
-    projectCwd,
     sidebarCwd,
-    activeTab,
     tabCloseScope,
     appendTab,
     onClosePane,
     onCloseTab,
     onCloseTabs,
-    setActiveTabId,
     setComposerFocused,
-    setTabs,
-    tabsRef,
-    activeTabIdRef,
-    projectCwdRef,
-    projectTerminalsRef,
-    setProjectTerminals,
-    setProjectTerminalFocused,
     openProjectTerminal,
     focusProjectTerminal,
     sessionsRef,
     setSessions,
     lastPersisted,
   } = deps;
+  const { setActiveTabId, setTabs, tabsRef, activeTabIdRef, projectCwdRef, projectTerminalsRef, setProjectTerminals, setProjectTerminalFocused } = workspace;
 
   const onOpenTerminal = useCallback(
     (cwd: string, asWorkspaceTab = false, occupySessionId?: string) => {
       const workdir = cwd || gitCwd;
       if (!isLocalProject(projectCwdRef.current) || !isLocalProject(workdir)) return;
       if (openProjectTerminal(workdir)) return;
+      const activeTab = selectActiveTab(workspace.get());
 
       if (asWorkspaceTab || !activeTab) {
         const file = newTerminalFile(workdir, undefined, sidebarCwd);
@@ -109,7 +93,7 @@ export function useTerminalTabActions(deps: UseTerminalTabActionsDeps) {
       );
       setComposerFocused(false);
     },
-    [gitCwd, activeTab, appendTab, openProjectTerminal, sidebarCwd],
+    [gitCwd, appendTab, openProjectTerminal, sidebarCwd, workspace],
   );
 
   const onNewTerminal = useCallback(() => {
@@ -123,12 +107,12 @@ export function useTerminalTabActions(deps: UseTerminalTabActionsDeps) {
       );
       if (session?.worktreeRemoved) return;
       onOpenTerminal(
-        session ? sessionWorkCwd(session) : projectCwd,
+        session ? sessionWorkCwd(session) : projectCwdRef.current,
         false,
         sessionId,
       );
     },
-    [onOpenTerminal, projectCwd],
+    [onOpenTerminal],
   );
 
   const onTerminalMetaChange = useCallback(

@@ -8,7 +8,7 @@ import { liveAgentsFromSessions } from "../model/liveAgents";
 import { nextUnseenFinishedSessions } from "../model/sessionDone";
 import { sessionNeedsInput, type Session } from "../model/session";
 import { type LiveSessionStore } from "../model/liveSessions";
-import { type WorkspaceTab } from "../../workspace/model/layout";
+import { useWorkspaceStore, type WorkspaceStore } from "../../workspace/model/workspaceStore";
 
 function setsEqual<T>(a: Set<T>, b: Set<T>): boolean {
   if (a.size !== b.size) return false;
@@ -23,8 +23,7 @@ export type UseSessionIndicatorsDeps = {
   sessionsRef: LiveSessionStore["ref"];
   setSessions: LiveSessionStore["set"];
   activeSessionId: string | undefined;
-  activeTabId: string;
-  tabs: WorkspaceTab[];
+  workspace: WorkspaceStore;
   composerFocused: boolean;
   liveAgentsEnabled: boolean;
   setLinkedWorkItemUpdateCard: ReturnType<typeof useLinkedWorkItemPanels>["setLinkedWorkItemUpdateCard"];
@@ -36,12 +35,13 @@ export function useSessionIndicators(deps: UseSessionIndicatorsDeps) {
     sessionsRef,
     setSessions,
     activeSessionId,
-    activeTabId,
-    tabs,
+    workspace,
     composerFocused,
     liveAgentsEnabled,
     setLinkedWorkItemUpdateCard,
   } = deps;
+  const activeTabId = useWorkspaceStore(workspace, (state) => state.activeTabId);
+  const tabs = useWorkspaceStore(workspace, (state) => state.tabs);
 
   const nextBusySessionIds = useMemo(() => {
     const ids = new Set<string>();

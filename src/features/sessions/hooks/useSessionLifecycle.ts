@@ -3,7 +3,7 @@ import { message } from "@tauri-apps/plugin-dialog";
 import { useCallback, useEffect, type Dispatch, type SetStateAction, type RefObject } from "react";
 import { type SessionDeleteChoice } from "../ui/DeleteSessionDialog";
 import { listWorktrees, worktreeSessionIds } from "../../source-control/model/worktrees";
-import { isFilesystemTab, leafIds, newTab, replaceLeafId, splitPane, type PaneEdge, type WorkspaceTab } from "../../workspace/model/layout";
+import { isFilesystemTab, leafIds, newTab, replaceLeafId, splitPane, type PaneEdge } from "../../workspace/model/layout";
 import { confirmCloseTerminals } from "../../terminal/model/terminalClose";
 import { forgetHarnessSession } from "../../../integrations/harness";
 import { sessionChildHarnesses } from "../model/handoff";
@@ -24,8 +24,7 @@ import { isBlankSession } from "../../projects/model/projectReturn";
 import { confirmDiscardUnsaved, type useWorkspaceTabActions } from "../../workspace/hooks/useWorkspaceTabActions";
 import { filesInWorkspaceTabs, type useWorktreeActions } from "../../source-control/hooks/useWorktreeActions";
 import { type useSessionLifecycleState } from "./useSessionLifecycleState";
-import { type useOpenFiles } from "../../files/hooks/useOpenFiles";
-import { type useTerminalDock } from "../../terminal/hooks/useTerminalDock";
+import { useWorkspaceStore, type WorkspaceStore } from "../../workspace/model/workspaceStore";
 import { type useAppSurfaces } from "../../../app/hooks/useAppSurfaces";
 import { type useLinkedWorkItemPanels } from "../../github/hooks/useLinkedWorkItemPanels";
 import { type LiveSessionStore } from "../model/liveSessions";
@@ -34,35 +33,28 @@ import { type LiveSessionStore } from "../model/liveSessions";
 const SESSION_DETACH_DELAY_MS = 250;
 
 export type UseSessionLifecycleDeps = {
+  workspace: WorkspaceStore;
   detachTimer: ReturnType<typeof useSessionLifecycleState>["detachTimer"];
   sessions: Session[];
   sessionsRef: LiveSessionStore["ref"];
   liveAgentsEnabled: boolean;
   detachInputs: ReturnType<typeof useSessionLifecycleState>["detachInputs"];
-  tabsRef: RefObject<WorkspaceTab[]>;
   openingSessionIds: ReturnType<typeof useSessionHistory>["openingSessionIds"];
   loadedSessionCache: ReturnType<typeof useSessionHistory>["loadedSessionCache"];
   unseenFinishedRef: RefObject<Set<string>>;
   skipForgetSessionIds: ReturnType<typeof useSessionLifecycleState>["skipForgetSessionIds"];
   persistSession: ReturnType<typeof useSessionHistory>["persistSession"];
   setSessions: LiveSessionStore["set"];
-  tabs: WorkspaceTab[];
   setSearchViewOpen: ReturnType<typeof useAppSurfaces>["setSearchViewOpen"];
   active: Session | undefined;
   sessionDefaults: Session | undefined;
-  projectCwd: string;
   appendTab: ReturnType<typeof useWorkspaceTabActions>["appendTab"];
-  setActiveTabId: Dispatch<SetStateAction<string>>;
   setComposerFocused: Dispatch<SetStateAction<boolean>>;
   ensureOpenSession: ReturnType<typeof useSessionHistory>["ensureOpenSession"];
   linkedSessionUpdatesRef: ReturnType<typeof useLinkedWorkItemPanels>["linkedSessionUpdatesRef"];
   revealLinkedSessionUpdate: ReturnType<typeof useLinkedWorkItemPanels>["revealLinkedSessionUpdate"];
-  setTabs: Dispatch<SetStateAction<WorkspaceTab[]>>;
-  activeTabIdRef: RefObject<string>;
   lastPersisted: ReturnType<typeof useSessionHistory>["lastPersisted"];
   tabCloseScope: "project";
-  projectCwdRef: RefObject<string>;
-  setProjectTerminalFocused: ReturnType<typeof useTerminalDock>["setProjectTerminalFocused"];
   sessionNavigationIdsRef: ReturnType<typeof useSessionLifecycleState>["sessionNavigationIdsRef"];
   onPrefetchHistorySession: ReturnType<typeof useSessionHistory>["onPrefetchHistorySession"];
   invalidateLoadedSession: ReturnType<typeof useSessionHistory>["invalidateLoadedSession"];
@@ -74,13 +66,10 @@ export type UseSessionLifecycleDeps = {
   history: ReturnType<typeof useSessionHistory>["history"];
   setSessionDeleteDialog: ReturnType<typeof useSessionLifecycleState>["setSessionDeleteDialog"];
   pendingPersist: ReturnType<typeof useSessionHistory>["pendingPersist"];
-  dirtyFilesRef: ReturnType<typeof useOpenFiles>["dirtyFilesRef"];
-  setDirtyFiles: ReturnType<typeof useOpenFiles>["setDirtyFiles"];
   activateTab: ReturnType<typeof useWorkspaceTabActions>["activateTab"];
   setHistory: ReturnType<typeof useSessionHistory>["setHistory"];
   stopSessionForRemoval: (sessionId: string) => Promise<Session | undefined>;
   onRemoveWorktree: ReturnType<typeof useWorktreeActions>["onRemoveWorktree"];
-  projectTerminalFocusedRef: ReturnType<typeof useTerminalDock>["projectTerminalFocusedRef"];
   searchViewOpenRef: ReturnType<typeof useAppSurfaces>["searchViewOpenRef"];
   settingsOpenRef: ReturnType<typeof useAppSurfaces>["settingsOpenRef"];
   filePickerOpenRef: ReturnType<typeof useAppSurfaces>["filePickerOpenRef"];
@@ -91,35 +80,28 @@ export type UseSessionLifecycleDeps = {
 
 export function useSessionLifecycle(deps: UseSessionLifecycleDeps) {
   const {
+    workspace,
     detachTimer,
     sessions,
     sessionsRef,
     liveAgentsEnabled,
     detachInputs,
-    tabsRef,
     openingSessionIds,
     loadedSessionCache,
     unseenFinishedRef,
     skipForgetSessionIds,
     persistSession,
     setSessions,
-    tabs,
     setSearchViewOpen,
     active,
     sessionDefaults,
-    projectCwd,
     appendTab,
-    setActiveTabId,
     setComposerFocused,
     ensureOpenSession,
     linkedSessionUpdatesRef,
     revealLinkedSessionUpdate,
-    setTabs,
-    activeTabIdRef,
     lastPersisted,
     tabCloseScope,
-    projectCwdRef,
-    setProjectTerminalFocused,
     sessionNavigationIdsRef,
     onPrefetchHistorySession,
     invalidateLoadedSession,
@@ -131,13 +113,10 @@ export function useSessionLifecycle(deps: UseSessionLifecycleDeps) {
     history,
     setSessionDeleteDialog,
     pendingPersist,
-    dirtyFilesRef,
-    setDirtyFiles,
     activateTab,
     setHistory,
     stopSessionForRemoval,
     onRemoveWorktree,
-    projectTerminalFocusedRef,
     searchViewOpenRef,
     settingsOpenRef,
     filePickerOpenRef,
@@ -145,6 +124,8 @@ export function useSessionLifecycle(deps: UseSessionLifecycleDeps) {
     setLinkedWorkItemPanels,
     lastPersistedUserBlock,
   } = deps;
+  const { tabsRef, activeTabIdRef, setTabs, setActiveTabId, projectCwdRef, setProjectTerminalFocused, dirtyFilesRef, setDirtyFiles, projectTerminalFocusedRef } = workspace;
+  const tabs = useWorkspaceStore(workspace, (state) => state.tabs);
   useEffect(() => {
     const openSessionForAddToChat = (event: Event) => {
       const detail = (event as CustomEvent<AddToChatRequest>).detail;
@@ -163,7 +144,6 @@ export function useSessionLifecycle(deps: UseSessionLifecycleDeps) {
       if (!result) return;
 
       sessionsRef.current = result.sessions;
-      tabsRef.current = result.tabs;
       setSessions(result.sessions);
       setTabs(result.tabs);
       setActiveTabId(result.activeTabId);
@@ -245,7 +225,7 @@ export function useSessionLifecycle(deps: UseSessionLifecycleDeps) {
 
   const onNew = useCallback(() => {
     setSearchViewOpen(false);
-    const cwd = active?.cwd ?? sessionDefaults?.cwd ?? projectCwd;
+    const cwd = active?.cwd ?? sessionDefaults?.cwd ?? projectCwdRef.current;
     const session = newDefaultSession(cwd, sessionDefaults?.runtimeMode);
     const tab = newTab(session.id);
     setSessions((prev) => [...prev, session]);
@@ -258,7 +238,6 @@ export function useSessionLifecycle(deps: UseSessionLifecycleDeps) {
     appendTab,
     sessionDefaults?.cwd,
     sessionDefaults?.runtimeMode,
-    projectCwd,
   ]);
 
   const focusOpenSession = useCallback((sessionId: string) => {
@@ -397,7 +376,6 @@ export function useSessionLifecycle(deps: UseSessionLifecycleDeps) {
       if (!result) return;
 
       sessionsRef.current = result.sessions;
-      tabsRef.current = result.tabs;
       setSessions(result.sessions);
       setTabs(result.tabs);
       setActiveTabId(result.activeTabId);
@@ -432,7 +410,6 @@ export function useSessionLifecycle(deps: UseSessionLifecycleDeps) {
         void forgetHarnessSession(blankTarget.harness, blankTarget.id);
       }
       sessionsRef.current = result.sessions;
-      tabsRef.current = result.tabs;
       setSessions(result.sessions);
       setTabs(result.tabs);
       setActiveTabId(result.activeTabId);
@@ -581,7 +558,6 @@ export function useSessionLifecycle(deps: UseSessionLifecycleDeps) {
                 return next;
               });
               sessionsRef.current = removal.sessions;
-              tabsRef.current = removal.tabs;
               setSessions(removal.sessions);
               setTabs(removal.tabs);
               if (removal.activeTabId !== activeTabIdRef.current) {
@@ -935,7 +911,6 @@ export function useSessionLifecycle(deps: UseSessionLifecycleDeps) {
               }
             : entry,
         );
-        tabsRef.current = nextTabs;
         setTabs(nextTabs);
         if (tab.id !== activeTabIdRef.current) setActiveTabId(tab.id);
       } else {

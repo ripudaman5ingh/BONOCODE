@@ -1,41 +1,22 @@
-import { useRef, useState } from "react";
-import { lastProjectPath, loadRecents, looksLikeProject, rememberProject } from "../model/recents";
+import { useRef } from "react";
 import { type ProjectReturnMemory } from "../model/projectReturn";
-import { type WindowTransferPayload } from "../../../app/model/windowTransfer";
 import { type ResumedWorkspace } from "../../../app/model/appLifecycle";
+import { useWorkspaceStore, type WorkspaceStore } from "../../workspace/model/workspaceStore";
 
 export type UseProjectStateDeps = {
-  windowTransfer: WindowTransferPayload | null;
+  workspace: WorkspaceStore;
   resumed: ResumedWorkspace | null;
 };
 
 export function useProjectState(deps: UseProjectStateDeps) {
-  const {
-    windowTransfer,
-    resumed,
-  } = deps;
+  const { workspace, resumed } = deps;
 
-  const [projectCwd, setProjectCwd] = useState(
-    () =>
-      windowTransfer?.projectCwd ??
-      resumed?.projectCwd ??
-      lastProjectPath() ??
-      "~",
-  );
-
-  const [recents, setRecents] = useState(() =>
-    resumed?.projectCwd && looksLikeProject(resumed.projectCwd)
-      ? rememberProject(resumed.projectCwd)
-      : loadRecents(),
-  );
-
-  const projectCwdRef = useRef(projectCwd);
-
-  projectCwdRef.current = projectCwd;
+  const projectCwd = useWorkspaceStore(workspace, (state) => state.projectCwd);
+  const recents = useWorkspaceStore(workspace, (state) => state.recents);
 
   const projectReturnRef = useRef<ProjectReturnMemory>(
     resumed?.projectReturnMemory ?? new Map(),
   );
 
-  return { projectCwd, setProjectCwd, recents, setRecents, projectCwdRef, projectReturnRef };
+  return { projectCwd, recents, projectReturnRef };
 }

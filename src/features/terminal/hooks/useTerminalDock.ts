@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { newTerminalFile } from "../../workspace/model/layout";
 import { orderByIds } from "../../../shared/lib/reorder";
 import {
@@ -15,18 +15,13 @@ import {
   withDockSide,
   withDockSize,
   type DockSide,
-  type ProjectTerminalDock as ProjectTerminal,
 } from "../../projects/model/projectTerminal";
-import { type WindowTransferPayload } from "../../../app/model/windowTransfer";
 import { confirmCloseTerminal, confirmCloseTerminals } from "../model/terminalClose";
 import { isLocalProject } from "../../projects/model/recents";
-import { type ResumedWorkspace } from "../../../app/model/appLifecycle";
+import { useWorkspaceStore, type WorkspaceStore } from "../../workspace/model/workspaceStore";
 
 export type UseTerminalDockDeps = {
-  windowTransfer: WindowTransferPayload | null;
-  resumed: ResumedWorkspace | null;
-  projectCwd: string;
-  projectCwdRef: { current: string };
+  workspace: WorkspaceStore;
   gitCwd: string;
   setComposerFocused: (value: boolean) => void;
   onOpenTerminal: (cwd: string) => void;
@@ -34,35 +29,32 @@ export type UseTerminalDockDeps = {
 
 export function useTerminalDock(deps: UseTerminalDockDeps) {
   const {
-    windowTransfer,
-    resumed,
-    projectCwd,
-    projectCwdRef,
+    workspace,
     gitCwd,
     setComposerFocused,
     onOpenTerminal,
   } = deps;
-
-  const [projectTerminals, setProjectTerminals] = useState<ProjectTerminal[]>(
-    () => windowTransfer?.projectTerminals ?? resumed?.projectTerminals ?? [],
+  const {
+    projectCwdRef,
+    setProjectTerminals,
+    projectTerminalsRef,
+    setLastDockSide,
+    lastDockSideRef,
+    setProjectTerminalFocused,
+  } = workspace;
+  // Render-time copies for effects and JSX only. Callbacks read live state.
+  const projectCwd = useWorkspaceStore(workspace, (state) => state.projectCwd);
+  const projectTerminals = useWorkspaceStore(
+    workspace,
+    (state) => state.projectTerminals,
   );
-
-  /** Dock side a brand-new project's terminal starts with, persisted in the workspace snapshot. */
-  const [lastDockSide, setLastDockSide] = useState<DockSide | null>(
-    () => resumed?.lastDockSide ?? null,
+  const projectTerminalFocused = useWorkspaceStore(
+    workspace,
+    (state) => state.projectTerminalFocused,
   );
-  const lastDockSideRef = useRef(lastDockSide);
-  lastDockSideRef.current = lastDockSide;
-
-  const [projectTerminalFocused, setProjectTerminalFocused] = useState(false);
 
   const currentProjectDock = findProjectTerminal(projectTerminals, projectCwd);
   const dockVisible = !!currentProjectDock?.open;
-
-  const projectTerminalsRef = useRef(projectTerminals);
-  projectTerminalsRef.current = projectTerminals;
-  const projectTerminalFocusedRef = useRef(projectTerminalFocused);
-  projectTerminalFocusedRef.current = projectTerminalFocused;
 
   const focusProjectTerminal = useCallback(() => {
     setProjectTerminalFocused(true);
@@ -102,6 +94,7 @@ export function useTerminalDock(deps: UseTerminalDockDeps) {
   );
 
   const onShowProjectTerminal = useCallback(() => {
+    const projectCwd = projectCwdRef.current;
     const dock = findProjectTerminal(projectTerminalsRef.current, projectCwd);
     if (dock && dock.pane.files.length > 0) {
       if (!dock.open) {
@@ -115,9 +108,10 @@ export function useTerminalDock(deps: UseTerminalDockDeps) {
       return;
     }
     onOpenTerminal(gitCwd);
-  }, [gitCwd, focusProjectTerminal, onOpenTerminal, projectCwd]);
+  }, [gitCwd, focusProjectTerminal, onOpenTerminal]);
 
   const onToggleProjectTerminal = useCallback(() => {
+    const projectCwd = projectCwdRef.current;
     if (!isLocalProject(projectCwd)) return;
     const dock = findProjectTerminal(projectTerminalsRef.current, projectCwd);
     if (!dock) {
@@ -132,7 +126,7 @@ export function useTerminalDock(deps: UseTerminalDockDeps) {
     );
     if (nextOpen) focusProjectTerminal();
     else setProjectTerminalFocused(false);
-  }, [gitCwd, focusProjectTerminal, openProjectTerminal, projectCwd]);
+  }, [gitCwd, focusProjectTerminal, openProjectTerminal]);
 
   const onHideProjectTerminal = useCallback(() => {
     setProjectTerminals((prev) =>
@@ -267,14 +261,8 @@ export function useTerminalDock(deps: UseTerminalDockDeps) {
 
   return {
     projectTerminals,
-    setProjectTerminals,
-    lastDockSide,
-    lastDockSideRef,
     projectTerminalFocused,
-    setProjectTerminalFocused,
     currentProjectDock,
-    projectTerminalsRef,
-    projectTerminalFocusedRef,
     focusProjectTerminal,
     openProjectTerminal,
     onShowProjectTerminal,

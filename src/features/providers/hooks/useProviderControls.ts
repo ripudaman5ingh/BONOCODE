@@ -10,6 +10,7 @@ import { HARNESS_LABEL, formatSessionTitle, newSession, sessionDisplayTitle, typ
 import { dropContextWindow } from "../../sessions/model/contextUsage";
 import { type useWorkspaceTabActions } from "../../workspace/hooks/useWorkspaceTabActions";
 import { type LiveSessionStore } from "../../sessions/model/liveSessions";
+import { type WorkspaceStore } from "../../workspace/model/workspaceStore";
 
 
 export function withHarnessChoice(
@@ -98,7 +99,7 @@ export type UseProviderControlsDeps = {
   sessionsRef: LiveSessionStore["ref"];
   setSessions: LiveSessionStore["set"];
   appendTab: ReturnType<typeof useWorkspaceTabActions>["appendTab"];
-  setActiveTabId: Dispatch<SetStateAction<string>>;
+  workspace: WorkspaceStore;
   setComposerFocused: Dispatch<SetStateAction<boolean>>;
 };
 
@@ -109,9 +110,10 @@ export function useProviderControls(deps: UseProviderControlsDeps) {
     sessionsRef,
     setSessions,
     appendTab,
-    setActiveTabId,
+    workspace,
     setComposerFocused,
   } = deps;
+  const { setActiveTabId } = workspace;
   const [providerSignInRequest, setProviderSignInRequest] = useState<{
     key: string;
     sessionId: string;
