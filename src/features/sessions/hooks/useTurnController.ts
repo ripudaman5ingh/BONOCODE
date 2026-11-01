@@ -1003,6 +1003,9 @@ export function useTurnController(deps: TurnControllerDeps) {
           const earlier = queuedHandoff
             ? userMessagesAfterHandoff(current)
             : [];
+          // Stop can land while attachments and the prompt are prepared; the
+          // adapter's send would clear that cancel and run the turn unseen.
+          if (turnGen.current.get(sessionId) !== gen) return;
           if (editedResend && canRewindHarnessLastTurn(current.harness)) {
             try {
               await rewindHarnessLastTurn({

@@ -162,6 +162,32 @@ it("reports when OpenCode accepts a turn", async () => {
   expect(onAccepted).toHaveBeenCalledOnce();
 });
 
+it("does not let a Stop pressed while idle end the next turn early", async () => {
+  const { done } = await startTurn([]);
+  idle();
+  await done;
+
+  await cancelOpenCodeTurn("opencode-live");
+
+  let settled = false;
+  const next = turn([]).then(() => {
+    settled = true;
+  });
+  await waitFor(
+    () =>
+      harnessHttp.mock.calls.filter(([input]) =>
+        input.url.includes("/prompt_async"),
+      ).length === 2,
+    "second prompt",
+  );
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(settled).toBe(false);
+
+  idle();
+  await next;
+  expect(settled).toBe(true);
+});
+
 describe("OpenCode subagent trails", () => {
   const part = (sessionID: string, value: Record<string, unknown>) => onSseEvent?.({
     type: "message.part.updated", properties: { part: { sessionID, ...value } },

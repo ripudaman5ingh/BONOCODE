@@ -1089,6 +1089,7 @@ function publishCodexText(
 }
 
 function finishActiveTurn(live: Live, extraEvents: HarnessEvent[] = []): void {
+  const wasActive = live.activeTurnId !== null;
   clearServerRequests(live);
   closeOpenAgentRows(live);
   live.turnEndPending = false;
@@ -1110,7 +1111,9 @@ function finishActiveTurn(live: Live, extraEvents: HarnessEvent[] = []): void {
     done();
     return;
   }
-  if (!failed) {
+  // Only a turn that ended before its waiter attached may settle the next one;
+  // a cancel while idle must not.
+  if (!failed && wasActive) {
     live.turnEndPending = true;
   }
 }
