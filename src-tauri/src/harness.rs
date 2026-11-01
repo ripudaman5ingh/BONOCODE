@@ -896,8 +896,7 @@ pub fn harness_spawn(
     let stdout_app = app.clone();
     let stdout_id = session_id.clone();
     thread::spawn(move || {
-        for line in BufReader::new(stdout).lines() {
-            let Ok(line) = line else { break };
+        for_each_line_lossy(BufReader::new(stdout), |line| {
             let _ = stdout_app.emit(
                 STDOUT_EVENT,
                 HarnessLine {
@@ -905,14 +904,13 @@ pub fn harness_spawn(
                     line,
                 },
             );
-        }
+        });
     });
 
     let stderr_app = app.clone();
     let stderr_id = session_id.clone();
     thread::spawn(move || {
-        for line in BufReader::new(stderr).lines() {
-            let Ok(line) = line else { break };
+        for_each_line_lossy(BufReader::new(stderr), |line| {
             let _ = stderr_app.emit(
                 STDERR_EVENT,
                 HarnessLine {
@@ -920,7 +918,7 @@ pub fn harness_spawn(
                     line,
                 },
             );
-        }
+        });
     });
 
     let wait_app = app.clone();
@@ -1254,15 +1252,45 @@ fn emit_sse_end(app: &AppHandle, session_id: &str, error: Option<String>) {
 }
 
 fn assert_loopback(url: &str) -> Result<(), String> {
-    let lower = url.to_ascii_lowercase();
-    if lower.starts_with("http://127.0.0.1:")
-        || lower.starts_with("http://127.0.0.1/")
-        || lower.starts_with("http://localhost:")
-        || lower.starts_with("http://localhost/")
+    let denied = || "OpenCode HTTP is limited to localhost".to_string();
+    let parsed = url::Url::parse(url).map_err(|_| denied())?;
+    let loopback_host = match parsed.host() {
+        Some(url::Host::Domain(host)) => host.eq_ignore_ascii_case("localhost"),
+        Some(url::Host::Ipv4(ip)) => ip.is_loopback(),
+        Some(url::Host::Ipv6(ip)) => ip.is_loopback(),
+        None => false,
+    };
+    // Userinfo is refused outright: `http://localhost:1@evil.example/` starts
+    // with a loopback-looking prefix but connects to the host after the `@`.
+    if parsed.scheme() == "http"
+        && parsed.username().is_empty()
+        && parsed.password().is_none()
+        && loopback_host
     {
         return Ok(());
     }
-    Err("OpenCode HTTP is limited to localhost".into())
+    Err(denied())
+}
+
+/// Like `BufRead::lines`, but a non-UTF-8 line is decoded lossily instead of
+/// ending the stream. Stopping here would close the pipe under the agent.
+fn for_each_line_lossy(mut reader: impl BufRead, mut emit: impl FnMut(String)) {
+    let mut buf = Vec::new();
+    loop {
+        buf.clear();
+        match reader.read_until(b'\n', &mut buf) {
+            Ok(0) | Err(_) => break,
+            Ok(_) => {
+                if buf.last() == Some(&b'\n') {
+                    buf.pop();
+                    if buf.last() == Some(&b'\r') {
+                        buf.pop();
+                    }
+                }
+                emit(String::from_utf8_lossy(&buf).into_owned());
+            }
+        }
+    }
 }
 
 const EXEC_ALLOWED_ARGS: &[&[&str]] = &[
@@ -2940,6 +2968,47 @@ fn command_basename(command: &str) -> &str {
 mod tests {
     use super::*;
     use std::os::unix::process::CommandExt;
+
+    #[test]
+    fn assert_loopback_accepts_local_http_hosts() {
+        assert!(assert_loopback("http://127.0.0.1:4096/session").is_ok());
+        assert!(assert_loopback("http://localhost:4096/").is_ok());
+        assert!(assert_loopback("http://[::1]:4096/").is_ok());
+    }
+
+    #[test]
+    fn assert_loopback_rejects_userinfo_even_when_it_looks_local() {
+        let spoofed = format!("http://{}@example.com/", "localhost:1");
+        assert!(assert_loopback(&spoofed).is_err());
+        let with_password = format!("http://user:{}@127.0.0.1:4096/", "pw");
+        assert!(assert_loopback(&with_password).is_err());
+    }
+
+    #[test]
+    fn assert_loopback_rejects_remote_or_non_http_urls() {
+        assert!(assert_loopback("https://127.0.0.1:1/").is_err());
+        assert!(assert_loopback("http://10.0.0.1:80/").is_err());
+        assert!(assert_loopback("http://example.com/").is_err());
+        assert!(assert_loopback("not a url").is_err());
+    }
+
+    #[test]
+    fn for_each_line_lossy_strips_newlines_like_lines() {
+        let mut lines = Vec::new();
+        for_each_line_lossy(std::io::Cursor::new(b"a\nb\r\nc"), |line| lines.push(line));
+        assert_eq!(lines, ["a", "b", "c"]);
+    }
+
+    #[test]
+    fn for_each_line_lossy_keeps_reading_past_invalid_utf8() {
+        let input = b"ok\n\xff\xfe bad\nafter\n";
+        let mut lines = Vec::new();
+        for_each_line_lossy(std::io::Cursor::new(input), |line| lines.push(line));
+        assert_eq!(lines.len(), 3);
+        assert_eq!(lines[0], "ok");
+        assert!(lines[1].contains('\u{FFFD}'));
+        assert_eq!(lines[2], "after");
+    }
 
     fn spawn_group(script: &str) -> std::process::Child {
         Command::new("sh")

@@ -343,8 +343,8 @@ fn find_on_line(line: &str, needle: &str, options: &SearchOptions) -> Option<u32
     let mut start = 0;
     while let Some(index) = haystack[start..].find(needle) {
         let column = start + index;
-        if options.whole_word && !is_word_boundary(line, column, needle.len()) {
-            start = column + 1;
+        if options.whole_word && !is_word_boundary(&haystack, column, needle.len()) {
+            start = column + haystack[column..].chars().next().map_or(1, char::len_utf8);
             continue;
         }
         return Some((column + 1) as u32);
@@ -490,6 +490,31 @@ mod tests {
             exclude: None,
             search_id: String::new(),
         }
+    }
+
+    #[test]
+    fn whole_word_search_skips_a_multibyte_hit_without_panicking() {
+        let mut opts = options(Path::new(""), "über");
+        opts.whole_word = true;
+        let column = find_on_line("überall über", "über", &opts);
+        assert_eq!(column, Some(("überall ".len() + 1) as u32));
+    }
+
+    #[test]
+    fn whole_word_search_folds_case_without_panicking() {
+        let mut opts = options(Path::new(""), "über");
+        opts.whole_word = true;
+        opts.case_sensitive = false;
+        assert_eq!(find_on_line("ÜBERALL ÜBER", "über", &opts), Some(10));
+    }
+
+    #[test]
+    fn whole_word_search_handles_lowercase_that_grows_in_bytes() {
+        // "İ" is two bytes, but its lowercase "i\u{307}" is three.
+        let mut opts = options(Path::new(""), "");
+        opts.whole_word = true;
+        opts.case_sensitive = false;
+        assert_eq!(find_on_line("İx İ", "i\u{307}", &opts), Some(6));
     }
 
     #[test]
