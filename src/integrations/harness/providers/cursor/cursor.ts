@@ -4,6 +4,7 @@ import type { RuntimeMode } from "../../../../features/sessions/model/session";
 import { promptBlocks } from "../../../../features/sessions/model/attachments";
 import { isTaskListToolName, taskListFromToolInput } from "../../../../features/sessions/model/taskList";
 import { AcpClient, type AcpHandlers } from "../../core/acp";
+import { createCancelEpochs } from "../../core/cancelEpochs";
 import {
   killChild,
   resolveCursorBinary,
@@ -104,7 +105,7 @@ type Resume = {
 
 const liveByThread = new Map<string, Live>();
 const resumeByThread = new Map<string, Resume>();
-const cancelledThreads = new Set<string>();
+const cancels = createCancelEpochs();
 
 const CLIENT_CAPABILITIES = {
   fs: { readTextFile: false, writeTextFile: false },
@@ -113,14 +114,14 @@ const CLIENT_CAPABILITIES = {
 };
 
 export async function sendCursorTurn(input: SendTurnInput): Promise<void> {
+  const cancelled = cancels.watch(input.sessionId);
   let live: Live;
   try {
     live = await ensureLive(input);
   } catch (error) {
-    cancelledThreads.delete(input.sessionId);
     throw error;
   }
-  if (cancelledThreads.delete(input.sessionId)) return;
+  if (cancelled()) return;
 
   live.onEvent = input.onEvent;
   live.runtimeMode = input.runtimeMode;
@@ -181,7 +182,7 @@ export function respondCursorQuestion(
 export async function cancelCursorTurn(sessionId: string): Promise<void> {
   const live = liveByThread.get(sessionId);
   if (!live) {
-    cancelledThreads.add(sessionId);
+    cancels.cancel(sessionId);
     return;
   }
   live.cancelled = true;
@@ -205,7 +206,6 @@ export async function cancelCursorTurn(sessionId: string): Promise<void> {
 
 /** Kill the Cursor process but keep the ACP session id so we can session/load. */
 export async function stopCursorSession(sessionId: string): Promise<void> {
-  cancelledThreads.delete(sessionId);
   const live = liveByThread.get(sessionId);
   liveByThread.delete(sessionId);
   if (live) {
@@ -1638,5 +1638,5 @@ export function __cursorTestReset(): void {
   }
   liveByThread.clear();
   resumeByThread.clear();
-  cancelledThreads.clear();
+  cancels.clear();
 }

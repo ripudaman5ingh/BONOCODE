@@ -269,6 +269,42 @@ afterEach(async () => {
   __claudeTestReset();
 });
 
+describe("claude cancel with no live process", () => {
+  it("a Stop before any send does not swallow the next message", async () => {
+    await cancelClaudeTurn("s1");
+    const turn = sendClaudeTurn({
+      sessionId: "s1",
+      cwd: "/repo",
+      model: "claude:claude-sonnet-5",
+      runtimeMode: "supervised",
+      text: "hello",
+      onEvent: () => undefined,
+    });
+    await waitFor(
+      () =>
+        parse().some((m) => {
+          const request = m.request as Record<string, unknown> | undefined;
+          return request?.subtype === "initialize";
+        }),
+      "initialize",
+    );
+    emit({ type: "system", subtype: "init", session_id: "sess_1" });
+    emit({
+      type: "control_response",
+      response: { subtype: "success", request_id: "monocode_1" },
+    });
+    await waitFor(
+      () =>
+        parse().some(
+          (m) => m.type === "user" && JSON.stringify(m).includes("hello"),
+        ),
+      "user prompt",
+    );
+    emit({ type: "result", subtype: "success", session_id: "sess_1" });
+    await turn;
+  });
+});
+
 describe("claude streamed tool inputs", () => {
   it("replaces an empty Shell row with the complete assistant tool input", async () => {
     const { events, turn } = await startTurn("s1");

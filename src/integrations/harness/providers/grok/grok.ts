@@ -37,6 +37,7 @@ import type {
   SendTurnInput,
   SteerTurnInput,
 } from "../../core/types";
+import { createCancelEpochs } from "../../core/cancelEpochs";
 import { questionPromptTitle, type UserQuestionReply } from "../../../../features/sessions/model/userQuestion";
 
 type Live = {
@@ -75,21 +76,21 @@ const CLIENT_CAPABILITIES = {
 
 const liveByThread = new Map<string, Live>();
 const resumeByThread = new Map<string, Resume>();
-const cancelledThreads = new Set<string>();
+const cancels = createCancelEpochs();
 
 /**
  * Live Grok Build adapter. Spawns `grok agent stdio` and talks ACP.
  * Grok accepts ACP image blocks despite advertising image: false.
  */
 export async function sendGrokTurn(input: SendTurnInput): Promise<void> {
+  const cancelled = cancels.watch(input.sessionId);
   let live: Live;
   try {
     live = await ensureLive(input);
   } catch (error) {
-    cancelledThreads.delete(input.sessionId);
     throw error;
   }
-  if (cancelledThreads.delete(input.sessionId)) return;
+  if (cancelled()) return;
 
   live.onEvent = input.onEvent;
   live.runtimeMode = input.runtimeMode;
@@ -120,11 +121,12 @@ export async function sendGrokTurn(input: SendTurnInput): Promise<void> {
 export async function compactGrokContext(
   input: CompactContextInput,
 ): Promise<void> {
+  const cancelled = cancels.watch(input.sessionId);
   let live = liveByThread.get(input.sessionId);
   if (!live || live.cwd !== input.cwd) {
     live = await ensureLive(input);
   }
-  if (cancelledThreads.delete(input.sessionId)) return;
+  if (cancelled()) return;
 
   live.onEvent = input.onEvent;
   live.turns = live.turns
@@ -169,7 +171,7 @@ export function respondGrokQuestion(
 export async function cancelGrokTurn(sessionId: string): Promise<void> {
   const live = liveByThread.get(sessionId);
   if (!live) {
-    cancelledThreads.add(sessionId);
+    cancels.cancel(sessionId);
     return;
   }
   live.cancelled = true;
@@ -185,7 +187,6 @@ export async function cancelGrokTurn(sessionId: string): Promise<void> {
 }
 
 export async function stopGrokSession(sessionId: string): Promise<void> {
-  cancelledThreads.delete(sessionId);
   const live = liveByThread.get(sessionId);
   liveByThread.delete(sessionId);
   if (live) {

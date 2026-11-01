@@ -72,6 +72,7 @@ import {
 } from "./claudeProtocol";
 import { isAgentToolName } from "../../core/preview";
 import { joinStreamText, snapshotRemainder } from "../../core/streamText";
+import { createCancelEpochs } from "../../core/cancelEpochs";
 import {
   questionPromptTitle,
   questionsFromUnknown,
@@ -202,7 +203,7 @@ const tasksByThread = new Map<
 >();
 /** Task-list block key for TaskCreate/TaskUpdate items. */
 const CLAUDE_TASKS_KEY = "claude-tasks";
-const cancelledThreads = new Set<string>();
+const cancels = createCancelEpochs();
 
 let resolveClaudeBinaryImpl: () => Promise<{ path: string }> =
   resolveClaudeBinary;
@@ -215,14 +216,14 @@ export function setClaudeBinaryResolver(
 }
 
 export async function sendClaudeTurn(input: SendTurnInput): Promise<void> {
+  const cancelled = cancels.watch(input.sessionId);
   let live: Live;
   try {
     live = await ensureLive(input);
   } catch (error) {
-    cancelledThreads.delete(input.sessionId);
     throw error;
   }
-  if (cancelledThreads.delete(input.sessionId)) return;
+  if (cancelled()) return;
 
   live.onEvent = input.onEvent;
   live.runtimeMode = input.runtimeMode;
@@ -244,12 +245,13 @@ export async function sendClaudeTurn(input: SendTurnInput): Promise<void> {
 export async function compactClaudeContext(
   input: CompactContextInput,
 ): Promise<void> {
+  const cancelled = cancels.watch(input.sessionId);
   const settingsKey = settingsKeyFor(input);
   let live = liveByThread.get(input.sessionId);
   if (!live || live.cwd !== input.cwd || live.settingsKey !== settingsKey) {
     live = await ensureLive(input);
   }
-  if (cancelledThreads.delete(input.sessionId)) return;
+  if (cancelled()) return;
 
   live.onEvent = input.onEvent;
   live.runtimeMode = input.runtimeMode;
@@ -320,7 +322,7 @@ export function respondClaudeQuestion(
 export async function cancelClaudeTurn(sessionId: string): Promise<void> {
   const live = liveByThread.get(sessionId);
   if (!live) {
-    cancelledThreads.add(sessionId);
+    cancels.cancel(sessionId);
     return;
   }
   live.cancelled = true;
@@ -352,7 +354,6 @@ export async function cancelClaudeTurn(sessionId: string): Promise<void> {
 }
 
 export async function stopClaudeSession(sessionId: string): Promise<void> {
-  cancelledThreads.delete(sessionId);
   const live = liveByThread.get(sessionId);
   liveByThread.delete(sessionId);
   if (live) {
@@ -1820,5 +1821,5 @@ export function __claudeTestReset(): void {
   liveByThread.clear();
   resumeByThread.clear();
   tasksByThread.clear();
-  cancelledThreads.clear();
+  cancels.clear();
 }
