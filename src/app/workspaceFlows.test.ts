@@ -352,7 +352,7 @@ describe("workspace flows through the App's menu events", () => {
     expect(alpha.activeTabId).toBe(fx.C);
   });
 
-  it("new_tab then split_right in one act: the stale read splits the old active tab and drops the new one", async () => {
+  it("new_tab then split_right in one act: the stale read splits the old active tab, not the new one", async () => {
     await act(async () => {
       fireNow("new_tab");
       fireNow("split_right");
