@@ -10,7 +10,6 @@ permissions:
 
 jobs:
   release:
-    needs: [linux, linux-rpm, windows]
     runs-on: macos-latest
     permissions:
       contents: write
@@ -26,16 +25,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-apple-darwin,x86_64-apple-darwin
-
-      - name: Write Apple API key
-        env:
-          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
-          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
-        run: |
-          mkdir -p "$HOME/private_keys"
-          printf '%s\n' "$APPLE_API_KEY_P8" > "$HOME/private_keys/AuthKey_${APPLE_API_KEY}.p8"
-          echo "APPLE_API_KEY_PATH=$HOME/private_keys/AuthKey_${APPLE_API_KEY}.p8" >> "$GITHUB_ENV"
+          targets: aarch64-apple-darwin
 
       - run: npm ci
 
@@ -66,37 +56,25 @@ jobs:
 
       - name: Write release config
         env:
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           TAURI_UPDATER_PUBKEY: ${{ secrets.TAURI_UPDATER_PUBKEY }}
-          TAURI_UPDATER_ENDPOINT: ${{ secrets.TAURI_UPDATER_ENDPOINT }}
-          R2_PUBLIC_BASE_URL: ${{ secrets.R2_PUBLIC_BASE_URL }}
         run: |
           node <<'NODE'
           const { writeFileSync } = require("node:fs");
-          const identity = (process.env.APPLE_SIGNING_IDENTITY || "").trim();
-          if (!identity || identity === "-") {
-            console.error("APPLE_SIGNING_IDENTITY is required and must not be ad-hoc '-'");
+          const pubkey = (process.env.TAURI_UPDATER_PUBKEY || "").trim();
+          if (!pubkey) {
+            console.error("TAURI_UPDATER_PUBKEY is required");
             process.exit(1);
           }
-          const pubkey = process.env.TAURI_UPDATER_PUBKEY || "";
           const endpoint =
-            process.env.TAURI_UPDATER_ENDPOINT ||
-            (process.env.R2_PUBLIC_BASE_URL
-              ? `${process.env.R2_PUBLIC_BASE_URL.replace(/\/$/, "")}/latest.json`
-              : "");
-          if (!pubkey || !endpoint) {
-            console.error("TAURI_UPDATER_PUBKEY and an updater endpoint are required");
-            process.exit(1);
-          }
+            "https://github.com/ripudaman5ingh/BONOCODE/releases/latest/download/latest.json";
           writeFileSync(
             process.env.RUNNER_TEMP + "/tauri.release.conf.json",
             JSON.stringify(
               {
-                bundle: { macOS: { signingIdentity: identity } },
                 plugins: {
                   updater: {
                     pubkey,
-                    endpoints: endpoint ? [endpoint] : [],
+                    endpoints: [endpoint],
                   },
                 },
               },
@@ -106,19 +84,13 @@ jobs:
           );
           NODE
 
-      - name: Build, sign, and notarize macOS packages
+      - name: Build macOS packages
         env:
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
-          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           set -euo pipefail
           npx tauri build --target aarch64-apple-darwin --bundles app,dmg --config "$RUNNER_TEMP/tauri.release.conf.json"
-          npx tauri build --target x86_64-apple-darwin --bundles app,dmg --config "$RUNNER_TEMP/tauri.release.conf.json"
 
       - name: Verify macOS package architectures and signatures
         run: |
@@ -137,143 +109,50 @@ jobs:
             codesign --verify --deep --strict --verbose=2 "$app"
           }
           verify_app "target/aarch64-apple-darwin/release/bundle/macos/Bonocode.app" arm64
-          verify_app "target/x86_64-apple-darwin/release/bundle/macos/Bonocode.app" x86_64
 
-      - name: Download Linux packages
-        uses: actions/download-artifact@v4
-        with:
-          name: linux-packages
-          path: target/release/bundle/linux
-
-      - name: Download Linux rpm package
-        uses: actions/download-artifact@v4
-        with:
-          name: linux-rpm-package
-          path: target/release/bundle/rpm
-
-      - name: Download Windows packages
-        uses: actions/download-artifact@v4
-        with:
-          name: windows-packages
-          path: target/release/bundle/nsis
-
-      - name: Upload updater packages to R2
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: auto
-          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
-          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
-          R2_PUBLIC_BASE_URL: ${{ secrets.R2_PUBLIC_BASE_URL }}
+      - name: Write release notes and updater feed
         run: |
           set -euo pipefail
           VERSION="${GITHUB_REF_NAME#v}"
-          BUNDLE="target/release/bundle"
-          ARM_BUNDLE="target/aarch64-apple-darwin/release/bundle"
-          INTEL_BUNDLE="target/x86_64-apple-darwin/release/bundle"
-          shopt -s nullglob
-          ARM_TARS=("$ARM_BUNDLE"/macos/*.app.tar.gz)
-          ARM_DMGS=("$ARM_BUNDLE"/dmg/*.dmg)
-          INTEL_TARS=("$INTEL_BUNDLE"/macos/*.app.tar.gz)
-          INTEL_DMGS=("$INTEL_BUNDLE"/dmg/*.dmg)
-          WINDOWS_INSTALLERS=("$BUNDLE"/nsis/*.exe)
-          WINDOWS_SIGNATURES=("$BUNDLE"/nsis/*.exe.sig)
-          if (( ${#ARM_TARS[@]} != 1 || ${#ARM_DMGS[@]} != 1 )); then
-            echo "Expected exactly one Apple Silicon updater archive and DMG" >&2
+          ARCHIVE="target/aarch64-apple-darwin/release/bundle/macos/Bonocode.app.tar.gz"
+          if [[ ! -f "$ARCHIVE" || ! -f "$ARCHIVE.sig" ]]; then
+            echo "Missing updater archive or signature: $ARCHIVE" >&2
             exit 1
           fi
-          if (( ${#INTEL_TARS[@]} != 1 || ${#INTEL_DMGS[@]} != 1 )); then
-            echo "Expected exactly one Intel updater archive and DMG" >&2
-            exit 1
-          fi
-          if (( ${#WINDOWS_INSTALLERS[@]} != 1 || ${#WINDOWS_SIGNATURES[@]} != 1 )); then
-            echo "Expected exactly one Windows installer and updater signature" >&2
-            exit 1
-          fi
-          ARM_TAR="${ARM_TARS[0]}"
-          ARM_SIG="${ARM_TAR}.sig"
-          ARM_DMG="${ARM_DMGS[0]}"
-          INTEL_TAR="${INTEL_TARS[0]}"
-          INTEL_SIG="${INTEL_TAR}.sig"
-          INTEL_DMG="${INTEL_DMGS[0]}"
-          WINDOWS_INSTALLER="${WINDOWS_INSTALLERS[0]}"
-          WINDOWS_SIGNATURE="${WINDOWS_SIGNATURES[0]}"
-          for artifact in "$ARM_SIG" "$INTEL_SIG"; do
-            if [[ ! -f "$artifact" ]]; then
-              echo "Missing release artifact: $artifact" >&2
-              exit 1
-            fi
-          done
-          BASE="${R2_PUBLIC_BASE_URL%/}"
-          ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
-          RELEASE_PREFIX="releases/${VERSION}"
-          ARM_TAR_KEY="${RELEASE_PREFIX}/Bonocode.app.tar.gz"
-          ARM_SIG_KEY="${ARM_TAR_KEY}.sig"
-          ARM_DMG_KEY="${RELEASE_PREFIX}/Bonocode_${VERSION}_aarch64.dmg"
-          INTEL_TAR_KEY="${RELEASE_PREFIX}/Bonocode_x64.app.tar.gz"
-          INTEL_SIG_KEY="${INTEL_TAR_KEY}.sig"
-          INTEL_DMG_KEY="${RELEASE_PREFIX}/Bonocode_${VERSION}_x64.dmg"
-          WINDOWS_INSTALLER_KEY="${RELEASE_PREFIX}/Bonocode_${VERSION}_x64-setup.exe"
-          WINDOWS_SIGNATURE_KEY="${WINDOWS_INSTALLER_KEY}.sig"
-
-          VERSION="$VERSION" \
-            ARM_SIG="$ARM_SIG" \
-            ARM_TAR_URL="$BASE/$ARM_TAR_KEY" \
-            INTEL_SIG="$INTEL_SIG" \
-            INTEL_TAR_URL="$BASE/$INTEL_TAR_KEY" \
-            WINDOWS_SIGNATURE="$WINDOWS_SIGNATURE" \
-            WINDOWS_INSTALLER_URL="$BASE/$WINDOWS_INSTALLER_KEY" \
-            node <<'NODE'
-          const fs = require("fs");
-          fs.writeFileSync(
-            "latest.json",
-            JSON.stringify(
-              {
-                version: process.env.VERSION,
-                notes: `Bonocode ${process.env.VERSION}`,
-                pub_date: new Date().toISOString(),
-                platforms: {
-                  "darwin-aarch64": {
-                    signature: fs
-                      .readFileSync(process.env.ARM_SIG, "utf8")
-                      .trim(),
-                    url: process.env.ARM_TAR_URL,
-                  },
-                  "darwin-x86_64": {
-                    signature: fs
-                      .readFileSync(process.env.INTEL_SIG, "utf8")
-                      .trim(),
-                    url: process.env.INTEL_TAR_URL,
-                  },
-                  "windows-x86_64": {
-                    signature: fs
-                      .readFileSync(process.env.WINDOWS_SIGNATURE, "utf8")
-                      .trim(),
-                    url: process.env.WINDOWS_INSTALLER_URL,
-                  },
-                },
-              },
-              null,
-              2,
-            ) + "\n",
+          VERSION="$VERSION" ARCHIVE_SIG="$ARCHIVE.sig" node <<'NODE'
+          const { readFileSync, writeFileSync } = require("node:fs");
+          const version = process.env.VERSION;
+          const lines = readFileSync("CHANGELOG.md", "utf8").split("\n");
+          const start = lines.findIndex(
+            (line) => line === `## [${version}]` || line.startsWith(`## [${version}] - `),
           );
+          if (start === -1) {
+            console.error(`CHANGELOG.md has no section for ${version}`);
+            process.exit(1);
+          }
+          const next = lines.findIndex((line, i) => i > start && line.startsWith("## "));
+          const notes = lines
+            .slice(start + 1, next === -1 ? lines.length : next)
+            .join("\n")
+            .trim();
+          if (!notes) {
+            console.error(`CHANGELOG.md section for ${version} is empty`);
+            process.exit(1);
+          }
+          writeFileSync(process.env.RUNNER_TEMP + "/release-notes.md", notes + "\n");
+          const feed = {
+            version,
+            notes,
+            pub_date: new Date().toISOString(),
+            platforms: {
+              "darwin-aarch64": {
+                signature: readFileSync(process.env.ARCHIVE_SIG, "utf8").trim(),
+                url: `https://github.com/ripudaman5ingh/BONOCODE/releases/download/${process.env.GITHUB_REF_NAME}/Bonocode.app.tar.gz`,
+              },
+            },
+          };
+          writeFileSync("latest.json", JSON.stringify(feed, null, 2) + "\n");
           NODE
-
-          brew list awscli >/dev/null 2>&1 || brew install awscli
-          IMMUTABLE_CACHE="public,max-age=31536000,immutable"
-          NO_CACHE="no-store,max-age=0,must-revalidate"
-          aws s3 cp "$ARM_DMG" "s3://${R2_BUCKET_NAME}/${ARM_DMG_KEY}" --cache-control "$IMMUTABLE_CACHE" --endpoint-url "$ENDPOINT"
-          aws s3 cp "$ARM_TAR" "s3://${R2_BUCKET_NAME}/${ARM_TAR_KEY}" --cache-control "$IMMUTABLE_CACHE" --endpoint-url "$ENDPOINT"
-          aws s3 cp "$ARM_SIG" "s3://${R2_BUCKET_NAME}/${ARM_SIG_KEY}" --cache-control "$IMMUTABLE_CACHE" --endpoint-url "$ENDPOINT"
-          aws s3 cp "$INTEL_DMG" "s3://${R2_BUCKET_NAME}/${INTEL_DMG_KEY}" --cache-control "$IMMUTABLE_CACHE" --endpoint-url "$ENDPOINT"
-          aws s3 cp "$INTEL_TAR" "s3://${R2_BUCKET_NAME}/${INTEL_TAR_KEY}" --cache-control "$IMMUTABLE_CACHE" --endpoint-url "$ENDPOINT"
-          aws s3 cp "$INTEL_SIG" "s3://${R2_BUCKET_NAME}/${INTEL_SIG_KEY}" --cache-control "$IMMUTABLE_CACHE" --endpoint-url "$ENDPOINT"
-          aws s3 cp "$WINDOWS_INSTALLER" "s3://${R2_BUCKET_NAME}/${WINDOWS_INSTALLER_KEY}" --cache-control "$IMMUTABLE_CACHE" --endpoint-url "$ENDPOINT"
-          aws s3 cp "$WINDOWS_SIGNATURE" "s3://${R2_BUCKET_NAME}/${WINDOWS_SIGNATURE_KEY}" --cache-control "$IMMUTABLE_CACHE" --endpoint-url "$ENDPOINT"
-          # Keep stable links for both architectures, but never let the CDN
-          # retain an older release under these mutable names.
-          aws s3 cp "$ARM_DMG" "s3://${R2_BUCKET_NAME}/Bonocode.dmg" --cache-control "$NO_CACHE" --endpoint-url "$ENDPOINT"
-          aws s3 cp "$INTEL_DMG" "s3://${R2_BUCKET_NAME}/Bonocode_x64.dmg" --cache-control "$NO_CACHE" --endpoint-url "$ENDPOINT"
 
       - name: GitHub Release
         env:
@@ -281,48 +160,22 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="${GITHUB_REF_NAME#v}"
-          BUNDLE="target/release/bundle"
-          ARM_BUNDLE="target/aarch64-apple-darwin/release/bundle"
-          INTEL_BUNDLE="target/x86_64-apple-darwin/release/bundle"
-          ARM_TAR="$ARM_BUNDLE/macos/Bonocode.app.tar.gz"
+          BUNDLE="target/aarch64-apple-darwin/release/bundle"
+          ARM_TAR="$BUNDLE/macos/Bonocode.app.tar.gz"
           ARM_SIG="${ARM_TAR}.sig"
-          ARM_DMG="$ARM_BUNDLE/dmg/Bonocode_${VERSION}_aarch64.dmg"
-          INTEL_TAR="$INTEL_BUNDLE/macos/Bonocode.app.tar.gz"
-          INTEL_SIG="${INTEL_TAR}.sig"
-          INTEL_DMG="$INTEL_BUNDLE/dmg/Bonocode_${VERSION}_x64.dmg"
-          DEB="$BUNDLE/linux/Bonocode_${VERSION}_amd64.deb"
-          APPIMAGE="$BUNDLE/linux/Bonocode_${VERSION}_amd64.AppImage"
-          shopt -s nullglob
-          RPMS=("$BUNDLE"/rpm/*.rpm)
-          if (( ${#RPMS[@]} != 1 )); then
-            echo "Expected exactly one .rpm" >&2
-            exit 1
-          fi
-          RPM="${RPMS[0]}"
-          NSIS="$BUNDLE/nsis/Bonocode_${VERSION}_x64-setup.exe"
-          NSIS_SIG="${NSIS}.sig"
-          for artifact in "$ARM_DMG" "$ARM_TAR" "$ARM_SIG" "$INTEL_DMG" "$INTEL_TAR" "$INTEL_SIG" "$DEB" "$APPIMAGE" "$RPM" "$NSIS" "$NSIS_SIG"; do
+          ARM_DMG="$BUNDLE/dmg/Bonocode_${VERSION}_aarch64.dmg"
+          RELEASE_FILES=("$ARM_DMG" "$ARM_TAR" "$ARM_SIG" latest.json)
+          for artifact in "${RELEASE_FILES[@]}"; do
             if [[ ! -f "$artifact" ]]; then
               echo "Missing release artifact: $artifact" >&2
               exit 1
             fi
           done
-          RELEASE_ASSETS="$RUNNER_TEMP/github-release-assets"
-          mkdir -p "$RELEASE_ASSETS"
-          cp "$ARM_TAR" "$RELEASE_ASSETS/Bonocode.app.tar.gz"
-          cp "$ARM_SIG" "$RELEASE_ASSETS/Bonocode.app.tar.gz.sig"
-          cp "$INTEL_TAR" "$RELEASE_ASSETS/Bonocode_x64.app.tar.gz"
-          cp "$INTEL_SIG" "$RELEASE_ASSETS/Bonocode_x64.app.tar.gz.sig"
-          RELEASE_FILES=(
-            "$ARM_DMG" "$RELEASE_ASSETS/Bonocode.app.tar.gz" "$RELEASE_ASSETS/Bonocode.app.tar.gz.sig"
-            "$INTEL_DMG" "$RELEASE_ASSETS/Bonocode_x64.app.tar.gz" "$RELEASE_ASSETS/Bonocode_x64.app.tar.gz.sig"
-            "$DEB" "$APPIMAGE" "$RPM" "$NSIS" "$NSIS_SIG"
-          )
           if ! gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             gh release create "$GITHUB_REF_NAME" \
               --draft \
               --title "Bonocode $VERSION" \
-              --notes "See CHANGELOG.md for details."
+              --notes-file "$RUNNER_TEMP/release-notes.md"
           fi
           verify_release() {
             local expected_draft="$1"
@@ -349,200 +202,13 @@ jobs:
           if [[ "$IS_DRAFT" == true ]]; then
             # Draft assets can be replaced after an interrupted upload. A
             # published release is immutable, so only resume drafts.
+            # latest.json is uploaded with the draft, so the updater feed goes
+            # live only when the release is published.
             gh release upload "$GITHUB_REF_NAME" "${RELEASE_FILES[@]}" --clobber
             verify_release true
-            gh release edit "$GITHUB_REF_NAME" --draft=false
+            gh release edit "$GITHUB_REF_NAME" --draft=false --latest
           elif [[ "$IS_DRAFT" != false ]]; then
             echo "Unexpected GitHub Release state: $IS_DRAFT" >&2
             exit 1
           fi
           verify_release false
-
-      - name: Publish updater feed
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: auto
-          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
-          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
-        run: |
-          set -euo pipefail
-          ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
-          aws s3 cp latest.json "s3://${R2_BUCKET_NAME}/latest.json" \
-            --content-type "application/json" \
-            --cache-control "no-store,max-age=0,must-revalidate" \
-            --endpoint-url "$ENDPOINT"
-
-  linux:
-    name: Linux packages
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - uses: dtolnay/rust-toolchain@stable
-
-      - name: Install Linux system dependencies
-        run: bash scripts/install-linux-deps-debian.sh
-
-      - run: npm ci
-
-      - name: Build Linux packages
-        run: npm run build:linux
-
-      - name: Stage Linux packages
-        run: |
-          set -euo pipefail
-          shopt -s nullglob
-          deb=(target/release/bundle/deb/*.deb)
-          appimage=(target/release/bundle/appimage/*.AppImage)
-          if (( ${#deb[@]} != 1 || ${#appimage[@]} != 1 )); then
-            echo "Expected exactly one .deb and one AppImage" >&2
-            exit 1
-          fi
-          mkdir -p release-artifacts
-          cp "${deb[0]}" "${appimage[0]}" release-artifacts/
-
-      - name: Upload Linux packages
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-packages
-          path: release-artifacts/
-          if-no-files-found: error
-
-  linux-rpm:
-    name: Linux rpm package
-    runs-on: ubuntu-latest
-    # Build on EL 10 so the published rpm's glibc requirement matches the
-    # oldest advertised target. Fedora 43 is newer and would install on EL 10
-    # while failing to load.
-    container: almalinux:10
-    steps:
-      # almalinux:10 ships no git, which actions/checkout otherwise has to work
-      # around with a REST API tarball download.
-      - name: Install git
-        run: dnf install -y git
-
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - uses: dtolnay/rust-toolchain@stable
-
-      - name: Install Enterprise Linux system dependencies
-        run: bash scripts/install-linux-deps-fedora.sh
-
-      - run: npm ci
-
-      - name: Build rpm package
-        run: npm run build:fedora
-
-      - name: Install and stage the generated rpm
-        run: |
-          set -euo pipefail
-          shopt -s nullglob
-          bundle=(target/release/bundle/rpm/*.rpm)
-          if (( ${#bundle[@]} != 1 )); then
-            echo "Expected exactly one .rpm" >&2
-            exit 1
-          fi
-          # tauri-bundler derives rpm Requires only from
-          # bundle.linux.rpm.depends, and the setup script has already
-          # installed every -devel package, so assert the metadata directly.
-          requires="$(rpm -qp --requires "${bundle[0]}")"
-          for dep in webkit2gtk4.1 gtk3 libappindicator-gtk3 librsvg2 openssl-libs; do
-            if ! grep -qx "$dep" <<<"$requires"; then
-              echo "rpm is missing Requires: $dep" >&2
-              exit 1
-            fi
-          done
-          dnf install -y "${bundle[0]}"
-          rpm -q "$(rpm -qp --queryformat '%{NAME}' "${bundle[0]}")"
-          mkdir -p release-artifacts
-          cp "${bundle[0]}" release-artifacts/
-
-      - name: Upload rpm package
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-rpm-package
-          path: release-artifacts/
-          if-no-files-found: error
-
-  windows:
-    name: Windows packages
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - uses: dtolnay/rust-toolchain@stable
-
-      - run: npm ci
-
-      - name: Write updater release config
-        env:
-          TAURI_UPDATER_PUBKEY: ${{ secrets.TAURI_UPDATER_PUBKEY }}
-          TAURI_UPDATER_ENDPOINT: ${{ secrets.TAURI_UPDATER_ENDPOINT }}
-          R2_PUBLIC_BASE_URL: ${{ secrets.R2_PUBLIC_BASE_URL }}
-        run: |
-          $endpoint = $env:TAURI_UPDATER_ENDPOINT
-          if ([string]::IsNullOrWhiteSpace($endpoint)) {
-            if ([string]::IsNullOrWhiteSpace($env:R2_PUBLIC_BASE_URL)) {
-              throw "TAURI_UPDATER_ENDPOINT or R2_PUBLIC_BASE_URL is required"
-            }
-            $endpoint = "$($env:R2_PUBLIC_BASE_URL.TrimEnd('/'))/latest.json"
-          }
-          if ([string]::IsNullOrWhiteSpace($env:TAURI_UPDATER_PUBKEY)) {
-            throw "TAURI_UPDATER_PUBKEY is required"
-          }
-          $config = @{
-            bundle = @{
-              createUpdaterArtifacts = $true
-            }
-            plugins = @{
-              updater = @{
-                pubkey = $env:TAURI_UPDATER_PUBKEY
-                endpoints = @($endpoint)
-              }
-            }
-          }
-          $config | ConvertTo-Json -Depth 5 | Set-Content -Encoding utf8 "$env:RUNNER_TEMP\tauri.release.conf.json"
-
-      - name: Build Windows packages
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: |
-          $env:RUSTUP_TOOLCHAIN = "stable-x86_64-pc-windows-msvc"
-          npx tauri build --bundles nsis --config "$env:RUNNER_TEMP\tauri.release.conf.json"
-
-      - name: Stage Windows packages
-        run: |
-          $installers = @(Get-ChildItem "target/release/bundle/nsis" -Filter "*.exe")
-          $signatures = @(Get-ChildItem "target/release/bundle/nsis" -Filter "*.exe.sig")
-          if ($installers.Count -ne 1 -or $signatures.Count -ne 1) {
-            throw "Expected exactly one NSIS installer and one updater signature"
-          }
-          New-Item -ItemType Directory -Force "release-artifacts" | Out-Null
-          $artifacts = @($installers[0].FullName, $signatures[0].FullName)
-          Copy-Item -Path $artifacts -Destination "release-artifacts/"
-
-      - name: Upload Windows packages
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-packages
-          path: release-artifacts/
-          if-no-files-found: error

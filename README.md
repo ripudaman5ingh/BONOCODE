@@ -52,6 +52,13 @@ Output goes to `target/release/bundle/`. Linux and Windows builds use `npm run b
 
 This is very early and you should expect bugs. Contributions are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## Releasing
+
+- Run `npm run set-version -- X.Y.Z`, add `## [X.Y.Z] - date` to the CHANGELOG, merge, then tag `vX.Y.Z` on main and push the tag.
+- Actions builds an ad-hoc-signed Apple Silicon DMG and publishes it to GitHub Releases. Installed apps update from `latest.json`.
+- Required secrets: `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, `TAURI_UPDATER_PUBKEY`.
+- If macOS blocks the first open, go to System Settings → Privacy & Security → Open Anyway.
+
 ## Credit and license
 
 Bonocode is a fork of [MonoCode](https://github.com/hardbeat920/monocode) v0.6.0, used under the MIT License. See [LICENSE-MONOCODE](LICENSE-MONOCODE).
