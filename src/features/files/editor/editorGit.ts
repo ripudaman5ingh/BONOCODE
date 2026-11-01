@@ -78,7 +78,7 @@ const originalField = StateField.define<Text | null>({
   },
 });
 
-const chunksField = StateField.define<readonly Chunk[]>({
+export const chunksField = StateField.define<readonly Chunk[]>({
   create(state) {
     return chunksFor(state.field(originalField), state.doc);
   },

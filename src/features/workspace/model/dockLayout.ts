@@ -37,6 +37,22 @@ export const DEFAULT_CHANGES_DOCK: DockPlacement = {
   open: false,
 };
 
+/** A fresh window's changes dock: open on the right, wide enough to edit in. */
+export const INITIAL_CHANGES_DOCK: DockPlacement = {
+  side: "right",
+  size: 520,
+  open: true,
+};
+
+/** INITIAL_CHANGES_DOCK, with its size clamped to the window like any dock. */
+export function initialChangesDock(viewport?: {
+  width: number;
+  height: number;
+}): DockPlacement {
+  const { side, size } = INITIAL_CHANGES_DOCK;
+  return { ...INITIAL_CHANGES_DOCK, size: clampDockSize(side, size, viewport) };
+}
+
 /** The open docks, in priority order. */
 export function openDocks(placements: DockPlacements): DockEntry[] {
   const entries: DockEntry[] = [];

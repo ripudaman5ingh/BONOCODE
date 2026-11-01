@@ -22,6 +22,8 @@ type Props = {
   onNewTerminal?: () => void;
   onToggleTerminal?: () => void;
   onToggleChangesDock?: () => void;
+  onResetLayout?: () => void;
+  onNextLayout?: () => void;
   onGoToFile?: () => void;
   onToggleSidebar: () => void;
   onToggleSessionSidebar: () => void;
@@ -42,6 +44,8 @@ export function MenuBar({
   onNewTerminal,
   onToggleTerminal,
   onToggleChangesDock,
+  onResetLayout,
+  onNextLayout,
   onGoToFile,
   onToggleSidebar,
   onToggleSessionSidebar,
@@ -148,6 +152,12 @@ export function MenuBar({
         case "toggle_changes":
           onToggleChangesDock?.();
           break;
+        case "reset_layout":
+          onResetLayout?.();
+          break;
+        case "next_layout":
+          onNextLayout?.();
+          break;
         case "new_window":
           void invoke("open_new_window").catch(() => {});
           break;
@@ -215,6 +225,8 @@ export function MenuBar({
       onNewTerminal,
       onToggleTerminal,
       onToggleChangesDock,
+      onResetLayout,
+      onNextLayout,
       onPickProject,
       onSearch,
           onShowSourceControl,
@@ -337,11 +349,23 @@ export function MenuBar({
           },
           {
             kind: "item",
+            id: "reset_layout",
+            label: "Reset Layout",
+            shortcut: shortcut("Layout: Reset", ""),
+          },
+          {
+            kind: "item",
+            id: "next_layout",
+            label: "Next Layout",
+            shortcut: shortcut("Layout: Next", `${MOD}${ALT}L`),
+          },
+          {
+            kind: "item",
             id: "open_model_picker",
             label: "Switch Model…",
             shortcut: shortcut("App: Switch Model", `${MOD}.`),
           },
-          { kind: "item", id: "toggle_diff", label: "Toggle Changes" },
+          { kind: "item", id: "toggle_diff", label: "Source Control" },
           { kind: "sep" },
           {
             kind: "item",

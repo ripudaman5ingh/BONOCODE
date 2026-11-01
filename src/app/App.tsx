@@ -40,14 +40,7 @@ import {
   HAS_NATIVE_GLASS,
   IS_MAC,
 } from "../platform/tauri/platform";
-import {
-  applyUiScale,
-  loadUiScale,
-  saveUiScale,
-  UI_SCALE_DEFAULT,
-  zoomInUiScale,
-  zoomOutUiScale,
-} from "../features/settings/model/uiScale";
+import { stepUiScale } from "../features/settings/model/uiScale";
 import {
   leafIds,
   newTab,
@@ -75,7 +68,7 @@ import {
   rememberProject,
 } from "../features/projects/model/recents";
 import { createWorkspaceStore } from "../features/workspace/model/workspaceStore";
-import { DEFAULT_CHANGES_DOCK } from "../features/workspace/model/dockLayout";
+import { initialChangesDock } from "../features/workspace/model/dockLayout";
 import {
   newDefaultSession,
   type Session,
@@ -115,6 +108,7 @@ import { useNavigationActions } from "./hooks/useNavigationActions";
 import { useAppSurfaces } from "./hooks/useAppSurfaces";
 import { useTerminalDock } from "../features/terminal/hooks/useTerminalDock";
 import { useChangesDock } from "../features/workspace/hooks/useChangesDock";
+import { useLayoutPresets } from "../features/workspace/hooks/useLayoutPresets";
 import { useProjectState } from "../features/projects/hooks/useProjectState";
 import { useWorkspaceTabState } from "../features/workspace/hooks/useWorkspaceTabState";
 import { useWorkspaceTabActions } from "../features/workspace/hooks/useWorkspaceTabActions";
@@ -198,7 +192,7 @@ function Workspace({
         lastDockSide: resumed?.lastDockSide ?? null,
         projectTerminalFocused: false,
         dirtyFiles: new Set(windowTransfer?.dirtyFileIds ?? []),
-        changesDock: resumed?.changesDock ?? DEFAULT_CHANGES_DOCK,
+        changesDock: resumed?.changesDock ?? initialChangesDock({ width: window.innerWidth, height: window.innerHeight }),
       }),
     };
   });
@@ -321,6 +315,8 @@ function Workspace({
   const {
     projectRailOpen,
     sessionSidebarOpen,
+    setProjectRailOpen,
+    setSessionSidebarOpen,
     filesSearchOpen,
     setFilesSearchOpen,
     searchFocusToken,
@@ -1066,7 +1062,18 @@ function Workspace({
     />
   );
 
+  const layouts = useLayoutPresets({
+    workspace,
+    gitCwd,
+    openProjectTerminal,
+    projectRailOpen,
+    sessionSidebarOpen,
+    setProjectRailOpen,
+    setSessionSidebarOpen,
+  });
+
   const { actions } = useAppCommands({
+    ...layouts.commands,
     onActivate,
     onArchiveFocusedSession,
     onCloseAllTabs,
@@ -1220,6 +1227,7 @@ function Workspace({
                 onNewTerminal={onNewTerminal}
                 onToggleTerminal={onToggleProjectTerminal}
                 onToggleChangesDock={changes.onToggleChangesDock}
+                {...layouts.commands}
                 onGoToFile={onGoToFile}
                 onToggleSidebar={onToggleSidebar}
                 onToggleSessionSidebar={onToggleSessionSidebar}
@@ -1232,18 +1240,9 @@ function Workspace({
                 onPickProject={pickProject}
                 onFindInProject={onFindInProject}
                 onSearch={onOpenSearch}
-                onZoomIn={() => {
-                  const next = saveUiScale(zoomInUiScale(loadUiScale()));
-                  void applyUiScale(next);
-                }}
-                onZoomOut={() => {
-                  const next = saveUiScale(zoomOutUiScale(loadUiScale()));
-                  void applyUiScale(next);
-                }}
-                onZoomReset={() => {
-                  saveUiScale(UI_SCALE_DEFAULT);
-                  void applyUiScale(UI_SCALE_DEFAULT);
-                }}
+                onZoomIn={() => stepUiScale("zoom-in")}
+                onZoomOut={() => stepUiScale("zoom-out")}
+                onZoomReset={() => stepUiScale("zoom-reset")}
               />
             ) : null}
             {compactTitleBar ? null : workspaceTitleBar}
@@ -1256,6 +1255,7 @@ function Workspace({
                 changes={changes}
                 onAddTerminal={onNewTerminal}
                 onTerminalMetaChange={onTerminalMetaChange}
+                onOpenFile={onOpenFile}
               >
                 {tabs.map((tab) => (
                   <div
@@ -1424,13 +1424,13 @@ function Workspace({
           openPaths={openFilePaths}
           initialQuery={filePickerInitialQuery}
           onOpenFile={onOpenFile}
-          onRunAction={(id) => {
-            if (id === "reload") actions.current.onReload();
-          }}
+          extraActions={layouts.paletteActions}
+          onRunAction={(id) => layouts.runPaletteAction(id) || (id === "reload" && actions.current.onReload())}
           onClose={() => setFilePickerOpen(false)}
         />
       ) : null}
 
+      {layouts.dialog}
       {sessionDeleteDialog && (
         <DeleteSessionDialog
           title={sessionDeleteDialog.title}

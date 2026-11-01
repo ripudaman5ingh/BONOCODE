@@ -66,3 +66,21 @@ export function prioritizeWorkingTreeDiffEntries(
   if (!focused) return [...entries];
   return [focused, ...entries.filter((entry) => entry !== focused)];
 }
+
+/**
+ * One file per changed path, in the sidebar's staged-first order. For views
+ * that edit the working file, where a path with both staged and unstaged
+ * changes is still one file.
+ */
+export function changedPathFiles(
+  files: readonly GitChangedFile[],
+): GitChangedFile[] {
+  const seen = new Set<string>();
+  const result: GitChangedFile[] = [];
+  for (const { file } of workingTreeDiffEntries(files)) {
+    if (seen.has(file.relative)) continue;
+    seen.add(file.relative);
+    result.push(file);
+  }
+  return result;
+}

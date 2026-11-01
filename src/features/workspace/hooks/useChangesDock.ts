@@ -8,6 +8,11 @@ import {
 import { moveDockToSide, type DockSurface } from "../model/dockLayout";
 import { useWorkspaceStore, type WorkspaceStore } from "../model/workspaceStore";
 
+/** The dirty-file id of an unsaved edit in the changes dock. */
+export function changesDockDirtyId(path: string): string {
+  return `changes-dock:${path}`;
+}
+
 function viewport() {
   return { width: window.innerWidth, height: window.innerHeight };
 }
@@ -46,7 +51,7 @@ export function moveWorkspaceDock(
 
 export function useChangesDock(workspace: WorkspaceStore) {
   const changesDock = useWorkspaceStore(workspace, (state) => state.changesDock);
-  const { setChangesDock, setProjectTerminalFocused } = workspace;
+  const { setChangesDock, setProjectTerminalFocused, setDirtyFiles } = workspace;
 
   const onToggleChangesDock = useCallback(() => {
     setChangesDock((dock) => ({ ...dock, open: !dock.open }));
@@ -76,8 +81,24 @@ export function useChangesDock(workspace: WorkspaceStore) {
     setProjectTerminalFocused(false);
   }, [setProjectTerminalFocused]);
 
+  /** Unsaved edits in the dock count as dirty files, so a reload asks first. */
+  const onChangesDirty = useCallback(
+    (path: string, dirty: boolean) => {
+      const id = changesDockDirtyId(path);
+      setDirtyFiles((prev) => {
+        if (prev.has(id) === dirty) return prev;
+        const next = new Set(prev);
+        if (dirty) next.add(id);
+        else next.delete(id);
+        return next;
+      });
+    },
+    [setDirtyFiles],
+  );
+
   return {
     changesDock,
+    onChangesDirty,
     onToggleChangesDock,
     onHideChangesDock,
     onChangesDockSide,

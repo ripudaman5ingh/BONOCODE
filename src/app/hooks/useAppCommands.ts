@@ -60,6 +60,8 @@ export type UseAppCommandsDeps = {
   onSplit: (dir: SplitDir) => void;
   onToggleProjectTerminal: () => void;
   onToggleChangesDock: () => void;
+  onResetLayout: () => void;
+  onNextLayout: () => void;
   onToggleSessionSidebar: () => void;
   onToggleSidebar: () => void;
   onVisitBack: () => void;
@@ -97,6 +99,8 @@ export function useAppCommands(deps: UseAppCommandsDeps) {
     onSplit,
     onToggleProjectTerminal,
     onToggleChangesDock,
+    onResetLayout,
+    onNextLayout,
     onToggleSessionSidebar,
     onToggleSidebar,
     onVisitBack,
@@ -135,6 +139,8 @@ export function useAppCommands(deps: UseAppCommandsDeps) {
     onNewTerminalTab,
     onToggleProjectTerminal,
     onToggleChangesDock,
+    onResetLayout,
+    onNextLayout,
     onNavigateSessionList,
     onNavigateProjectList,
     openSettings,
@@ -165,6 +171,8 @@ export function useAppCommands(deps: UseAppCommandsDeps) {
     onNewTerminalTab,
     onToggleProjectTerminal,
     onToggleChangesDock,
+    onResetLayout,
+    onNextLayout,
     onNavigateSessionList,
     onNavigateProjectList,
     openSettings,
@@ -311,6 +319,9 @@ export function useAppCommands(deps: UseAppCommandsDeps) {
           run("toggle-terminal", a.onToggleProjectTerminal);
         else if (cmd === "toggle-changes")
           run("toggle-changes", a.onToggleChangesDock);
+        else if (cmd === "reset-layout")
+          run("reset-layout", a.onResetLayout);
+        else if (cmd === "next-layout") run("next-layout", a.onNextLayout);
         else if (cmd === "prev-session")
           run("prev-session", () => a.onNavigateSessionList(-1));
         else if (cmd === "next-session")
@@ -418,6 +429,12 @@ export function useAppCommands(deps: UseAppCommandsDeps) {
       ),
       listen("toggle_changes", () =>
         run("toggle-changes", actions.current.onToggleChangesDock),
+      ),
+      listen("reset_layout", () =>
+        run("reset-layout", actions.current.onResetLayout),
+      ),
+      listen("next_layout", () =>
+        run("next-layout", actions.current.onNextLayout),
       ),
       listen("focus_left", () =>
         run("focus-left", () => actions.current.onFocusDir("left")),

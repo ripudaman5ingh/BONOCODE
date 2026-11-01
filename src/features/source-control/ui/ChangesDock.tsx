@@ -3,9 +3,9 @@ import { type DockSide } from "../../projects/model/projectTerminal";
 import { ALT, MOD } from "../../../platform/tauri/platform";
 import { lazySurface } from "../../../shared/ui/lazySurface";
 
-const WorkingTreeDiff = lazySurface(async () => {
-  const module = await import("./WorkingTreeDiff");
-  return { default: module.WorkingTreeDiff };
+const EditableChanges = lazySurface(async () => {
+  const module = await import("./EditableChanges");
+  return { default: module.EditableChanges };
 });
 
 type Props = {
@@ -18,13 +18,19 @@ type Props = {
   onSideChange: (side: DockSide) => void;
   onSizePaint: (size: number) => void;
   onSizeCommit: (size: number) => void;
+  onOpenFile: (path: string) => void;
+  onDirtyChange: (path: string, dirty: boolean) => void;
 };
 
-export function ChangesDock({ gitCwd, ...frame }: Props) {
+export function ChangesDock({ gitCwd, onOpenFile, onDirtyChange, ...frame }: Props) {
   return (
     <DockFrame title="Changes" hideShortcut={`${MOD}${ALT}B`} {...frame}>
       <div className="absolute inset-0 h-full">
-        <WorkingTreeDiff cwd={gitCwd} />
+        <EditableChanges
+          cwd={gitCwd}
+          onOpenFile={onOpenFile}
+          onDirtyChange={onDirtyChange}
+        />
       </div>
     </DockFrame>
   );
