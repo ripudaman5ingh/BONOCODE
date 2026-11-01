@@ -70,15 +70,15 @@ describe("FilePreviewSearch", () => {
     saveKeybindingOverride("Editor: Find", { shortcut: "Control+Shift+KeyM" });
     await act(async () =>
       root.render(
-        createElement(
-          FilePreviewSearch,
-          { active: true, contentVersion: "Alpha" },
-          createElement(
+        createElement(FilePreviewSearch, {
+          active: true,
+          contentVersion: "Alpha",
+          children: createElement(
             "div",
             { className: "markdown-preview", "aria-label": "Markdown preview" },
             createElement("p", null, "Alpha"),
           ),
-        ),
+        }),
       ),
     );
 
@@ -124,10 +124,10 @@ describe("FilePreviewSearch", () => {
   it("opens from the find shortcut and navigates rendered matches", async () => {
     await act(async () =>
       root.render(
-        createElement(
-          FilePreviewSearch,
-          { active: true, contentVersion: "Alpha beta alpha" },
-          createElement(
+        createElement(FilePreviewSearch, {
+          active: true,
+          contentVersion: "Alpha beta alpha",
+          children: createElement(
             "div",
             { className: "markdown-preview", "aria-label": "Markdown preview" },
             createElement(
@@ -138,7 +138,7 @@ describe("FilePreviewSearch", () => {
             ),
             createElement("p", null, "alpha"),
           ),
-        ),
+        }),
       ),
     );
 

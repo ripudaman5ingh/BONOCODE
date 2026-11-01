@@ -14,7 +14,10 @@ const REAL = process.env.AGY_REAL === "1" && existsSync(BIN);
 const ARGS = process.platform === "linux" ? ["--uid="] : [];
 
 const live = vi.hoisted(() => ({
-  children: new Map<string, import("node:child_process").ChildProcess>(),
+  children: new Map<
+    string,
+    import("node:child_process").ChildProcessWithoutNullStreams
+  >(),
   listeners: new Map<string, (line: string) => void>(),
   exits: new Map<string, (code: number | null) => void>(),
   sent: [] as { key: string; method?: string; id?: number }[],

@@ -235,7 +235,7 @@ describe("handoff block lifecycle", () => {
       to: "fx",
       text: "Session so far: go",
     });
-    const afterFailedSend = {
+    const afterFailedSend: Session = {
       ...session,
       blocks: [
         ...session.blocks,

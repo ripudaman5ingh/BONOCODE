@@ -10,7 +10,10 @@ vi.mock("@tauri-apps/api/core", async (importOriginal) => {
     await importOriginal<typeof import("@tauri-apps/api/core")>();
   return {
     ...original,
-    invoke: (command: string, args?: unknown) =>
+    invoke: (
+      command: string,
+      args?: import("@tauri-apps/api/core").InvokeArgs,
+    ) =>
       command === "mcp_discover" || command === "claude_mcp_list"
         ? mcpInvoke(command, args)
         : original.invoke(command, args),
@@ -698,6 +701,7 @@ describe("Composer question focus", () => {
       harness: "claude" as const,
       model: "claude-sonnet",
       runtimeMode: "supervised" as const,
+      focused: false,
       executionCwd: "/deleted-worktree",
       hideProjectPicker: true,
       hideBranchPicker: true,

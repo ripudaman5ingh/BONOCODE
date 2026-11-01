@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { Block, BlockRole } from "../model/session";
 
 const mocks = vi.hoisted(() => ({ invoke: vi.fn() }));
 
@@ -9,13 +10,11 @@ async function loadStore() {
   return import("./sessionStore");
 }
 
-type TestBlock = { id: string; role: string; text: string; draft?: boolean };
-
-function block(id: string, role: string, text: string): TestBlock {
+function block(id: string, role: BlockRole, text: string): Block {
   return { id, role, text };
 }
 
-function session(id: string, blocks: TestBlock[], title = "Chat") {
+function session(id: string, blocks: Block[], title = "Chat") {
   return {
     id,
     cwd: "/tmp/project",

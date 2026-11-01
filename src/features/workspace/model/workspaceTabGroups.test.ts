@@ -34,6 +34,8 @@ function session(id: string, cwd: string): Session {
     blocks: [],
     busy: false,
     model: "",
+    modelSettings: {},
+    runtimeMode: "supervised",
   };
 }
 

@@ -47,11 +47,12 @@ function render(pool: TranscriptPool, shown: string | null, onFocus = vi.fn()) {
           ? createElement(
               "section",
               { key: shown, "data-pane": shown },
-              createElement(
-                PooledTranscript,
-                { pool, sessionId: shown, onMouseDown: onFocus },
-                createElement(Probe, { id: shown, visible: true }),
-              ),
+              createElement(PooledTranscript, {
+                pool,
+                sessionId: shown,
+                onMouseDown: onFocus,
+                children: createElement(Probe, { id: shown, visible: true }),
+              }),
             )
           : null,
         createElement(TranscriptPoolOutlet, { pool }),
@@ -172,11 +173,10 @@ describe("transcript pool", () => {
   it("renders in place without a pool", () => {
     act(() =>
       root.render(
-        createElement(
-          PooledTranscript,
-          { sessionId: "a" },
-          createElement(Probe, { id: "a", visible: true }),
-        ),
+        createElement(PooledTranscript, {
+          sessionId: "a",
+          children: createElement(Probe, { id: "a", visible: true }),
+        }),
       ),
     );
     expect(probe("a")?.parentElement).toBe(container);

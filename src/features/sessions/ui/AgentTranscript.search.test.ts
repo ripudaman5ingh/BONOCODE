@@ -7,7 +7,9 @@ import { AgentTranscript } from "./AgentTranscript";
 
 let container: HTMLDivElement;
 let root: Root;
-let navigate: ((blockId: string | null) => boolean) | undefined;
+let navigate:
+  | ((blockId: string | null, query?: string) => boolean)
+  | undefined;
 
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);

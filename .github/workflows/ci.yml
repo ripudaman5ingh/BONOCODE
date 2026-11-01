@@ -36,6 +36,7 @@ jobs:
 
       - run: npm ci
       - run: npx tsc --noEmit
+      - run: npx tsc --noEmit -p tsconfig.test.json
       - run: cargo fmt --check
       - run: npm test
       - run: cargo clippy --workspace --all-targets -- -D warnings

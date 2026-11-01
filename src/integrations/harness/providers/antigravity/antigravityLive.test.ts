@@ -9,7 +9,7 @@ const mock = vi.hoisted(() => {
     listeners,
     exits,
     sent: [] as { thread: string; id?: number; method?: string; params?: Record<string, unknown>; result?: unknown }[],
-    spawn: vi.fn(async () => undefined),
+    spawn: vi.fn<typeof import("../../core/child").spawnChild>(async () => undefined),
     // killChild unwatches in the real bridge; mirror that so a killed
     // generation can never deliver output again.
     kill: vi.fn(async (id: string) => {
@@ -30,7 +30,7 @@ vi.mock("../../../../platform/tauri/fs", () => ({ homeDir: async () => "/home/te
 vi.mock("../../core/child", () => ({
   resolveAntigravityBinary: async () => {
     if (mock.resolveGates) {
-      await new Promise<void>((resolve) => mock.resolveGates.push(resolve));
+      await new Promise<void>((resolve) => mock.resolveGates!.push(resolve));
     }
     return { path: "/fake/agy_acp_server.par", args: ["--uid="] };
   },
@@ -819,7 +819,7 @@ describe.each(providers)("$id offline ACP transport", (provider) => {
     const send = provider.send(input);
     await vi.waitFor(() => expect(mock.resolveGates?.length).toBe(1));
     const release = () => {
-      const gates = mock.resolveGates;
+      const gates = mock.resolveGates!;
       mock.resolveGates = null;
       gates.forEach((open) => open());
     };

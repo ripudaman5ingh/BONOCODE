@@ -135,6 +135,7 @@ function renderTabs(
           fileErrorCounts: new Map(),
           onSelectFile: onSelect,
           onCloseFile: onClose,
+          onCloseOtherFiles: vi.fn(),
           onReorder,
         }),
       ),
@@ -225,6 +226,7 @@ describe.each(["workspace", "file", "terminal"] as const)(
                 fileErrorCounts: new Map<string, number>(),
                 onSelectFile: setActiveId,
                 onCloseFile: close,
+                onCloseOtherFiles: vi.fn(),
                 onReorder: reorder,
               });
         }

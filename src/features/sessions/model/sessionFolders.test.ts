@@ -119,9 +119,7 @@ describe("buildSessionList", () => {
           ? entry.folder.name
           : entry.kind === "pinned"
             ? `Pinned:${entry.sessions.map((session) => session.id).join(",")}`
-            : entry.kind === "session"
-              ? entry.session.id
-              : entry.kind,
+            : entry.session.id,
       ),
     ).toEqual(["Work", "Pinned:pin", "new"]);
   });

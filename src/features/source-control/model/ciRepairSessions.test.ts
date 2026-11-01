@@ -32,7 +32,11 @@ it("offers available chats without restoring unavailable live chats from history
   const switching = {
     ...newSession("codex", "/web"),
     id: "switching",
-    pendingSwitch: { from: "claude" as const, fromModel: "sonnet" },
+    pendingSwitch: {
+      from: "claude" as const,
+      fromModel: "sonnet",
+      fromSettings: {},
+    },
   };
   const preparing = appendPreparingHandoff(
     { ...newSession("claude", "/web"), id: "preparing" },

@@ -46,7 +46,10 @@ function openMenu(element: Element) {
   );
 }
 
-async function pick(label: string, link = container.querySelector("a")!) {
+async function pick(
+  label: string,
+  link: Element = container.querySelector("a")!,
+) {
   const menu = openMenu(link)!;
   const item = Array.from(
     menu.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'),

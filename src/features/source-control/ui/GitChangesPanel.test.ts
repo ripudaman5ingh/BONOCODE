@@ -398,7 +398,7 @@ describe("GitChangesPanel pull request dialog", () => {
 
     await act(async () => findButton("Create PR").click());
     await act(async () => {});
-    expect(titleInput().value).toBe("Generated title");
+    expect(titleInput()!.value).toBe("Generated title");
     expect(bodyInput().value).toBe("Generated body");
 
     await act(async () => findButton("Cancel").click());

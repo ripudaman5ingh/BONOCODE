@@ -428,7 +428,7 @@ it("collapses a batch into one conversation card and keeps results in the check 
             headOid: "new",
             checks: checks.map((check, index) => ({
               ...check,
-              state: index < 8 ? "pass" : "fail",
+              state: index < 8 ? ("pass" as const) : ("fail" as const),
               startedAt: new Date(Date.now() + 1000).toISOString(),
             })),
           },

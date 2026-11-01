@@ -105,17 +105,17 @@ it("remeasures prompt corners when a pooled tab is shown at a new width", () => 
   let textWidth = 200;
   let textHeight = 20;
   vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockImplementation(
-    function () {
+    function (this: HTMLElement) {
       return this.tagName === "PRE" ? textWidth : 200;
     },
   );
   vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockImplementation(
-    function () {
+    function (this: HTMLElement) {
       return this.tagName === "PRE" ? textHeight : 200;
     },
   );
   vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(
-    function () {
+    function (this: HTMLElement) {
       return this.tagName === "PRE" ? textHeight : 200;
     },
   );
