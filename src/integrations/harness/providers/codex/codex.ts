@@ -33,6 +33,7 @@ import { deleteGeneratedImages, saveGeneratedImage } from "../../../../platform/
 import { codexQuestions, codexQuestionResponse } from "./codexQuestions";
 import { codexMcpConfirmation } from "./codexElicitation";
 import { snapshotRemainder } from "../../core/streamText";
+import { createCancelEpochs } from "../../core/cancelEpochs";
 import type {
   ApprovalDecision,
   CompactContextInput,
@@ -123,7 +124,7 @@ type Resume = {
 
 const liveByThread = new Map<string, Live>();
 const resumeByThread = new Map<string, Resume>();
-const cancelledThreads = new Set<string>();
+const cancels = createCancelEpochs();
 
 let resolveCodexBinaryImpl: () => Promise<{ path: string }> =
   resolveCodexBinary;
@@ -136,14 +137,14 @@ export function setCodexBinaryResolver(
 }
 
 export async function sendCodexTurn(input: SendTurnInput): Promise<void> {
+  const cancelled = cancels.watch(input.sessionId);
   let live: Live;
   try {
     live = await ensureLive(input);
   } catch (error) {
-    cancelledThreads.delete(input.sessionId);
     throw error;
   }
-  if (cancelledThreads.delete(input.sessionId)) return;
+  if (cancelled()) return;
 
   live.onEvent = input.onEvent;
   live.turns = live.turns
@@ -166,14 +167,14 @@ export async function sendCodexTurn(input: SendTurnInput): Promise<void> {
 export async function compactCodexContext(
   input: CompactContextInput,
 ): Promise<void> {
+  const cancelled = cancels.watch(input.sessionId);
   let live: Live;
   try {
     live = await ensureLive(input);
   } catch (error) {
-    cancelledThreads.delete(input.sessionId);
     throw error;
   }
-  if (cancelledThreads.delete(input.sessionId)) return;
+  if (cancelled()) return;
 
   live.onEvent = input.onEvent;
   live.turns = live.turns
@@ -194,14 +195,14 @@ export async function compactCodexContext(
 export async function rewindCodexLastTurn(
   input: RewindLastTurnInput,
 ): Promise<RewindLastTurnResult> {
+  const cancelled = cancels.watch(input.sessionId);
   let live: Live;
   try {
     live = await ensureLive(input);
   } catch (error) {
-    cancelledThreads.delete(input.sessionId);
     throw error;
   }
-  if (cancelledThreads.delete(input.sessionId)) return { submitted: false };
+  if (cancelled()) return { submitted: false };
 
   live.onEvent = input.onEvent;
   await live.turns;
@@ -338,7 +339,7 @@ function showNextQuestion(live: Live): void {
 export async function cancelCodexTurn(sessionId: string): Promise<void> {
   const live = liveByThread.get(sessionId);
   if (!live) {
-    cancelledThreads.add(sessionId);
+    cancels.cancel(sessionId);
     return;
   }
   live.cancelled = true;
@@ -360,7 +361,6 @@ export async function cancelCodexTurn(sessionId: string): Promise<void> {
 }
 
 export async function stopCodexSession(sessionId: string): Promise<void> {
-  cancelledThreads.delete(sessionId);
   const live = liveByThread.get(sessionId);
   liveByThread.delete(sessionId);
   if (live) {
@@ -1355,7 +1355,7 @@ function autoApproval(
 export function __codexTestReset(): void {
   liveByThread.clear();
   resumeByThread.clear();
-  cancelledThreads.clear();
+  cancels.clear();
 }
 
 export function __codexTestResumeMap(): Map<string, Resume> {

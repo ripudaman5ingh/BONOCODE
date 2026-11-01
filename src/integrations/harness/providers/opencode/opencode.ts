@@ -48,6 +48,7 @@ import {
   extractSkillName,
 } from "../../core/preview";
 import { streamTextDelta } from "../../core/streamText";
+import { createCancelEpochs } from "../../core/cancelEpochs";
 import type {
   ApprovalDecision,
   CompactContextInput,
@@ -115,7 +116,7 @@ type Resume = {
 const SERVER_TIMEOUT_MS = 30_000;
 const liveByThread = new Map<string, Live>();
 const resumeByThread = new Map<string, Resume>();
-const cancelledThreads = new Set<string>();
+const cancels = createCancelEpochs();
 
 let resolveOpenCodeBinaryImpl: () => Promise<{ path: string }> =
   resolveOpenCodeBinary;
@@ -128,14 +129,14 @@ export function setOpenCodeBinaryResolver(
 }
 
 export async function sendOpenCodeTurn(input: SendTurnInput): Promise<void> {
+  const cancelled = cancels.watch(input.sessionId);
   let live: Live;
   try {
     live = await ensureLive(input);
   } catch (error) {
-    cancelledThreads.delete(input.sessionId);
     throw error;
   }
-  if (cancelledThreads.delete(input.sessionId)) return;
+  if (cancelled()) return;
 
   live.onEvent = input.onEvent;
   live.runtimeMode = input.runtimeMode;
@@ -158,14 +159,14 @@ export async function sendOpenCodeTurn(input: SendTurnInput): Promise<void> {
 export async function compactOpenCodeContext(
   input: CompactContextInput,
 ): Promise<void> {
+  const cancelled = cancels.watch(input.sessionId);
   let live: Live;
   try {
     live = await ensureLive(input);
   } catch (error) {
-    cancelledThreads.delete(input.sessionId);
     throw error;
   }
-  if (cancelledThreads.delete(input.sessionId)) return;
+  if (cancelled()) return;
 
   const model = parseOpenCodeModelSlug(nativeModelId(input.model));
   if (!model) {
@@ -192,14 +193,14 @@ export async function compactOpenCodeContext(
 export async function rewindOpenCodeLastTurn(
   input: RewindLastTurnInput,
 ): Promise<RewindLastTurnResult> {
+  const cancelled = cancels.watch(input.sessionId);
   let live: Live;
   try {
     live = await ensureLive(input);
   } catch (error) {
-    cancelledThreads.delete(input.sessionId);
     throw error;
   }
-  if (cancelledThreads.delete(input.sessionId)) return { submitted: false };
+  if (cancelled()) return { submitted: false };
 
   live.onEvent = input.onEvent;
   await live.turns;
@@ -294,7 +295,7 @@ export function respondOpenCodeQuestion(
 export async function cancelOpenCodeTurn(sessionId: string): Promise<void> {
   const live = liveByThread.get(sessionId);
   if (!live) {
-    cancelledThreads.add(sessionId);
+    cancels.cancel(sessionId);
     return;
   }
   live.cancelled = true;
@@ -312,7 +313,6 @@ export async function cancelOpenCodeTurn(sessionId: string): Promise<void> {
 }
 
 export async function stopOpenCodeSession(sessionId: string): Promise<void> {
-  cancelledThreads.delete(sessionId);
   const live = liveByThread.get(sessionId);
   liveByThread.delete(sessionId);
   if (live) {
@@ -1374,5 +1374,5 @@ function waitForServerUrl(
 export function __openCodeTestReset(): void {
   liveByThread.clear();
   resumeByThread.clear();
-  cancelledThreads.clear();
+  cancels.clear();
 }

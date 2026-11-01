@@ -66,6 +66,7 @@ import type {
   SendTurnInput,
   SteerTurnInput,
 } from "../../core/types";
+import { createCancelEpochs } from "../../core/cancelEpochs";
 
 type PendingApproval = {
   request: PiExtensionUiRequest;
@@ -132,7 +133,7 @@ const COMPACT_TIMEOUT_MS = 30 * 60_000;
 type FlavorState = {
   liveByThread: Map<string, Live>;
   resumeByThread: Map<string, Resume>;
-  cancelledThreads: Set<string>;
+  cancels: ReturnType<typeof createCancelEpochs>;
   resolveBinary: () => Promise<{ path: string }>;
   commandListeners: Map<string, Set<(commands: NativeCommand[]) => void>>;
 };
@@ -149,7 +150,7 @@ function stateFor(flavor: PiFlavor): FlavorState {
     state = {
       liveByThread: new Map(),
       resumeByThread: new Map(),
-      cancelledThreads: new Set(),
+      cancels: createCancelEpochs(),
       resolveBinary: flavor.resolveBinary,
       commandListeners: new Map(),
     };
@@ -220,15 +221,15 @@ export async function sendTurn(
   flavor: PiFlavor,
   input: SendTurnInput,
 ): Promise<void> {
-  const { cancelledThreads } = stateFor(flavor);
+  const { cancels } = stateFor(flavor);
+  const cancelled = cancels.watch(input.sessionId);
   let live: Live;
   try {
     live = await ensureLive(flavor, input);
   } catch (error) {
-    cancelledThreads.delete(input.sessionId);
     throw error;
   }
-  if (cancelledThreads.delete(input.sessionId)) return;
+  if (cancelled()) return;
 
   live.onEvent = input.onEvent;
   live.turns = live.turns
@@ -251,6 +252,7 @@ export async function compactContext(
   input: CompactContextInput,
 ): Promise<void> {
   const state = stateFor(flavor);
+  const cancelled = state.cancels.watch(input.sessionId);
   let live = state.liveByThread.get(input.sessionId);
   if (!live || live.cwd !== input.cwd) {
     live = await ensureLive(flavor, input);
@@ -258,7 +260,7 @@ export async function compactContext(
     live.onEvent = input.onEvent;
     await applyModel(flavor, live, input);
   }
-  if (state.cancelledThreads.delete(input.sessionId)) return;
+  if (cancelled()) return;
 
   live.onEvent = input.onEvent;
   live.turns = live.turns
@@ -366,10 +368,10 @@ export async function cancelTurn(
   flavor: PiFlavor,
   sessionId: string,
 ): Promise<void> {
-  const { liveByThread, cancelledThreads } = stateFor(flavor);
+  const { liveByThread, cancels } = stateFor(flavor);
   const live = liveByThread.get(sessionId);
   if (!live) {
-    cancelledThreads.add(sessionId);
+    cancels.cancel(sessionId);
     return;
   }
   live.cancelled = true;
@@ -391,8 +393,7 @@ export async function stopSession(
   flavor: PiFlavor,
   sessionId: string,
 ): Promise<void> {
-  const { liveByThread, cancelledThreads } = stateFor(flavor);
-  cancelledThreads.delete(sessionId);
+  const { liveByThread } = stateFor(flavor);
   const live = liveByThread.get(sessionId);
   liveByThread.delete(sessionId);
   if (live) {
