@@ -1,4 +1,3 @@
-import type { CSSProperties } from "react";
 import {
   newEditorPane,
   nextTerminalTitleFromFiles,
@@ -236,57 +235,6 @@ export function projectTerminalFileIds(
     }
   }
   return ids;
-}
-
-export function dockGridStyle(
-  side: DockSide | null,
-  size: number,
-): CSSProperties {
-  if (!side) {
-    return {
-      gridTemplateRows: "minmax(0, 1fr)",
-      gridTemplateColumns: "minmax(0, 1fr)",
-      gridTemplateAreas: '"main"',
-    };
-  }
-  const px = `${Math.max(1, Math.round(size))}px`;
-  if (side === "top") {
-    return {
-      gridTemplateRows: `${px} minmax(0, 1fr)`,
-      gridTemplateColumns: "minmax(0, 1fr)",
-      gridTemplateAreas: '"dock" "main"',
-    };
-  }
-  if (side === "bottom") {
-    return {
-      gridTemplateRows: `minmax(0, 1fr) ${px}`,
-      gridTemplateColumns: "minmax(0, 1fr)",
-      gridTemplateAreas: '"main" "dock"',
-    };
-  }
-  if (side === "left") {
-    return {
-      gridTemplateRows: "minmax(0, 1fr)",
-      gridTemplateColumns: `${px} minmax(0, 1fr)`,
-      gridTemplateAreas: '"dock main"',
-    };
-  }
-  return {
-    gridTemplateRows: "minmax(0, 1fr)",
-    gridTemplateColumns: `minmax(0, 1fr) ${px}`,
-    gridTemplateAreas: '"main dock"',
-  };
-}
-
-export function applyDockGridStyle(
-  el: HTMLElement,
-  side: DockSide | null,
-  size: number,
-): void {
-  const style = dockGridStyle(side, size);
-  el.style.gridTemplateRows = String(style.gridTemplateRows ?? "");
-  el.style.gridTemplateColumns = String(style.gridTemplateColumns ?? "");
-  el.style.gridTemplateAreas = String(style.gridTemplateAreas ?? "");
 }
 
 /**

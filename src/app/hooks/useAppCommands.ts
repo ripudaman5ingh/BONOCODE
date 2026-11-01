@@ -59,6 +59,7 @@ export type UseAppCommandsDeps = {
   onReload: () => void;
   onSplit: (dir: SplitDir) => void;
   onToggleProjectTerminal: () => void;
+  onToggleChangesDock: () => void;
   onToggleSessionSidebar: () => void;
   onToggleSidebar: () => void;
   onVisitBack: () => void;
@@ -95,6 +96,7 @@ export function useAppCommands(deps: UseAppCommandsDeps) {
     onReload,
     onSplit,
     onToggleProjectTerminal,
+    onToggleChangesDock,
     onToggleSessionSidebar,
     onToggleSidebar,
     onVisitBack,
@@ -132,6 +134,7 @@ export function useAppCommands(deps: UseAppCommandsDeps) {
     onNewTerminal,
     onNewTerminalTab,
     onToggleProjectTerminal,
+    onToggleChangesDock,
     onNavigateSessionList,
     onNavigateProjectList,
     openSettings,
@@ -161,6 +164,7 @@ export function useAppCommands(deps: UseAppCommandsDeps) {
     onNewTerminal,
     onNewTerminalTab,
     onToggleProjectTerminal,
+    onToggleChangesDock,
     onNavigateSessionList,
     onNavigateProjectList,
     openSettings,
@@ -305,6 +309,8 @@ export function useAppCommands(deps: UseAppCommandsDeps) {
           run("new-terminal-tab", a.onNewTerminalTab);
         else if (cmd === "toggle-terminal")
           run("toggle-terminal", a.onToggleProjectTerminal);
+        else if (cmd === "toggle-changes")
+          run("toggle-changes", a.onToggleChangesDock);
         else if (cmd === "prev-session")
           run("prev-session", () => a.onNavigateSessionList(-1));
         else if (cmd === "next-session")
@@ -409,6 +415,9 @@ export function useAppCommands(deps: UseAppCommandsDeps) {
       ),
       listen("toggle_terminal", () =>
         run("toggle-terminal", actions.current.onToggleProjectTerminal),
+      ),
+      listen("toggle_changes", () =>
+        run("toggle-changes", actions.current.onToggleChangesDock),
       ),
       listen("focus_left", () =>
         run("focus-left", () => actions.current.onFocusDir("left")),

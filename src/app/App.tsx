@@ -73,9 +73,9 @@ import {
   loadRecents,
   looksLikeProject,
   rememberProject,
-  sameProjectPath,
 } from "../features/projects/model/recents";
 import { createWorkspaceStore } from "../features/workspace/model/workspaceStore";
+import { DEFAULT_CHANGES_DOCK } from "../features/workspace/model/dockLayout";
 import {
   newDefaultSession,
   type Session,
@@ -93,7 +93,7 @@ import {
 } from "../features/workspace/model/tabKeys";
 
 import { PaneTree } from "../features/workspace/ui/PaneTree";
-import { ProjectTerminalDock } from "../features/terminal/ui/ProjectTerminalDock";
+import { WorkspaceDocks } from "./shell/WorkspaceDocks";
 import { lazySurface } from "../shared/ui/lazySurface";
 import { requestTranscriptJump } from "../features/sessions/model/transcriptJump";
 import {
@@ -114,6 +114,7 @@ import {
 import { useNavigationActions } from "./hooks/useNavigationActions";
 import { useAppSurfaces } from "./hooks/useAppSurfaces";
 import { useTerminalDock } from "../features/terminal/hooks/useTerminalDock";
+import { useChangesDock } from "../features/workspace/hooks/useChangesDock";
 import { useProjectState } from "../features/projects/hooks/useProjectState";
 import { useWorkspaceTabState } from "../features/workspace/hooks/useWorkspaceTabState";
 import { useWorkspaceTabActions } from "../features/workspace/hooks/useWorkspaceTabActions";
@@ -197,6 +198,7 @@ function Workspace({
         lastDockSide: resumed?.lastDockSide ?? null,
         projectTerminalFocused: false,
         dirtyFiles: new Set(windowTransfer?.dirtyFileIds ?? []),
+        changesDock: resumed?.changesDock ?? DEFAULT_CHANGES_DOCK,
       }),
     };
   });
@@ -276,29 +278,17 @@ function Workspace({
     [],
   );
 
-  const {
-    projectTerminals,
-    projectTerminalFocused,
-    currentProjectDock,
-    focusProjectTerminal,
-    openProjectTerminal,
-    onShowProjectTerminal,
-    onToggleProjectTerminal,
-    onHideProjectTerminal,
-    onProjectTerminalSide,
-    onSelectProjectTerminal,
-    onReorderProjectTerminals,
-    onCloseProjectTerminal,
-    onCloseOtherProjectTerminals,
-    dockGridRef,
-    paintDockSize,
-    commitDockSize,
-  } = useTerminalDock({
+  const terminalDock = useTerminalDock({
     workspace,
     gitCwd,
     setComposerFocused,
     onOpenTerminal: bridgedOpenTerminal,
   });
+  const { projectTerminalFocused, currentProjectDock, focusProjectTerminal } =
+    terminalDock;
+  const { openProjectTerminal, onShowProjectTerminal, onToggleProjectTerminal } =
+    terminalDock;
+  const changes = useChangesDock(workspace);
   const [sidebarTabSelection, setSidebarTabSelection] = useState<{
     project: string;
     tab: SidebarTabId;
@@ -1098,6 +1088,7 @@ function Workspace({
     onReload,
     onSplit,
     onToggleProjectTerminal,
+    onToggleChangesDock: changes.onToggleChangesDock,
     onToggleSessionSidebar,
     onToggleSidebar,
     onVisitBack,
@@ -1228,6 +1219,7 @@ function Workspace({
                 onNew={onNew}
                 onNewTerminal={onNewTerminal}
                 onToggleTerminal={onToggleProjectTerminal}
+                onToggleChangesDock={changes.onToggleChangesDock}
                 onGoToFile={onGoToFile}
                 onToggleSidebar={onToggleSidebar}
                 onToggleSessionSidebar={onToggleSessionSidebar}
@@ -1257,109 +1249,73 @@ function Workspace({
             {compactTitleBar ? null : workspaceTitleBar}
 
             <main className="relative flex min-h-0 min-w-0 flex-1">
-              <div
-                ref={dockGridRef}
-                className="grid h-full min-h-0 min-w-0 flex-1"
+              <WorkspaceDocks
+                projectCwd={projectCwd}
+                gitCwd={gitCwd}
+                terminalDock={terminalDock}
+                changes={changes}
+                onAddTerminal={onNewTerminal}
+                onTerminalMetaChange={onTerminalMetaChange}
               >
-                {projectTerminals.map((dock) => {
-                  const show =
-                    dock.open &&
-                    sameProjectPath(dock.projectPath, projectCwd);
-                  return (
-                    <div
-                      key={dock.projectPath}
-                      className={
-                        show
-                          ? "h-full min-h-0 min-w-0 w-full overflow-hidden"
-                          : "hidden"
-                      }
-                      style={show ? { gridArea: "dock" } : undefined}
-                      aria-hidden={!show}
-                    >
-                      <ProjectTerminalDock
-                        dock={dock}
-                        focused={show && projectTerminalFocused}
-                        onFocus={focusProjectTerminal}
-                        onHide={onHideProjectTerminal}
-                        onSideChange={onProjectTerminalSide}
-                        onSizePaint={paintDockSize}
-                        onSizeCommit={commitDockSize}
-                        onAddTerminal={onNewTerminal}
-                        onSelectTerminal={onSelectProjectTerminal}
-                        onCloseTerminal={onCloseProjectTerminal}
-                        onCloseOtherTerminals={onCloseOtherProjectTerminals}
-                        onReorderTerminals={onReorderProjectTerminals}
+                {tabs.map((tab) => (
+                  <div
+                    key={tab.id}
+                    aria-hidden={tab.id !== activeTabId}
+                    className={
+                      tab.id === activeTabId
+                        ? "absolute inset-0 flex h-full min-h-0 flex-col"
+                        : "hidden"
+                    }
+                  >
+                    <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
+                      <PaneTree
+                        {...sessionPaneProps}
+                        visible={tab.id === activeTabId}
+                        layout={tab.layout}
+                        sessions={sessions}
+                        editorPanes={[
+                          ...tab.editorPanes,
+                          ...(tab.terminalPanes ?? []),
+                        ]}
+                        dirtyFileIds={dirtyFiles}
+                        fileErrorCounts={fileErrorCounts}
+                        focusedId={
+                          tab.id === activeTabId &&
+                          !tab.diffFocused &&
+                          !projectTerminalFocused
+                            ? tab.focusedId
+                            : ""
+                        }
+                        addToChatSessionId={
+                          tab.id === activeTabId
+                            ? active?.id
+                            : undefined
+                        }
+                        composerFocused={
+                          composerFocused && !projectTerminalFocused
+                        }
+                        composerFocusToken={composerFocusToken}
+                        onSelectFile={onSelectFileSurface}
+                        onCloseFile={onCloseFile}
+                        onCloseOtherFiles={onCloseOtherFiles}
+                        onPinFile={onPinFile}
+                        onReorderFiles={onReorderFiles}
+                        onFileDirtyChange={onFileDirtyChange}
+                        onFileErrorCountChange={onFileErrorCountChange}
+                        transcriptPool={transcriptPool}
+                        onRatio={(splitId, index, ratio) =>
+                          onRatio(tab.id, splitId, index, ratio)
+                        }
+                        editorNavigation={editorNavigation}
+                        onUpdatePlan={onUpdatePlan}
+                        onMovePane={onMovePane}
+                        onDetachPane={onDetachPane}
                         onTerminalMetaChange={onTerminalMetaChange}
                       />
                     </div>
-                  );
-                })}
-                <div
-                  className="relative flex min-h-0 min-w-0 flex-row"
-                  style={{ gridArea: "main" }}
-                >
-                  <div className="relative min-h-0 min-w-0 flex-1">
-                    {tabs.map((tab) => (
-                      <div
-                        key={tab.id}
-                        aria-hidden={tab.id !== activeTabId}
-                        className={
-                          tab.id === activeTabId
-                            ? "absolute inset-0 flex h-full min-h-0 flex-col"
-                            : "hidden"
-                        }
-                      >
-                        <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
-                          <PaneTree
-                            {...sessionPaneProps}
-                            visible={tab.id === activeTabId}
-                            layout={tab.layout}
-                            sessions={sessions}
-                            editorPanes={[
-                              ...tab.editorPanes,
-                              ...(tab.terminalPanes ?? []),
-                            ]}
-                            dirtyFileIds={dirtyFiles}
-                            fileErrorCounts={fileErrorCounts}
-                            focusedId={
-                              tab.id === activeTabId &&
-                              !tab.diffFocused &&
-                              !projectTerminalFocused
-                                ? tab.focusedId
-                                : ""
-                            }
-                            addToChatSessionId={
-                              tab.id === activeTabId
-                                ? active?.id
-                                : undefined
-                            }
-                            composerFocused={
-                              composerFocused && !projectTerminalFocused
-                            }
-                            composerFocusToken={composerFocusToken}
-                            onSelectFile={onSelectFileSurface}
-                            onCloseFile={onCloseFile}
-                            onCloseOtherFiles={onCloseOtherFiles}
-                            onPinFile={onPinFile}
-                            onReorderFiles={onReorderFiles}
-                            onFileDirtyChange={onFileDirtyChange}
-                            onFileErrorCountChange={onFileErrorCountChange}
-                            transcriptPool={transcriptPool}
-                            onRatio={(splitId, index, ratio) =>
-                              onRatio(tab.id, splitId, index, ratio)
-                            }
-                            editorNavigation={editorNavigation}
-                            onUpdatePlan={onUpdatePlan}
-                            onMovePane={onMovePane}
-                            onDetachPane={onDetachPane}
-                            onTerminalMetaChange={onTerminalMetaChange}
-                          />
-                        </div>
-                      </div>
-                    ))}
                   </div>
-                </div>
-              </div>
+                ))}
+              </WorkspaceDocks>
               {[...linkedWorkItemPanels.values()].map((panel) => (
                 <LinkedWorkItemPanel
                   repairSessions={repairSessions}

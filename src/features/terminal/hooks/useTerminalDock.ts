@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import { useCallback, useEffect } from "react";
 import { newTerminalFile } from "../../workspace/model/layout";
 import { orderByIds } from "../../../shared/lib/reorder";
 import {
   addTerminalToDock,
-  applyDockGridStyle,
   closeTerminalInDock,
   createProjectTerminal,
   findProjectTerminal,
@@ -12,13 +11,13 @@ import {
   reorderDockTerminals,
   selectDockTerminal,
   withDockOpen,
-  withDockSide,
   withDockSize,
   type DockSide,
 } from "../../projects/model/projectTerminal";
 import { confirmCloseTerminal, confirmCloseTerminals } from "../model/terminalClose";
 import { isLocalProject } from "../../projects/model/recents";
 import { useWorkspaceStore, type WorkspaceStore } from "../../workspace/model/workspaceStore";
+import { moveWorkspaceDock } from "../../workspace/hooks/useChangesDock";
 
 export type UseTerminalDockDeps = {
   workspace: WorkspaceStore;
@@ -137,17 +136,13 @@ export function useTerminalDock(deps: UseTerminalDockDeps) {
     setProjectTerminalFocused(false);
   }, []);
 
-  const onProjectTerminalSide = useCallback((side: DockSide) => {
-    setLastDockSide(side);
-    setProjectTerminals((prev) =>
-      mapProjectTerminal(prev, projectCwdRef.current, (dock) =>
-        withDockSide(dock, side, {
-          width: window.innerWidth,
-          height: window.innerHeight,
-        }),
-      ),
-    );
-  }, []);
+  const onProjectTerminalSide = useCallback(
+    (side: DockSide) => {
+      setLastDockSide(side);
+      moveWorkspaceDock(workspace, "terminal", side);
+    },
+    [workspace],
+  );
 
   const onProjectTerminalSize = useCallback((size: number) => {
     setProjectTerminals((prev) =>
@@ -229,36 +224,6 @@ export function useTerminalDock(deps: UseTerminalDockDeps) {
     if (!dockVisible) setProjectTerminalFocused(false);
   }, [dockVisible]);
 
-  const dockGridRef = useRef<HTMLDivElement>(null);
-  const dockDragSize = useRef<number | null>(null);
-  const paintDockSize = useCallback((size: number) => {
-    const dock = findProjectTerminal(
-      projectTerminalsRef.current,
-      projectCwdRef.current,
-    );
-    const el = dockGridRef.current;
-    if (!dock || !el) return;
-    dockDragSize.current = size;
-    applyDockGridStyle(el, dock.side, size);
-  }, []);
-  const commitDockSize = useCallback(
-    (size: number) => {
-      dockDragSize.current = null;
-      onProjectTerminalSize(size);
-    },
-    [onProjectTerminalSize],
-  );
-  useLayoutEffect(() => {
-    if (dockDragSize.current != null) return;
-    const el = dockGridRef.current;
-    if (!el) return;
-    applyDockGridStyle(
-      el,
-      dockVisible && currentProjectDock ? currentProjectDock.side : null,
-      currentProjectDock?.size ?? 0,
-    );
-  }, [currentProjectDock, dockVisible]);
-
   return {
     projectTerminals,
     projectTerminalFocused,
@@ -273,8 +238,6 @@ export function useTerminalDock(deps: UseTerminalDockDeps) {
     onReorderProjectTerminals,
     onCloseProjectTerminal,
     onCloseOtherProjectTerminals,
-    dockGridRef,
-    paintDockSize,
-    commitDockSize,
+    onProjectTerminalSize,
   };
 }

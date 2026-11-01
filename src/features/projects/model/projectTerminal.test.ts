@@ -2,11 +2,9 @@ import { describe, expect, it } from "vitest";
 import { leaf, newTab, newTerminalFile } from "../../workspace/model/layout";
 import {
   addTerminalToDock,
-  applyDockGridStyle,
   clampDockSize,
   closeTerminalInDock,
   createProjectTerminal,
-  dockGridStyle,
   findProjectTerminal,
   mapProjectTerminal,
   nextDockTerminalTitle,
@@ -152,26 +150,6 @@ describe("withDockSide", () => {
     const dock = { ...createProjectTerminal("/tmp/a", newTerminalFile("/tmp/a")), size: 200 };
     expect(withDockSide(dock, "top").size).toBe(200);
     expect(withDockSide(dock, "top").side).toBe("top");
-  });
-});
-
-describe("dockGridStyle", () => {
-  it("collapses to a single main area when hidden", () => {
-    expect(dockGridStyle(null, 220).gridTemplateAreas).toBe('"main"');
-  });
-
-  it("places the dock on the requested edge", () => {
-    expect(dockGridStyle("bottom", 220).gridTemplateAreas).toBe('"main" "dock"');
-    expect(dockGridStyle("top", 220).gridTemplateAreas).toBe('"dock" "main"');
-    expect(dockGridStyle("left", 360).gridTemplateAreas).toBe('"dock main"');
-    expect(dockGridStyle("right", 360).gridTemplateAreas).toBe('"main dock"');
-  });
-
-  it("writes the same template onto an element", () => {
-    const el = { style: {} } as unknown as HTMLElement;
-    applyDockGridStyle(el, "left", 300);
-    expect(el.style.gridTemplateAreas).toBe('"dock main"');
-    expect(el.style.gridTemplateColumns).toBe("300px minmax(0, 1fr)");
   });
 });
 

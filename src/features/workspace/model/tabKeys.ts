@@ -18,6 +18,7 @@
  *   New terminal        cmd-`
  *   New terminal tab    shift-cmd-`
  *   Toggle terminal     cmd-j
+ *   Toggle changes      alt-cmd-b
  *   Zoom in             cmd-= (cmd-+ on shift layouts)
  *   Zoom out            cmd--
  *   Reset zoom          cmd-0
@@ -49,6 +50,7 @@ export type TabCommand =
   | "new-terminal"
   | "new-terminal-tab"
   | "toggle-terminal"
+  | "toggle-changes"
   | "prev-session"
   | "next-session"
   | "prev-session-in-tab"
@@ -66,6 +68,8 @@ export function tabCommand(e: KeyboardEvent): TabCommand | null {
 
   if (mod && e.altKey && !e.shiftKey) {
     if (e.key.toLowerCase() === "t") return "close-others";
+    // Option changes `key` on macOS (Option-B types "∫"), so match the code too.
+    if (e.key.toLowerCase() === "b" || e.code === "KeyB") return "toggle-changes";
     if (e.key === "ArrowLeft") return { focus: "left" };
     if (e.key === "ArrowRight") return { focus: "right" };
     if (e.key === "ArrowUp") return { focus: "up" };
@@ -127,6 +131,7 @@ const TAB_COMMAND_KEYBINDINGS: Record<Exclude<TabCommand, object>, string> = {
   "new-terminal": "Terminal: New",
   "new-terminal-tab": "Terminal: New Tab",
   "toggle-terminal": "Terminal: Toggle Dock",
+  "toggle-changes": "Changes: Toggle Dock",
   "prev-session": "Session: Previous",
   "next-session": "Session: Next",
   "prev-session-in-tab": "Session: Previous in Current Tab",

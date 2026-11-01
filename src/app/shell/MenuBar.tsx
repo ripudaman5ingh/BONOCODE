@@ -21,6 +21,7 @@ type Props = {
   onNew: () => void;
   onNewTerminal?: () => void;
   onToggleTerminal?: () => void;
+  onToggleChangesDock?: () => void;
   onGoToFile?: () => void;
   onToggleSidebar: () => void;
   onToggleSessionSidebar: () => void;
@@ -40,6 +41,7 @@ export function MenuBar({
   onNew,
   onNewTerminal,
   onToggleTerminal,
+  onToggleChangesDock,
   onGoToFile,
   onToggleSidebar,
   onToggleSessionSidebar,
@@ -143,6 +145,9 @@ export function MenuBar({
         case "toggle_terminal":
           onToggleTerminal?.();
           break;
+        case "toggle_changes":
+          onToggleChangesDock?.();
+          break;
         case "new_window":
           void invoke("open_new_window").catch(() => {});
           break;
@@ -209,6 +214,7 @@ export function MenuBar({
       onNew,
       onNewTerminal,
       onToggleTerminal,
+      onToggleChangesDock,
       onPickProject,
       onSearch,
           onShowSourceControl,
@@ -322,6 +328,12 @@ export function MenuBar({
             id: "toggle_terminal",
             label: "Toggle Terminal",
             shortcut: shortcut("Terminal: Toggle Dock", `${MOD}J`),
+          },
+          {
+            kind: "item",
+            id: "toggle_changes",
+            label: "Toggle Changes",
+            shortcut: shortcut("Changes: Toggle Dock", `${MOD}${ALT}B`),
           },
           {
             kind: "item",

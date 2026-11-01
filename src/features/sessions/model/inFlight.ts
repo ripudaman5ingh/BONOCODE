@@ -3,6 +3,7 @@ import type { DockSide, ProjectTerminalDock } from "../../projects/model/project
 import { sessionNeedsInput, type Session } from "./session";
 import { stopStreaming } from "../../../integrations/harness/core/apply";
 import type { ProjectReturnMemory } from "../../projects/model/projectReturn";
+import type { DockPlacement } from "../../workspace/model/dockLayout";
 
 export const INTERRUPT_MESSAGE =
   "Turn interrupted when Bonocode quit.";
@@ -22,6 +23,7 @@ export type ResumedWorkspace = {
   projectTerminals?: ProjectTerminalDock[];
   projectReturnMemory?: ProjectReturnMemory;
   lastDockSide?: DockSide;
+  changesDock?: DockPlacement;
 };
 
 /** A turn or approval that would be lost if this webview died. */
