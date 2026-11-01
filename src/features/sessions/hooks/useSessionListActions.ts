@@ -1,25 +1,21 @@
 import { useCallback } from "react";
 import { confirmReload } from "../../../app/model/appLifecycle";
-import { leafIds, neighborLeafId, setSplitRatio, type FocusDir, type WorkspaceTab } from "../../workspace/model/layout";
+import { leafIds, neighborLeafId, setSplitRatio, type FocusDir } from "../../workspace/model/layout";
+import { selectActiveTab, type WorkspaceStore } from "../../workspace/model/workspaceStore";
 import type { useAppSurfaces } from "../../../app/hooks/useAppSurfaces";
-import type { useOpenFiles } from "../../files/hooks/useOpenFiles";
 import type { useProjectActions } from "../../projects/hooks/useProjectActions";
 import type { useWorkspaceTabActions } from "../../workspace/hooks/useWorkspaceTabActions";
-import type { useWorkspaceTabState } from "../../workspace/hooks/useWorkspaceTabState";
 import type { LiveSessionStore } from "../model/liveSessions";
 import type { useSessionHistory } from "./useSessionHistory";
 import type { useSessionLifecycle } from "./useSessionLifecycle";
 
 export type UseSessionListActionsDeps = {
-  activeTab: WorkspaceTab | undefined;
+  workspace: WorkspaceStore;
   history: ReturnType<typeof useSessionHistory>["history"];
   sessionsRef: LiveSessionStore["ref"];
-  tabsRef: ReturnType<typeof useWorkspaceTabState>["tabsRef"];
-  setTabs: ReturnType<typeof useWorkspaceTabState>["setTabs"];
   setSettingsOpen: ReturnType<typeof useAppSurfaces>["setSettingsOpen"];
   setSidebarTab: ReturnType<typeof useProjectActions>["setSidebarTab"];
   onFocusPane: ReturnType<typeof useWorkspaceTabActions>["onFocusPane"];
-  dirtyFilesRef: ReturnType<typeof useOpenFiles>["dirtyFilesRef"];
   onArchiveHistorySession: ReturnType<typeof useSessionLifecycle>["onArchiveHistorySession"];
   onPinHistorySession: ReturnType<typeof useSessionLifecycle>["onPinHistorySession"];
   onRemoveHistorySession: ReturnType<typeof useSessionLifecycle>["onRemoveHistorySession"];
@@ -28,20 +24,18 @@ export type UseSessionListActionsDeps = {
 
 export function useSessionListActions(deps: UseSessionListActionsDeps) {
   const {
-    activeTab,
+    workspace,
     history,
     sessionsRef,
-    tabsRef,
-    setTabs,
     setSettingsOpen,
     setSidebarTab,
     onFocusPane,
-    dirtyFilesRef,
     onArchiveHistorySession,
     onPinHistorySession,
     onRemoveHistorySession,
     onSelectHistorySession,
   } = deps;
+  const { tabsRef, setTabs, dirtyFilesRef } = workspace;
 
   const onArchiveHistorySessions = useCallback(
     async (sessionIds: readonly string[], archived: boolean) => {
@@ -125,11 +119,12 @@ export function useSessionListActions(deps: UseSessionListActionsDeps) {
 
   const onFocusDir = useCallback(
     (dir: FocusDir) => {
+      const activeTab = selectActiveTab(workspace.get());
       if (!activeTab) return;
       const next = neighborLeafId(activeTab.layout, activeTab.focusedId, dir);
       if (next) onFocusPane(next);
     },
-    [activeTab, onFocusPane],
+    [onFocusPane, workspace],
   );
 
   const onRatio = useCallback(

@@ -1,6 +1,5 @@
 import { useMemo, useRef } from "react";
 import type { useLinkedWorkItemPanels } from "../../features/github/hooks/useLinkedWorkItemPanels";
-import type { useOpenFiles } from "../../features/files/hooks/useOpenFiles";
 import type { useProjectBranches } from "../../features/source-control/hooks/useProjectBranches";
 import type { useSessionHistory } from "../../features/sessions/hooks/useSessionHistory";
 import type { useSessionIndicators } from "../../features/sessions/hooks/useSessionIndicators";
@@ -13,26 +12,22 @@ import { sessionWorkCwd, type Session } from "../../features/sessions/model/sess
 import { historyWithLiveSessions, summaryFromSession } from "../../features/sessions/data/sessionHistory";
 import { focusedFileTab, isFilesystemTab, leafIds, type FilePaneTab, type WorkspaceTab } from "../../features/workspace/model/layout";
 import { toTitleTab, titleTabsEqual } from "../../features/workspace/model/titleTabs";
-import { selectActiveTab } from "../../features/workspace/model/workspaceStore";
+import { selectActiveTab, useWorkspaceStore, type WorkspaceStore } from "../../features/workspace/model/workspaceStore";
 import { normalizeProjectPath, sameProjectPath } from "../../features/projects/model/recents";
 import { findProjectTerminal } from "../../features/projects/model/projectTerminal";
 import { listRunningTerminals } from "../../features/terminal/model/terminalTab";
 import { projectName } from "../../shared/lib/paths";
 
 export type UseWorkspaceFocusDeps = {
+  workspace: WorkspaceStore;
   sessions: Session[];
-  tabs: WorkspaceTab[];
-  activeTabId: string;
-  projectCwd: string;
 };
 
 export function useWorkspaceFocus(deps: UseWorkspaceFocusDeps) {
-  const {
-    sessions,
-    tabs,
-    activeTabId,
-    projectCwd,
-  } = deps;
+  const { workspace, sessions } = deps;
+  const tabs = useWorkspaceStore(workspace, (state) => state.tabs);
+  const activeTabId = useWorkspaceStore(workspace, (state) => state.activeTabId);
+  const projectCwd = useWorkspaceStore(workspace, (state) => state.projectCwd);
 
   const activeTab = selectActiveTab({ tabs, activeTabId });
 
@@ -78,11 +73,10 @@ export function useWorkspaceFocus(deps: UseWorkspaceFocusDeps) {
 
 
 export type UseWorkspaceViewDeps = {
+  workspace: WorkspaceStore;
   sessions: Session[];
-  tabs: WorkspaceTab[];
   activeTab: WorkspaceTab | undefined;
   active: Session | undefined;
-  projectCwd: string;
   sidebarCwd: string;
   gitCwd: string;
   history: ReturnType<typeof useSessionHistory>["history"];
@@ -90,22 +84,19 @@ export type UseWorkspaceViewDeps = {
   loadedProjects: ReturnType<typeof useSessionHistory>["loadedProjects"];
   projectBranches: ReturnType<typeof useProjectBranches>;
   gitCwdBranches: ReturnType<typeof useProjectBranches>;
-  projectTerminals: ReturnType<typeof useTerminalDock>["projectTerminals"];
   currentProjectDock: ReturnType<typeof useTerminalDock>["currentProjectDock"];
   linkedWorkItemPanels: ReturnType<typeof useLinkedWorkItemPanels>["linkedWorkItemPanels"];
   deckProjectTabs: ReturnType<typeof useWorkspaceTabActions>["deckProjectTabs"];
-  dirtyFiles: ReturnType<typeof useOpenFiles>["dirtyFiles"];
   unseenFinishedIds: ReturnType<typeof useSessionIndicators>["unseenFinishedIds"];
   tabProjectsRef: ReturnType<typeof useWorkspaceTabState>["tabProjectsRef"];
 };
 
 export function useWorkspaceView(deps: UseWorkspaceViewDeps) {
   const {
+    workspace,
     sessions,
-    tabs,
     activeTab,
     active,
-    projectCwd,
     sidebarCwd,
     gitCwd,
     history,
@@ -113,14 +104,16 @@ export function useWorkspaceView(deps: UseWorkspaceViewDeps) {
     loadedProjects,
     projectBranches,
     gitCwdBranches,
-    projectTerminals,
     currentProjectDock,
     linkedWorkItemPanels,
     deckProjectTabs,
-    dirtyFiles,
     unseenFinishedIds,
     tabProjectsRef,
   } = deps;
+  const tabs = useWorkspaceStore(workspace, (state) => state.tabs);
+  const projectCwd = useWorkspaceStore(workspace, (state) => state.projectCwd);
+  const projectTerminals = useWorkspaceStore(workspace, (state) => state.projectTerminals);
+  const dirtyFiles = useWorkspaceStore(workspace, (state) => state.dirtyFiles);
 
   const activeTabSessionIds = activeTab ? leafIds(activeTab.layout) : [];
 

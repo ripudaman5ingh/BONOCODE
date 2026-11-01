@@ -1,22 +1,17 @@
 import { useEffect, useRef, type RefObject } from "react";
-import { type WorkspaceTab } from "../model/layout";
+import { useWorkspaceStore, type WorkspaceStore } from "../model/workspaceStore";
 import { collectWorkspaceSnapshot, workspaceSnapshotKey } from "../model/workspaceSnapshot";
 import { saveWorkspaceSnapshot } from "../../sessions/data/sessionStore";
 import { type Session } from "../../sessions/model/session";
 import { reconcileProjectReturn, type ProjectReturnMemory } from "../../projects/model/projectReturn";
-import { type DockSide, type ProjectTerminalDock } from "../../projects/model/projectTerminal";
 import { type WindowTransferPayload } from "../../../app/model/windowTransfer";
 
 const SAVE_DELAY_MS = 250;
 
 export type UseWorkspaceSnapshotSyncDeps = {
-  tabs: WorkspaceTab[];
+  workspace: WorkspaceStore;
   sessions: Session[];
-  activeTabId: string;
-  projectCwd: string;
   projectReturnRef: RefObject<ProjectReturnMemory>;
-  projectTerminals: ProjectTerminalDock[];
-  lastDockSide: DockSide | null;
   windowTransfer: WindowTransferPayload | null;
   workspaceSyncKey: RefObject<string | null>;
 };
@@ -27,16 +22,17 @@ export type UseWorkspaceSnapshotSyncDeps = {
  * agent streams) leaves the pending save alone instead of cancelling it.
  */
 export function useWorkspaceSnapshotSync({
-  tabs,
+  workspace,
   sessions,
-  activeTabId,
-  projectCwd,
   projectReturnRef,
-  projectTerminals,
-  lastDockSide,
   windowTransfer,
   workspaceSyncKey,
 }: UseWorkspaceSnapshotSyncDeps) {
+  const tabs = useWorkspaceStore(workspace, (state) => state.tabs);
+  const activeTabId = useWorkspaceStore(workspace, (state) => state.activeTabId);
+  const projectCwd = useWorkspaceStore(workspace, (state) => state.projectCwd);
+  const projectTerminals = useWorkspaceStore(workspace, (state) => state.projectTerminals);
+  const lastDockSide = useWorkspaceStore(workspace, (state) => state.lastDockSide);
   const pendingSave = useRef<number | null>(null);
 
   useEffect(() => {

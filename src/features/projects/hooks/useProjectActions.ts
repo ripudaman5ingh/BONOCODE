@@ -4,7 +4,7 @@ import { useCallback, useEffect, type Dispatch, type SetStateAction, type RefObj
 import { type SidebarTabId } from "../../settings/model/appearance";
 import { loadProjectSidebarTab, saveProjectSidebarTab } from "../../settings/model/projectSidebarTab";
 import { pickFolders } from "../../../platform/tauri/fs";
-import { leafIds, newTab, type WorkspaceTab } from "../../workspace/model/layout";
+import { leafIds, newTab } from "../../workspace/model/layout";
 import { removeTabFromGroup, tabGroupProject } from "../../workspace/model/tabGroups";
 import { cancelHarnessTurn, forgetHarnessSession } from "../../../integrations/harness";
 import { sessionChildHarnesses } from "../../sessions/model/handoff";
@@ -24,36 +24,26 @@ import { planProjectOpenRun, type ProjectOpenStep } from "../model/projectOpenRu
 import { type useProjectState } from "./useProjectState";
 import { type useWorkspaceTabActions } from "../../workspace/hooks/useWorkspaceTabActions";
 import { type useSessionHistory } from "../../sessions/hooks/useSessionHistory";
-import { type useOpenFiles } from "../../files/hooks/useOpenFiles";
-import { type useTerminalDock } from "../../terminal/hooks/useTerminalDock";
+import { useWorkspaceStore, type WorkspaceStore } from "../../workspace/model/workspaceStore";
 import { type useAppSurfaces } from "../../../app/hooks/useAppSurfaces";
 import { type LiveSessionStore } from "../../sessions/model/liveSessions";
 
 export type UseProjectActionsDeps = {
   projectReturnRef: ReturnType<typeof useProjectState>["projectReturnRef"];
-  tabsRef: RefObject<WorkspaceTab[]>;
+  workspace: WorkspaceStore;
   sessionsRef: LiveSessionStore["ref"];
-  activeTabIdRef: RefObject<string>;
-  activeTabId: string;
-  tabs: WorkspaceTab[];
   sessions: Session[];
-  recents: ReturnType<typeof useProjectState>["recents"];
-  setProjectCwd: ReturnType<typeof useProjectState>["setProjectCwd"];
-  setRecents: ReturnType<typeof useProjectState>["setRecents"];
   setSessions: LiveSessionStore["set"];
   sidebarTabSelection: { project: string; tab: SidebarTabId };
   sidebarCwd: string;
   sidebarCwdRef: RefObject<string>;
   setSidebarTabSelection: Dispatch<SetStateAction<{ project: string; tab: SidebarTabId }>>;
   appendTab: ReturnType<typeof useWorkspaceTabActions>["appendTab"];
-  setActiveTabId: Dispatch<SetStateAction<string>>;
   setComposerFocused: Dispatch<SetStateAction<boolean>>;
-  setTabs: Dispatch<SetStateAction<WorkspaceTab[]>>;
   projectOfTab: ReturnType<typeof useWorkspaceTabActions>["projectOfTab"];
   setSearchViewOpen: ReturnType<typeof useAppSurfaces>["setSearchViewOpen"];
   insertBeside: ReturnType<typeof useWorkspaceTabActions>["insertBeside"];
   activateTab: ReturnType<typeof useWorkspaceTabActions>["activateTab"];
-  projectCwdRef: RefObject<string>;
   loadedSessionCache: ReturnType<typeof useSessionHistory>["loadedSessionCache"];
   sessionLoads: ReturnType<typeof useSessionHistory>["sessionLoads"];
   invalidateLoadedSession: ReturnType<typeof useSessionHistory>["invalidateLoadedSession"];
@@ -61,40 +51,28 @@ export type UseProjectActionsDeps = {
   turnGen: LiveSessionStore["turnGen"];
   lastPersisted: ReturnType<typeof useSessionHistory>["lastPersisted"];
   persistSession: ReturnType<typeof useSessionHistory>["persistSession"];
-  setDirtyFiles: ReturnType<typeof useOpenFiles>["setDirtyFiles"];
-  setProjectTerminals: ReturnType<typeof useTerminalDock>["setProjectTerminals"];
   setHistory: ReturnType<typeof useSessionHistory>["setHistory"];
   setLoadedProjects: ReturnType<typeof useSessionHistory>["setLoadedProjects"];
-  projectTerminalsRef: ReturnType<typeof useTerminalDock>["projectTerminalsRef"];
   onFileMoved: ReturnType<typeof useWorkspaceTabActions>["onFileMoved"];
 };
 
 export function useProjectActions(deps: UseProjectActionsDeps) {
   const {
     projectReturnRef,
-    tabsRef,
+    workspace,
     sessionsRef,
-    activeTabIdRef,
-    activeTabId,
-    tabs,
     sessions,
-    recents,
-    setProjectCwd,
-    setRecents,
     setSessions,
     sidebarTabSelection,
     sidebarCwd,
     sidebarCwdRef,
     setSidebarTabSelection,
     appendTab,
-    setActiveTabId,
     setComposerFocused,
-    setTabs,
     projectOfTab,
     setSearchViewOpen,
     insertBeside,
     activateTab,
-    projectCwdRef,
     loadedSessionCache,
     sessionLoads,
     invalidateLoadedSession,
@@ -102,13 +80,15 @@ export function useProjectActions(deps: UseProjectActionsDeps) {
     turnGen,
     lastPersisted,
     persistSession,
-    setDirtyFiles,
-    setProjectTerminals,
     setHistory,
     setLoadedProjects,
-    projectTerminalsRef,
     onFileMoved,
   } = deps;
+  const { tabsRef, activeTabIdRef, setTabs, setActiveTabId, projectCwdRef, setProjectCwd, setRecents, setDirtyFiles, setProjectTerminals, projectTerminalsRef } = workspace;
+  // Render-time copies for effects only. Callbacks read live state.
+  const tabs = useWorkspaceStore(workspace, (state) => state.tabs);
+  const activeTabId = useWorkspaceStore(workspace, (state) => state.activeTabId);
+  const recents = useWorkspaceStore(workspace, (state) => state.recents);
   const sidebarTab =
     sidebarTabSelection.project === pathKey(sidebarCwd)
       ? sidebarTabSelection.tab
@@ -409,13 +389,9 @@ export function useProjectActions(deps: UseProjectActionsDeps) {
       }
 
       sessionsRef.current = nextSessions;
-      tabsRef.current = nextTabs;
-      activeTabIdRef.current = nextActiveTabId;
       setSessions(nextSessions);
       setTabs(nextTabs);
-      if (nextActiveTabId !== activeTabId) {
-        setActiveTabId(nextActiveTabId);
-      }
+      setActiveTabId(nextActiveTabId);
       setDirtyFiles((prev) => {
         const updated = new Set(prev);
         for (const tab of projectTabs) {
@@ -443,7 +419,7 @@ export function useProjectActions(deps: UseProjectActionsDeps) {
         }
       }
     },
-    [activeTabId, invalidateLoadedSession, onSelectProject, persistSession],
+    [invalidateLoadedSession, onSelectProject, persistSession],
   );
 
   const onRestoreProject = useCallback(
@@ -488,17 +464,14 @@ export function useProjectActions(deps: UseProjectActionsDeps) {
         return next;
       });
 
-      if (sameProjectPath(projectCwdRef.current, from)) {
-        projectCwdRef.current = to;
-        setProjectCwd(to);
-      }
-      const nextDocks = projectTerminalsRef.current.map((dock) =>
-        sameProjectPath(dock.projectPath, from)
-          ? { ...dock, projectPath: to }
-          : dock,
+      if (sameProjectPath(projectCwdRef.current, from)) setProjectCwd(to);
+      setProjectTerminals(
+        projectTerminalsRef.current.map((dock) =>
+          sameProjectPath(dock.projectPath, from)
+            ? { ...dock, projectPath: to }
+            : dock,
+        ),
       );
-      projectTerminalsRef.current = nextDocks;
-      setProjectTerminals(nextDocks);
       rebaseProjectData(from, to);
       setSidebarTabSelection((current) =>
         sameProjectPath(current.project, from)

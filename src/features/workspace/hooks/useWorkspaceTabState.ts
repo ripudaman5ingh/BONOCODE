@@ -1,35 +1,24 @@
 import { useRef, useState } from "react";
-import { type WorkspaceTab } from "../model/layout";
 import { emptyTabVisitHistory } from "../model/tabVisitHistory";
-import { createWorkspaceStore, useWorkspaceStore } from "../model/workspaceStore";
+import { useWorkspaceStore, type WorkspaceStore } from "../model/workspaceStore";
 import { type WindowTransferPayload } from "../../../app/model/windowTransfer";
 import { type ResumedWorkspace } from "../../../app/model/appLifecycle";
-import { type Session } from "../../sessions/model/session";
 
 export type UseWorkspaceTabStateDeps = {
+  workspace: WorkspaceStore;
   windowTransfer: WindowTransferPayload | null;
   resumed: ResumedWorkspace | null;
-  seed: { session: Session; tab: WorkspaceTab };
 };
 
 export function useWorkspaceTabState(deps: UseWorkspaceTabStateDeps) {
   const {
+    workspace,
     windowTransfer,
     resumed,
-    seed,
   } = deps;
-
-  const [workspace] = useState(() =>
-    createWorkspaceStore({
-      tabs: windowTransfer?.tabs ?? resumed?.tabs ?? [seed.tab],
-      activeTabId:
-        windowTransfer?.activeTabId ?? resumed?.activeTabId ?? seed.tab.id,
-    }),
-  );
 
   const tabs = useWorkspaceStore(workspace, (state) => state.tabs);
   const activeTabId = useWorkspaceStore(workspace, (state) => state.activeTabId);
-  const { setTabs, setActiveTabId, tabsRef, activeTabIdRef } = workspace;
 
   const [composerFocused, setComposerFocused] = useState(() => {
     if (windowTransfer) return true;
@@ -58,5 +47,5 @@ export function useWorkspaceTabState(deps: UseWorkspaceTabStateDeps) {
 
   const workspaceSyncKey = useRef<string | null>(null);
 
-  return { workspace, tabs, setTabs, activeTabId, setActiveTabId, composerFocused, setComposerFocused, composerFocusToken, setComposerFocusToken, tabProjectsRef, tabsRef, activeTabIdRef, tabVisitRef, tabVisitFromHistoryRef, tabVisitNav, setTabVisitNav, workspaceSyncKey };
+  return { tabs, activeTabId, composerFocused, setComposerFocused, composerFocusToken, setComposerFocusToken, tabProjectsRef, tabVisitRef, tabVisitFromHistoryRef, tabVisitNav, setTabVisitNav, workspaceSyncKey };
 }

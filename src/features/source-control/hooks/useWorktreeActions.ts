@@ -16,10 +16,9 @@ import { isBlankSession } from "../../projects/model/projectReturn";
 import { bindResumedSessions } from "../../../app/model/appLifecycle";
 import { type useWorkspaceTabActions } from "../../workspace/hooks/useWorkspaceTabActions";
 import { type useSessionHistory } from "../../sessions/hooks/useSessionHistory";
-import { type useTerminalDock } from "../../terminal/hooks/useTerminalDock";
+import { type WorkspaceStore } from "../../workspace/model/workspaceStore";
 import { type LiveSessionStore } from "../../sessions/model/liveSessions";
 import { type SidebarTabId } from "../../settings/model/appearance";
-import { type useProjectState } from "../../projects/hooks/useProjectState";
 
 
 export function filesInWorkspaceTabs(tabs: readonly WorkspaceTab[]): FilePaneTab[] {
@@ -30,10 +29,9 @@ export function filesInWorkspaceTabs(tabs: readonly WorkspaceTab[]): FilePaneTab
 }
 
 export type UseWorktreeActionsDeps = {
+  workspace: WorkspaceStore;
   history: ReturnType<typeof useSessionHistory>["history"];
   sessions: Session[];
-  tabsRef: RefObject<WorkspaceTab[]>;
-  projectTerminalsRef: ReturnType<typeof useTerminalDock>["projectTerminalsRef"];
   removingWorktreePaths: RefObject<Set<string>>;
   switchingWorktrees: RefObject<Map<string, string>>;
   sessionsRef: LiveSessionStore["ref"];
@@ -42,29 +40,22 @@ export type UseWorktreeActionsDeps = {
   invalidateLoadedSession: ReturnType<typeof useSessionHistory>["invalidateLoadedSession"];
   stopSessionForRemoval: (sessionId: string) => Promise<Session | undefined>;
   setSessions: LiveSessionStore["set"];
-  projectCwdRef: RefObject<string>;
-  setProjectCwd: Dispatch<SetStateAction<string>>;
-  setRecents: ReturnType<typeof useProjectState>["setRecents"];
   lastPersisted: ReturnType<typeof useSessionHistory>["lastPersisted"];
   setHistory: ReturnType<typeof useSessionHistory>["setHistory"];
   appendTab: ReturnType<typeof useWorkspaceTabActions>["appendTab"];
-  setActiveTabId: Dispatch<SetStateAction<string>>;
   setComposerFocused: Dispatch<SetStateAction<boolean>>;
   refreshHistory: ReturnType<typeof useSessionHistory>["refreshHistory"];
   persistSession: ReturnType<typeof useSessionHistory>["persistSession"];
   gitCwdRef: RefObject<string>;
   sidebarCwdRef: RefObject<string>;
-  setTabs: Dispatch<SetStateAction<WorkspaceTab[]>>;
-  activeTabId: string;
   setSidebarTab: (tab: SidebarTabId, project?: string) => void;
 };
 
 export function useWorktreeActions(deps: UseWorktreeActionsDeps) {
   const {
+    workspace,
     history,
     sessions,
-    tabsRef,
-    projectTerminalsRef,
     removingWorktreePaths,
     switchingWorktrees,
     sessionsRef,
@@ -73,22 +64,17 @@ export function useWorktreeActions(deps: UseWorktreeActionsDeps) {
     invalidateLoadedSession,
     stopSessionForRemoval,
     setSessions,
-    projectCwdRef,
-    setProjectCwd,
-    setRecents,
     lastPersisted,
     setHistory,
     appendTab,
-    setActiveTabId,
     setComposerFocused,
     refreshHistory,
     persistSession,
     gitCwdRef,
     sidebarCwdRef,
-    setTabs,
-    activeTabId,
     setSidebarTab,
   } = deps;
+  const { tabsRef, projectTerminalsRef, projectCwdRef, setProjectCwd, setRecents, setActiveTabId, setTabs } = workspace;
   const onOpenDiff = useCallback(
     (
       path?: string,
@@ -96,6 +82,7 @@ export function useWorktreeActions(deps: UseWorktreeActionsDeps) {
       changeKind?: GitFileDiffKind,
       pin = false,
     ) => {
+      const activeTabId = workspace.get().activeTabId;
       void (async () => {
         const diffCwd = session?.cwd ?? gitCwdRef.current;
         const diffProjectCwd = session
@@ -140,11 +127,12 @@ export function useWorktreeActions(deps: UseWorktreeActionsDeps) {
         setComposerFocused(false);
       })();
     },
-    [activeTabId],
+    [workspace],
   );
 
   /** Stack one section's working-tree changes in one review, whatever the diff-view setting. */
   const onOpenAllChanges = useCallback((kind: GitFileDiffKind) => {
+    const activeTabId = workspace.get().activeTabId;
     setTabs((prev) =>
       prev.map((tab) =>
         tab.id === activeTabId
@@ -159,10 +147,11 @@ export function useWorktreeActions(deps: UseWorktreeActionsDeps) {
       ),
     );
     setComposerFocused(false);
-  }, [activeTabId]);
+  }, [workspace]);
 
   const onOpenCommit = useCallback(
     (commit: GitHistoryCommit, pin?: boolean) => {
+      const activeTabId = workspace.get().activeTabId;
       setTabs((prev) =>
         prev.map((tab) =>
           tab.id === activeTabId
@@ -182,7 +171,7 @@ export function useWorktreeActions(deps: UseWorktreeActionsDeps) {
       );
       setComposerFocused(false);
     },
-    [activeTabId],
+    [workspace],
   );
 
   const checkOpenWorktreeFiles = useCallback((path: string) => {

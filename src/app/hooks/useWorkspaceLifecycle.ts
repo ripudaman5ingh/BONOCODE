@@ -8,8 +8,7 @@ import { warmNativeSkills } from "../../features/skills/model/skills";
 import { setWindowFocused } from "../../features/notifications/model/notifications";
 import { syncDockBadge } from "../../features/notifications/model/dockBadge";
 import { type LiveSessionStore } from "../../features/sessions/model/liveSessions";
-import { type useProjectState } from "../../features/projects/hooks/useProjectState";
-import { type useTerminalDock } from "../../features/terminal/hooks/useTerminalDock";
+import { useWorkspaceStore, type WorkspaceStore } from "../../features/workspace/model/workspaceStore";
 import { type useWorkspaceTabState } from "../../features/workspace/hooks/useWorkspaceTabState";
 import { type useProjectActions } from "../../features/projects/hooks/useProjectActions";
 import { type useAppSurfaces } from "./useAppSurfaces";
@@ -36,17 +35,11 @@ export type UseWorkspaceLifecycleDeps = {
   liveSessions: LiveSessionStore;
   flushHarnessEvents: LiveSessionStore["flushHarnessEvents"];
   sessionsRef: LiveSessionStore["ref"];
-  tabsRef: ReturnType<typeof useWorkspaceTabState>["tabsRef"];
-  activeTabIdRef: ReturnType<typeof useWorkspaceTabState>["activeTabIdRef"];
-  projectCwdRef: ReturnType<typeof useProjectState>["projectCwdRef"];
-  projectTerminalsRef: ReturnType<typeof useTerminalDock>["projectTerminalsRef"];
-  lastDockSideRef: ReturnType<typeof useTerminalDock>["lastDockSideRef"];
-  projectTerminalFocusedRef: ReturnType<typeof useTerminalDock>["projectTerminalFocusedRef"];
+  workspace: WorkspaceStore;
   activeSkillContext: ReturnType<typeof nativeSkillContextForSession> | null;
   activeSkillCwd: string | undefined;
   active: Session | undefined;
   gitCwd: string;
-  activeTabId: string;
   searchViewOpen: boolean;
   settingsOpen: boolean;
   setComposerFocused: ReturnType<typeof useWorkspaceTabState>["setComposerFocused"];
@@ -62,17 +55,11 @@ export function useWorkspaceLifecycle(deps: UseWorkspaceLifecycleDeps) {
     liveSessions,
     flushHarnessEvents,
     sessionsRef,
-    tabsRef,
-    activeTabIdRef,
-    projectCwdRef,
-    projectTerminalsRef,
-    lastDockSideRef,
-    projectTerminalFocusedRef,
+    workspace,
     activeSkillContext,
     activeSkillCwd,
     active,
     gitCwd,
-    activeTabId,
     searchViewOpen,
     settingsOpen,
     setComposerFocused,
@@ -80,6 +67,8 @@ export function useWorkspaceLifecycle(deps: UseWorkspaceLifecycleDeps) {
     searchViewOpenRef,
     settingsOpenRef,
   } = deps;
+  const { tabsRef, activeTabIdRef, projectCwdRef, projectTerminalsRef, lastDockSideRef, projectTerminalFocusedRef } = workspace;
+  const activeTabId = useWorkspaceStore(workspace, (state) => state.activeTabId);
 
   useEffect(() => {
     if (resumed?.sessions.length) bindResumedSessions(resumed.sessions);

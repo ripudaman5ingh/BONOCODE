@@ -1,30 +1,26 @@
 import { type EditorNavigationTarget } from "../../search/model/search";
-import { type WindowTransferPayload } from "../../../app/model/windowTransfer";
+import { useWorkspaceStore, type WorkspaceStore } from "../../workspace/model/workspaceStore";
 import { useCallback, useRef, useState } from "react";
 
 export type OpenFilesDeps = {
-  windowTransfer: WindowTransferPayload | null;
+  workspace: WorkspaceStore;
   onPinFile: (fileId: string) => void;
 };
 
 export function useOpenFiles(deps: OpenFilesDeps) {
-  const { windowTransfer, onPinFile } = deps;
+  const { workspace, onPinFile } = deps;
+  const { setDirtyFiles } = workspace;
 
   const [editorNavigation, setEditorNavigation] =
     useState<EditorNavigationTarget | null>(null);
   const editorNavigationToken = useRef(0);
 
-  const [dirtyFiles, setDirtyFiles] = useState<Set<string>>(
-    () => new Set(windowTransfer?.dirtyFileIds ?? []),
-  );
+  const dirtyFiles = useWorkspaceStore(workspace, (state) => state.dirtyFiles);
   // Not carried across a window transfer the way dirty state is: the editor
   // re-lints whatever it mounts, so the counts rebuild themselves.
   const [fileErrorCounts, setFileErrorCounts] = useState<Map<string, number>>(
     () => new Map(),
   );
-
-  const dirtyFilesRef = useRef(dirtyFiles);
-  dirtyFilesRef.current = dirtyFiles;
 
   const onFileDirtyChange = useCallback(
     (fileId: string, dirty: boolean) => {
@@ -38,7 +34,7 @@ export function useOpenFiles(deps: OpenFilesDeps) {
         return next;
       });
     },
-    [onPinFile],
+    [onPinFile, setDirtyFiles],
   );
 
   /** The editor reports 0 as it unmounts, so closed tabs drop out on their own. */
@@ -60,9 +56,7 @@ export function useOpenFiles(deps: OpenFilesDeps) {
     setEditorNavigation,
     editorNavigationToken,
     dirtyFiles,
-    setDirtyFiles,
     fileErrorCounts,
-    dirtyFilesRef,
     onFileDirtyChange,
     onFileErrorCountChange,
   };

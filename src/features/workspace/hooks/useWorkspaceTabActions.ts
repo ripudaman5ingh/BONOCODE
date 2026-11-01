@@ -18,10 +18,8 @@ import { canTabVisitBack, canTabVisitForward, pruneTabVisitHistory, recordTabVis
 import { loadFileTabMode } from "../../settings/model/settings";
 import { isBlankSession, type ProjectReturnMemory } from "../../projects/model/projectReturn";
 import { useWorkspaceSnapshotSync } from "./useWorkspaceSnapshotSync";
-import { type useProjectState } from "../../projects/hooks/useProjectState";
 import { type useSessionHistory } from "../../sessions/hooks/useSessionHistory";
 import { type useOpenFiles } from "../../files/hooks/useOpenFiles";
-import { type useTerminalDock } from "../../terminal/hooks/useTerminalDock";
 import { type LiveSessionStore } from "../../sessions/model/liveSessions";
 import { type WindowTransferPayload } from "../../../app/model/windowTransfer";
 
@@ -77,32 +75,23 @@ export type UseWorkspaceTabActionsDeps = {
   tabProjectsRef: RefObject<Map<string, string>>;
   workspace: WorkspaceStore;
   sessionsRef: LiveSessionStore["ref"];
-  projectCwdRef: RefObject<string>;
-  setProjectCwd: Dispatch<SetStateAction<string>>;
-  setRecents: ReturnType<typeof useProjectState>["setRecents"];
   setComposerFocused: Dispatch<SetStateAction<boolean>>;
   tabVisitRef: RefObject<TabVisitHistory>;
   setTabVisitNav: Dispatch<SetStateAction<{ canBack: boolean; canForward: boolean }>>;
   tabVisitFromHistoryRef: RefObject<boolean>;
   sessionDefaults: Session | undefined;
-  projectCwd: string;
   setSessions: LiveSessionStore["set"];
   tabCloseScope: "project";
-  dirtyFilesRef: ReturnType<typeof useOpenFiles>["dirtyFilesRef"];
   persistSession: ReturnType<typeof useSessionHistory>["persistSession"];
-  setDirtyFiles: ReturnType<typeof useOpenFiles>["setDirtyFiles"];
   refreshHistory: ReturnType<typeof useSessionHistory>["refreshHistory"];
   sidebarCwd: string;
   sessions: Session[];
-  setProjectTerminalFocused: Dispatch<SetStateAction<boolean>>;
   gitCwdRef: RefObject<string>;
   sidebarCwdRef: RefObject<string>;
   editorNavigationToken: ReturnType<typeof useOpenFiles>["editorNavigationToken"];
   setEditorNavigation: ReturnType<typeof useOpenFiles>["setEditorNavigation"];
   windowTransfer: WindowTransferPayload | null;
   projectReturnRef: RefObject<ProjectReturnMemory>;
-  projectTerminals: ReturnType<typeof useTerminalDock>["projectTerminals"];
-  lastDockSide: ReturnType<typeof useTerminalDock>["lastDockSide"];
   workspaceSyncKey: RefObject<string | null>;
 };
 
@@ -111,38 +100,30 @@ export function useWorkspaceTabActions(deps: UseWorkspaceTabActionsDeps) {
     tabProjectsRef,
     workspace,
     sessionsRef,
-    projectCwdRef,
-    setProjectCwd,
-    setRecents,
     setComposerFocused,
     tabVisitRef,
     setTabVisitNav,
     tabVisitFromHistoryRef,
     sessionDefaults,
-    projectCwd,
     setSessions,
     tabCloseScope,
-    dirtyFilesRef,
     persistSession,
-    setDirtyFiles,
     refreshHistory,
     sidebarCwd,
     sessions,
-    setProjectTerminalFocused,
     gitCwdRef,
     sidebarCwdRef,
     editorNavigationToken,
     setEditorNavigation,
     windowTransfer,
     projectReturnRef,
-    projectTerminals,
-    lastDockSide,
     workspaceSyncKey,
   } = deps;
-  const { setTabs, setActiveTabId, tabsRef, activeTabIdRef } = workspace;
+  const { setTabs, setActiveTabId, tabsRef, activeTabIdRef, projectCwdRef, setProjectCwd, setRecents, dirtyFilesRef, setDirtyFiles, setProjectTerminalFocused } = workspace;
   // Render-time copies for effects and memos only. Callbacks read live state.
   const tabs = useWorkspaceStore(workspace, (state) => state.tabs);
   const activeTabId = useWorkspaceStore(workspace, (state) => state.activeTabId);
+  const projectCwd = useWorkspaceStore(workspace, (state) => state.projectCwd);
   const projectOfTab = useCallback(
     (id: string) => tabProjectsRef.current.get(id),
     [],
@@ -156,13 +137,9 @@ export function useWorkspaceTabActions(deps: UseWorkspaceTabActionsDeps) {
   }, []);
 
   useWorkspaceSnapshotSync({
-    tabs,
+    workspace,
     sessions,
-    activeTabId,
-    projectCwd,
     projectReturnRef,
-    projectTerminals,
-    lastDockSide,
     windowTransfer,
     workspaceSyncKey,
   });
@@ -274,7 +251,7 @@ export function useWorkspaceTabActions(deps: UseWorkspaceTabActionsDeps) {
       const activeTab = selectActiveTab(workspace.get());
       if (!activeTab) return;
       const session = newDefaultSession(
-        sessionDefaults?.cwd ?? projectCwd,
+        sessionDefaults?.cwd ?? projectCwdRef.current,
         sessionDefaults?.runtimeMode,
       );
       setSessions((prev) => [...prev, session]);
@@ -290,7 +267,7 @@ export function useWorkspaceTabActions(deps: UseWorkspaceTabActionsDeps) {
       );
       setComposerFocused(true);
     },
-    [workspace, projectCwd, sessionDefaults?.cwd, sessionDefaults?.runtimeMode],
+    [workspace, sessionDefaults?.cwd, sessionDefaults?.runtimeMode],
   );
 
   const onCloseTab = useCallback(
@@ -477,7 +454,7 @@ export function useWorkspaceTabActions(deps: UseWorkspaceTabActionsDeps) {
             const seed = sessionsRef.current[0];
             const session = newSession(
               seed?.harness ?? "claude",
-              file.cwd || projectCwd,
+              file.cwd || projectCwdRef.current,
               seed?.model,
               seed?.runtimeMode,
               seed?.modelSettings,
@@ -550,7 +527,7 @@ export function useWorkspaceTabActions(deps: UseWorkspaceTabActionsDeps) {
         finishClose();
       })();
     },
-    [onCloseTab, projectCwd, tabCloseScope, workspace],
+    [onCloseTab, tabCloseScope, workspace],
   );
 
   const onCloseOtherFiles = useCallback((paneId: string, fileId: string) => {
@@ -729,7 +706,7 @@ export function useWorkspaceTabActions(deps: UseWorkspaceTabActionsDeps) {
           );
         } else {
           // The tab held only editor panes and must stay: seed a session.
-          const session = seedSession(editorFiles[0].cwd || projectCwd);
+          const session = seedSession(editorFiles[0].cwd || projectCwdRef.current);
           setSessions((prev) => [...prev, session]);
           nextTab = resetTabToSession(tab, session.id);
           focusesSession = true;
@@ -803,7 +780,7 @@ export function useWorkspaceTabActions(deps: UseWorkspaceTabActionsDeps) {
         return;
       }
       // The tab held no session: seed one so the workspace stays usable.
-      const session = seedSession(terminalFiles[0]?.cwd || projectCwd);
+      const session = seedSession(terminalFiles[0]?.cwd || projectCwdRef.current);
       setSessions((prev) => [...prev, session]);
       setTabs((prev) =>
         prev.map((entry) =>
@@ -812,7 +789,7 @@ export function useWorkspaceTabActions(deps: UseWorkspaceTabActionsDeps) {
       );
       setComposerFocused(true);
     })();
-  }, [onCloseTab, onCloseTabs, onClearTabSession, projectCwd, tabCloseScope]);
+  }, [onCloseTab, onCloseTabs, onClearTabSession, tabCloseScope]);
 
   const onClosePane = useCallback(
     (sessionId?: string) => {
@@ -885,14 +862,14 @@ export function useWorkspaceTabActions(deps: UseWorkspaceTabActionsDeps) {
     const deck = deckTabsFor(state, sessionsRef.current, projectCwdRef.current);
     const index = deck.findIndex((t) => t.id === state.activeTabId);
     if (index >= 0) activateTab(deck[(index + 1) % deck.length].id);
-  }, [activateTab, projectCwdRef, sessionsRef, workspace]);
+  }, [activateTab, sessionsRef, workspace]);
 
   const onPrev = useCallback(() => {
     const state = workspace.get();
     const deck = deckTabsFor(state, sessionsRef.current, projectCwdRef.current);
     const index = deck.findIndex((t) => t.id === state.activeTabId);
     if (index >= 0) activateTab(deck[(index - 1 + deck.length) % deck.length].id);
-  }, [activateTab, projectCwdRef, sessionsRef, workspace]);
+  }, [activateTab, sessionsRef, workspace]);
 
   const onVisitBack = useCallback(() => {
     const openIds = new Set(tabsRef.current.map((tab) => tab.id));
@@ -928,7 +905,7 @@ export function useWorkspaceTabActions(deps: UseWorkspaceTabActionsDeps) {
       const tab = slot < 0 ? deck[deck.length - 1] : deck[slot];
       if (tab) activateTab(tab.id);
     },
-    [activateTab, projectCwdRef, sessionsRef, workspace],
+    [activateTab, sessionsRef, workspace],
   );
 
   const onFocusPane = useCallback(

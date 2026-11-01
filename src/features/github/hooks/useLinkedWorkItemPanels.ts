@@ -7,7 +7,7 @@ import {
   pendingLinkedWorkItemUpdateCard,
 } from "../model/linkedWorkItemActivity";
 import { type SessionSummary } from "../../sessions/data/sessionStore";
-import { type WorkspaceTab, leafIds } from "../../workspace/model/layout";
+import { leafIds } from "../../workspace/model/layout";
 import { githubWorkItemThread } from "../model/githubTasks";
 import { markLinkedSessionUpdateSeen } from "../model/linkedSessionSeen";
 import {
@@ -19,9 +19,10 @@ import {
   type SetStateAction,
 } from "react";
 import type { LiveSessionStore } from "../../sessions/model/liveSessions";
+import { useWorkspaceStore, type WorkspaceStore } from "../../workspace/model/workspaceStore";
 
 export type LinkedWorkItemPanelsDeps = {
-  tabs: WorkspaceTab[];
+  workspace: WorkspaceStore;
   sessionsRef: LiveSessionStore["ref"];
   setSessions: LiveSessionStore["set"];
   history: SessionSummary[];
@@ -40,7 +41,7 @@ type LinkedWorkItemPanelState = {
 
 export function useLinkedWorkItemPanels(deps: LinkedWorkItemPanelsDeps) {
   const {
-    tabs,
+    workspace,
     sessionsRef,
     setSessions,
     history,
@@ -50,6 +51,7 @@ export function useLinkedWorkItemPanels(deps: LinkedWorkItemPanelsDeps) {
     setSearchViewOpen,
     onSelectHistorySession,
   } = deps;
+  const tabs = useWorkspaceStore(workspace, (state) => state.tabs);
 
   const [linkedWorkItemPanels, setLinkedWorkItemPanels] = useState<
     ReadonlyMap<string, LinkedWorkItemPanelState>
