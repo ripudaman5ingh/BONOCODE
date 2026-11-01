@@ -1820,6 +1820,26 @@ describe("claude background tasks", () => {
       true,
     );
   });
+
+  it("does not let a Stop pressed while idle end the next turn early", async () => {
+    const first = await startTurn("s1");
+    emit({ type: "result", subtype: "success", session_id: "sess_1" });
+    await first.turn;
+
+    await cancelClaudeTurn("s1");
+
+    const second = await startTurn("s1");
+    let settled = false;
+    void second.turn.then(() => {
+      settled = true;
+    });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(settled).toBe(false);
+
+    emit({ type: "result", subtype: "success", session_id: "sess_1" });
+    await second.turn;
+    expect(settled).toBe(true);
+  });
 });
 
 describe("claude plan permissions", () => {

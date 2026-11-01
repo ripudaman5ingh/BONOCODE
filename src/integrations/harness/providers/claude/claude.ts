@@ -1706,6 +1706,7 @@ function maybeFinishTurn(live: Live): void {
 }
 
 function finishActiveTurn(live: Live, extraEvents: HarnessEvent[] = []): void {
+  const wasActive = live.activeTurn;
   clearAwaitingResume(live);
   live.turnEndPending = false;
   live.activeTurn = false;
@@ -1718,7 +1719,9 @@ function finishActiveTurn(live: Live, extraEvents: HarnessEvent[] = []): void {
     done();
     return;
   }
-  if (!failed) live.turnEndPending = true;
+  // Only a turn that ended before its waiter attached may settle the next one;
+  // a cancel while idle must not.
+  if (!failed && wasActive) live.turnEndPending = true;
 }
 
 function settlePendingTurn(live: Live): void {

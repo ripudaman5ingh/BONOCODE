@@ -160,6 +160,40 @@ describe("codex live turn sequence", () => {
     await turn;
   });
 
+  it("does not let a Stop pressed while idle end the next turn early", async () => {
+    const first = await startTurn("codex-live");
+    notify("turn/completed", { turn: { id: "turn_1", status: "completed" } });
+    await first.turn;
+
+    await cancelCodexTurn("codex-live");
+
+    let settled = false;
+    const next = sendCodexTurn({
+      sessionId: "codex-live",
+      cwd: "/repo",
+      model: "codex:gpt-5.4",
+      modelSettings: {},
+      runtimeMode: "supervised",
+      text: "summarize the changelog",
+      attachments: [],
+      onEvent: () => undefined,
+    }).then(() => {
+      settled = true;
+    });
+    const turnStarts = () => parse().filter((m) => m.method === "turn/start");
+    await waitFor(() => turnStarts().length === 2, "second turn/start");
+    reply(turnStarts().at(-1)!.id as number, {
+      turn: { id: "turn_2", status: "inProgress" },
+    });
+    notify("turn/started", { turn: { id: "turn_2", status: "inProgress" } });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(settled).toBe(false);
+
+    notify("turn/completed", { turn: { id: "turn_2", status: "completed" } });
+    await next;
+    expect(settled).toBe(true);
+  });
+
   it("materializes image generations before completing the turn", async () => {
     const { events, turn } = await startTurn("codex-live");
 

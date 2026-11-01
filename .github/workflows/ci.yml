@@ -32,12 +32,13 @@ jobs:
         with:
           components: rustfmt, clippy
 
+      - uses: Swatinem/rust-cache@v2
+
       - run: npm ci
-      - run: npm test
       - run: npx tsc --noEmit
       - run: cargo fmt --check
+      - run: npm test
       - run: cargo clippy --workspace --all-targets -- -D warnings
-      - run: cargo check
       - run: cargo test
 
   rpm:
@@ -55,7 +56,7 @@ jobs:
       # Neither fedora:43 nor almalinux:10 ships git, which actions/checkout
       # otherwise has to work around with a REST API tarball download.
       - name: Install git
-        run: dnf install -y git
+        run: dnf install -y git tar zstd
 
       - uses: actions/checkout@v4
         with:
@@ -70,6 +71,10 @@ jobs:
           cache: npm
 
       - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.image }}
 
       - run: npm ci
       - run: npm run build:fedora
