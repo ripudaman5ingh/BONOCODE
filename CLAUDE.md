@@ -6,12 +6,12 @@ A lean Tauri 2 desktop workbench that runs coding-agent CLIs (Claude Code, Codex
 
 - Never commit, push or stash.
 - Never run cargo, vite, builds, dev servers, `npm run check` or `npm run check:web`, and never more than one test run at a time.
-- Allowed checks, one at a time: `npx tsc --noEmit` and `npx vitest run --maxWorkers=2 <one file>`.
+- Allowed checks, one at a time: `npx tsc --noEmit`, `npx tsc --noEmit -p tsconfig.test.json` and `npx vitest run --maxWorkers=2 <one file>`.
 - If the code doesn't match what a plan expects, stop and report instead of improvising.
 
 ## Verify
 
-- `npm run check` is what CI runs: `vitest run && tsc --noEmit`, then `cargo fmt --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test`. The working rules above restrict what you may run locally.
+- `npm run check` is what CI runs: `vitest run && tsc --noEmit && tsc --noEmit -p tsconfig.test.json` (check:web type-checks the test files too), then `cargo fmt --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test`. The working rules above restrict what you may run locally.
 - Halves: `npm run check:web` and `npm run check:rust`.
 
 ## Layout

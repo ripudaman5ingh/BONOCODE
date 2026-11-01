@@ -446,7 +446,9 @@ describe("claude task tools", () => {
     ]);
     expect(
       session.blocks.some(
-        (block) => block.tool?.kind === "agent" || block.agent !== undefined,
+        (block) =>
+          block.tool?.kind === "agent" ||
+          ("agent" in block && block.agent !== undefined),
       ),
     ).toBe(false);
   });

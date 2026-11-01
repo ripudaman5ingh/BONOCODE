@@ -6,12 +6,14 @@ import { McpSettings } from "./McpSettings";
 import { clearMcpSettingsCache } from "../model/mcpSettingsCache";
 
 const invoke = vi.fn();
-const ask = vi.fn(async () => true);
+const ask = vi.fn<typeof import("@tauri-apps/plugin-dialog").ask>(
+  async () => true,
+);
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: (...args: unknown[]) => invoke(...args),
 }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({
-  ask: (...args: unknown[]) => ask(...args),
+  ask: (...args: Parameters<typeof ask>) => ask(...args),
 }));
 
 let container: HTMLDivElement;

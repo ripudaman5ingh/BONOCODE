@@ -12,6 +12,8 @@ function session(id: string, cwd: string, overrides: Partial<Session> = {}): Ses
     blocks: [],
     busy: false,
     model: "",
+    modelSettings: {},
+    runtimeMode: "supervised",
     ...overrides,
   };
 }

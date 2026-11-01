@@ -14,7 +14,6 @@ import {
   isPersistableId,
   persistFingerprint,
   sanitizeSessionForPersist,
-  shouldPersistSession,
 } from "./sessionStore";
 
 describe("Claude Shell row recovery", () => {

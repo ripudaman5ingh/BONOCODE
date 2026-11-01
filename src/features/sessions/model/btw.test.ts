@@ -120,7 +120,7 @@ describe("btwOpenTargetTurnId", () => {
   });
 
   it("skips the latest completed turn when its provider cannot run BTW", () => {
-    const blocks = [
+    const blocks: Block[] = [
       { id: "u1", role: "user" as const, text: "first", durationMs: 1000 },
       { id: "a1", role: "assistant" as const, text: "done" },
       {
@@ -142,11 +142,11 @@ describe("btwOpenTargetTurnId", () => {
 
 describe("btwTurnHarness", () => {
   it("keeps BTW available on pre-handoff turns after the session moves on", () => {
-    const first = [
+    const first: Block[] = [
       { id: "u1", role: "user" as const, text: "first", durationMs: 1000 },
       { id: "a1", role: "assistant" as const, text: "done" },
     ];
-    const blocks = [
+    const blocks: Block[] = [
       ...first,
       {
         id: "h",
@@ -162,7 +162,7 @@ describe("btwTurnHarness", () => {
 
 describe("sessionHasBtwEligibleTurn", () => {
   it("returns true when only an earlier turn can accept BTW", () => {
-    const blocks = [
+    const blocks: Block[] = [
       { id: "u1", role: "user" as const, text: "first", durationMs: 1000 },
       { id: "a1", role: "assistant" as const, text: "done" },
       {

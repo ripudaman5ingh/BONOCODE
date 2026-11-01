@@ -22,6 +22,7 @@ import {
   collectWorkspaceSnapshot,
   hydrateWorkspaceSnapshot,
   parseWorkspaceSnapshot,
+  type WorkspaceSnapshot,
 } from "./workspaceSnapshot";
 
 function chat(id: string, cwd: string): Session {
@@ -147,7 +148,12 @@ describe("project return snapshots", () => {
     "ignores a malformed choice list: %j",
     (projectReturnTargets) => {
       const restored = hydrateWorkspaceSnapshot(
-        { ...saved(), projectReturnTargets },
+        {
+          ...saved(),
+          // Deliberately malformed persisted data; hydration re-parses it.
+          projectReturnTargets:
+            projectReturnTargets as WorkspaceSnapshot["projectReturnTargets"],
+        },
         new Map(),
       );
       expect(restored?.tabs).toHaveLength(4);

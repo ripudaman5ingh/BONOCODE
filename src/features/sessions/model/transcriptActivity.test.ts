@@ -993,7 +993,7 @@ describe("the settled work trail", () => {
   });
 
   it("lets the settled fold reach across an interjection that stops it live", () => {
-    const turn = [
+    const turn: Block[] = [
       { id: "u", role: "user", text: "go" },
       shell("t1"),
       note("mid", "Halfway there."),

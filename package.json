@@ -13,7 +13,7 @@
     "bench": "node scripts/bench/bench.mjs",
     "bench:fixture": "node scripts/bench/make-fixture.mjs",
     "check": "npm run check:web && npm run check:rust",
-    "check:web": "vitest run && tsc --noEmit",
+    "check:web": "vitest run && tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
     "check:rust": "cargo fmt --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test",
     "set-version": "node scripts/bump-version.mjs",
     "tauri": "tauri",

@@ -2003,7 +2003,12 @@ describe("codex subagents", () => {
     await turn;
 
     const rows = events.filter(
-      (event) =>
+      (
+        event,
+      ): event is Extract<
+        HarnessEvent,
+        { type: "tool.started" | "tool.updated" }
+      > =>
         (event.type === "tool.started" || event.type === "tool.updated") &&
         event.kind === "agent",
     );
@@ -2063,7 +2068,8 @@ describe("codex subagents", () => {
       item: { ...spawn, status: "completed" },
     });
     const beforeWait = events.filter(
-      (event) => event.type === "tool.updated" && event.callId === "collab_1",
+      (event): event is Extract<HarnessEvent, { type: "tool.updated" }> =>
+        event.type === "tool.updated" && event.callId === "collab_1",
     );
     expect(beforeWait.every((event) => event.status === "in_progress")).toBe(
       true,

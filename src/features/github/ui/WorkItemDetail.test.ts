@@ -70,17 +70,15 @@ const checksAnswer = {
 };
 
 function mockBackend() {
-  invoke.mockImplementation(
-    (command: string, args: Record<string, unknown>) => {
-      if (command === "git_github_pr_checks") {
-        return Promise.resolve(checksAnswer);
-      }
-      if (command === "git_github_work_item") {
-        return Promise.resolve(prItem);
-      }
-      return Promise.reject(new Error("No native bridge"));
-    },
-  );
+  invoke.mockImplementation((command: string) => {
+    if (command === "git_github_pr_checks") {
+      return Promise.resolve(checksAnswer);
+    }
+    if (command === "git_github_work_item") {
+      return Promise.resolve(prItem);
+    }
+    return Promise.reject(new Error("No native bridge"));
+  });
 }
 
 const flush = () => act(async () => {});
@@ -97,7 +95,6 @@ describe("Checks tab user behavior", () => {
       createElement(InboxDetail, {
         item: { ...prItem, projectPath: "/tmp/web", provider: "github" },
         cwd: "/tmp/web",
-        projects: [],
         revision: 0,
         relatedSessions: [],
         onDiscuss: () => {},
@@ -142,7 +139,6 @@ describe("Checks tab user behavior", () => {
       createElement(InboxDetail, {
         item: { ...prItem, projectPath: "/tmp/web", provider: "github" },
         cwd: "/tmp/web",
-        projects: [],
         revision: 1,
         relatedSessions: [],
         onDiscuss: () => {},

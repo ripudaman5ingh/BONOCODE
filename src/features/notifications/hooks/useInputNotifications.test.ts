@@ -11,7 +11,7 @@ import { newSession, type Session } from "../../sessions/model/session";
 import { useInputNotifications } from "./useInputNotifications";
 
 const invoke = vi.hoisted(() =>
-  vi.fn(async (command: string) => {
+  vi.fn(async (command: string, _args?: Record<string, unknown>) => {
     if (command === "notification_permission") return "granted";
   }),
 );

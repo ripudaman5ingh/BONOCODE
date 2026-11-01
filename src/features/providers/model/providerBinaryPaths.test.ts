@@ -11,8 +11,6 @@ import {
   saveProviderBinaryPath,
 } from "./providerBinaryPaths";
 
-const key = "bonocode.providerBinaryPaths.v1";
-
 beforeEach(() => {
   mocks.invoke.mockReset();
   vi.stubGlobal("localStorage", {

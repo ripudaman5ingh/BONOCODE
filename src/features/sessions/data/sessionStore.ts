@@ -63,7 +63,7 @@ export type SessionSummary = {
   linkedWorkItem?: LinkedWorkItem;
 };
 
-type SessionRecord = {
+export type SessionRecord = {
   id: string;
   cwd: string;
   harness: string;

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { newFileTab, newTerminalFile } from "../../workspace/model/layout";
-import { newSession, sessionWorkCwd } from "../../sessions/model/session";
+import {
+  newSession,
+  sessionWorkCwd,
+  type Session,
+} from "../../sessions/model/session";
 import {
   sessionInWorktree,
   detachSessionWorktree,
@@ -53,7 +57,7 @@ describe("working-copy context", () => {
       providerSessionId: "old-provider",
       context: { used: 12 },
       composerSeed: "An unsent draft",
-      blocks: [{ id: "s", role: "status" as const, text: "Ready" }],
+      blocks: [{ id: "s", role: "system" as const, text: "Ready" }],
     };
     const selected = sessionInWorktree(session, tree);
     expect(selected.cwd).toBe("/repo");
@@ -168,7 +172,7 @@ describe("working-copy context", () => {
 });
 
 describe("sessions kept after worktree deletion", () => {
-  const source = {
+  const source: Session = {
     ...newSession("codex", "/repo"),
     worktreeCwd: tree.path,
     branch: "feature",
@@ -191,7 +195,7 @@ describe("sessions kept after worktree deletion", () => {
   });
 
   it("moves a directly opened worktree's project identity to the surviving repository", () => {
-    const direct = {
+    const direct: Session = {
       ...source,
       cwd: `${tree.path}/src`,
       worktreeCwd: undefined,

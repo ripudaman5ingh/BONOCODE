@@ -7,7 +7,6 @@ import {
   githubWorkItemDetails,
   githubWorkItemThread,
   peekGithubWorkItemDetails,
-  type GithubWorkItem,
 } from "./githubTasks";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
@@ -16,21 +15,6 @@ beforeEach(() => {
   clearGithubWorkItemCache();
   vi.mocked(invoke).mockReset();
 });
-
-function workItem(repo: string, kind: "issue" | "pr"): GithubWorkItem {
-  return {
-    kind,
-    number: 10,
-    title: `${repo} item`,
-    url: `https://github.com/${repo}/${kind === "pr" ? "pull" : "issues"}/10`,
-    state: "open",
-    updatedAt: "2026-09-16T08:00:00Z",
-    labels: [],
-    assignees: [],
-    draft: false,
-    repo,
-  };
-}
 
 describe("repository-qualified GitHub item operations", () => {
   it("passes the repository through and isolates same-number caches", async () => {

@@ -8,9 +8,13 @@ import {
 describe("transcriptMutationNeedsRepaint", () => {
   function record(
     target: Node,
-    extra: Partial<MutationRecord> = {},
+    extra: Partial<Omit<MutationRecord, "removedNodes">> & {
+      removedNodes?: Node[];
+    } = {},
   ): MutationRecord {
-    return { target, removedNodes: [], ...extra } as MutationRecord;
+    // Partial fake: the code under test only reads removedNodes.length, so a
+    // plain array stands in for the NodeList.
+    return { target, removedNodes: [], ...extra } as unknown as MutationRecord;
   }
 
   it("ignores streaming changes in items that cannot contain the query", () => {
