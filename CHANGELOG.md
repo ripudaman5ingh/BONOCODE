@@ -7,8 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-10-31
+
 ### Changed
 
+- Releases are macOS (Apple Silicon) only for now and are published on GitHub Releases. The app updates itself from there.
 - Renamed app to Bonocode: product name, bundle identifier (dev.ripudaman.bonocode), window titles, menu labels and icons.
 - Disabled the inherited MonoCode auto-updater endpoints.
 - Renamed internal storage: database is now bonocode.db, settings keys use the bonocode. prefix, app events use the bonocode: prefix. MonoCode data is not migrated.
@@ -33,6 +36,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Orchestration (lead agent that plans and spawns worker chats).
 - /operator (agent-driven app CLI).
 - Remote host (running agents on another machine over SSH).
+
+### Fixed
+
+- The terminal layout (padding, selection, vim/htop) and transcript-search highlights work again.
+- Finished turns are saved while agents stream, so they survive a force-quit.
+- Stop during prompt preparation no longer sends the prompt, and a Stop with no live agent no longer swallows the next message.
+- Database migrations run one transaction per step.
+- Agent output with invalid UTF-8 no longer ends the session, and a crash in non-ASCII whole-word search is fixed.
+- "Open in Default App" refuses programs and points to Reveal instead.
 
 ## [0.6.0] - 2026-09-30
 
