@@ -155,6 +155,20 @@ export function filterTabsForProject(
   });
 }
 
+/**
+ * The tabs the deck shows for the project. A projectless active tab stands on
+ * its own rather than trailing the last project's tabs.
+ */
+export function deckTabsFor(
+  state: { tabs: WorkspaceTab[]; activeTabId: string },
+  sessions: Session[],
+  projectCwd: string,
+): WorkspaceTab[] {
+  const active = state.tabs.find((tab) => tab.id === state.activeTabId);
+  if (active && !workspaceTabCwd(active, sessions)) return [active];
+  return filterTabsForProject(state.tabs, sessions, projectCwd);
+}
+
 export type WorkspaceTabCloseScope = "project" | "workspace";
 
 export type WorkspaceTabClosePlan =

@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { type WorkspaceTab } from "../model/layout";
 import { emptyTabVisitHistory } from "../model/tabVisitHistory";
+import { createWorkspaceStore, useWorkspaceStore } from "../model/workspaceStore";
 import { type WindowTransferPayload } from "../../../app/model/windowTransfer";
 import { type ResumedWorkspace } from "../../../app/model/appLifecycle";
 import { type Session } from "../../sessions/model/session";
@@ -18,13 +19,17 @@ export function useWorkspaceTabState(deps: UseWorkspaceTabStateDeps) {
     seed,
   } = deps;
 
-  const [tabs, setTabs] = useState<WorkspaceTab[]>(
-    () => windowTransfer?.tabs ?? resumed?.tabs ?? [seed.tab],
+  const [workspace] = useState(() =>
+    createWorkspaceStore({
+      tabs: windowTransfer?.tabs ?? resumed?.tabs ?? [seed.tab],
+      activeTabId:
+        windowTransfer?.activeTabId ?? resumed?.activeTabId ?? seed.tab.id,
+    }),
   );
 
-  const [activeTabId, setActiveTabId] = useState(
-    () => windowTransfer?.activeTabId ?? resumed?.activeTabId ?? seed.tab.id,
-  );
+  const tabs = useWorkspaceStore(workspace, (state) => state.tabs);
+  const activeTabId = useWorkspaceStore(workspace, (state) => state.activeTabId);
+  const { setTabs, setActiveTabId, tabsRef, activeTabIdRef } = workspace;
 
   const [composerFocused, setComposerFocused] = useState(() => {
     if (windowTransfer) return true;
@@ -42,14 +47,6 @@ export function useWorkspaceTabState(deps: UseWorkspaceTabStateDeps) {
   /** Tab id -> project name, kept in sync with the rendered title tabs. */
   const tabProjectsRef = useRef(new Map<string, string>());
 
-  const tabsRef = useRef(tabs);
-
-  tabsRef.current = tabs;
-
-  const activeTabIdRef = useRef(activeTabId);
-
-  activeTabIdRef.current = activeTabId;
-
   const tabVisitRef = useRef(emptyTabVisitHistory(activeTabId));
 
   const tabVisitFromHistoryRef = useRef(false);
@@ -61,5 +58,5 @@ export function useWorkspaceTabState(deps: UseWorkspaceTabStateDeps) {
 
   const workspaceSyncKey = useRef<string | null>(null);
 
-  return { tabs, setTabs, activeTabId, setActiveTabId, composerFocused, setComposerFocused, composerFocusToken, setComposerFocusToken, tabProjectsRef, tabsRef, activeTabIdRef, tabVisitRef, tabVisitFromHistoryRef, tabVisitNav, setTabVisitNav, workspaceSyncKey };
+  return { workspace, tabs, setTabs, activeTabId, setActiveTabId, composerFocused, setComposerFocused, composerFocusToken, setComposerFocusToken, tabProjectsRef, tabsRef, activeTabIdRef, tabVisitRef, tabVisitFromHistoryRef, tabVisitNav, setTabVisitNav, workspaceSyncKey };
 }

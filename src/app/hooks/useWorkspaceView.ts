@@ -13,6 +13,7 @@ import { sessionWorkCwd, type Session } from "../../features/sessions/model/sess
 import { historyWithLiveSessions, summaryFromSession } from "../../features/sessions/data/sessionHistory";
 import { focusedFileTab, isFilesystemTab, leafIds, type FilePaneTab, type WorkspaceTab } from "../../features/workspace/model/layout";
 import { toTitleTab, titleTabsEqual } from "../../features/workspace/model/titleTabs";
+import { selectActiveTab } from "../../features/workspace/model/workspaceStore";
 import { normalizeProjectPath, sameProjectPath } from "../../features/projects/model/recents";
 import { findProjectTerminal } from "../../features/projects/model/projectTerminal";
 import { listRunningTerminals } from "../../features/terminal/model/terminalTab";
@@ -33,7 +34,7 @@ export function useWorkspaceFocus(deps: UseWorkspaceFocusDeps) {
     projectCwd,
   } = deps;
 
-  const activeTab = tabs.find((t) => t.id === activeTabId) ?? tabs[0];
+  const activeTab = selectActiveTab({ tabs, activeTabId });
 
   const active =
     sessions.find((session) => session.id === activeTab?.focusedId) ??

@@ -25,7 +25,7 @@ A lean Tauri 2 desktop workbench that runs coding-agent CLIs (Claude Code, Codex
 
 ## Conventions
 
-- State: module-level stores read through `useSyncExternalStore`. Exemplar: `src/features/sessions/model/liveSessions.ts`. See `docs/app-split-map.md`.
+- State: module-level stores read through `useSyncExternalStore`. Exemplars: `src/features/sessions/model/liveSessions.ts` and `src/features/workspace/model/workspaceStore.ts`. See `docs/app-split-map.md`.
 - Turn cancellation: every async step of a turn re-checks `turnGen.current.get(sessionId) !== gen` (`src/features/sessions/hooks/useTurnController.ts`).
 - Persistence relies on block identity. Never mutate a `Block` in place; always copy.
 - Tauri commands are registered in `src-tauri/src/lib.rs` `generate_handler![…]` and called with `invoke("name")`. Change both together.
