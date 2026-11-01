@@ -352,29 +352,25 @@ describe("workspace flows through the App's menu events", () => {
     expect(alpha.activeTabId).toBe(fx.C);
   });
 
-  it("new_tab then split_right in one act: the stale read splits the old active tab, not the new one", async () => {
+  it("new_tab then split_right in one act: the split lands on the new tab", async () => {
     await act(async () => {
       fireNow("new_tab");
       fireNow("split_right");
     });
     const snap = await lastSnapshot();
-    // FLIP in the workspace-store refactor: today handlers read refs from the
-    // last render, so the second command acts on the old tab. With the store,
-    // it must act on the new tab.
     expect(labels(snap)).toEqual(["A", "B", "C", "new", "D"]);
-    expect(leafCount(snap, fx.C)).toBe(2);
+    expect(leafCount(snap, snap.activeTabId)).toBe(2);
+    expect(leafCount(snap, fx.C)).toBe(1);
   });
 
-  it("new_tab then close_tab in one act: the stale read closes the old active tab and drops the new one", async () => {
+  it("new_tab then close_tab in one act: the new tab closes and the workspace returns to its start state", async () => {
     await act(async () => {
       fireNow("new_tab");
       fireNow("close_tab");
     });
     const snap = await lastSnapshot();
-    // FLIP in the workspace-store refactor: today handlers read refs from the
-    // last render, so the second command acts on the old tab. With the store,
-    // it must act on the new tab.
-    expect(labels(snap)).toEqual(["A", "B", "D"]);
+    expect(labels(snap)).toEqual(["A", "B", "C", "D"]);
+    expect(snap.activeTabId).toBe(fx.C);
   });
 
   it("a new tab is saved even when a later render lands inside the 250 ms window", async () => {

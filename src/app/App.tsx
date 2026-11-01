@@ -215,6 +215,7 @@ function Workspace({
     removingWorktreePaths,
   } = useWorktreeState();
   const {
+    workspace,
     tabs,
     setTabs,
     activeTabId,
@@ -497,9 +498,7 @@ function Workspace({
     onPinFile,
   } = useWorkspaceTabActions({
     tabProjectsRef,
-    tabsRef,
-    setActiveTabId,
-    setTabs,
+    workspace,
     sessionsRef,
     projectCwdRef,
     setProjectCwd,
@@ -507,11 +506,7 @@ function Workspace({
     setComposerFocused,
     tabVisitRef,
     setTabVisitNav,
-    tabs,
-    activeTabId,
     tabVisitFromHistoryRef,
-    activeTabIdRef,
-    activeTab,
     sessionDefaults,
     projectCwd,
     setSessions,
