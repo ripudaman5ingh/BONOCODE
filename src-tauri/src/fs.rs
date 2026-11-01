@@ -2047,14 +2047,17 @@ fn git_file_diff_for(root: &Path, relative: &str, staged: bool) -> Result<GitFil
     let index_spec = format!(":{prefix}{relative}");
     let (original, current) = if staged {
         let head_spec = format!("HEAD:{prefix}{relative}");
-        (git_blob(root, &head_spec), git_blob(root, &index_spec))
+        (
+            git_blob_capped(root, &head_spec),
+            git_blob_capped(root, &index_spec),
+        )
     } else {
         let current = if abs.is_file() {
-            Some(std::fs::read(&abs).unwrap_or_default())
+            Some(read_file_capped(&abs).unwrap_or_default())
         } else {
             None
         };
-        (git_blob(root, &index_spec), current)
+        (git_blob_capped(root, &index_spec), current)
     };
     let had_original = original.is_some();
     let had_current = current.is_some();
@@ -2340,10 +2343,10 @@ fn git_commit_file_diff_for(root: &Path, sha: &str, relative: &str) -> Result<Gi
     let sha = git_peel_commit(root, sha)?;
     let parent = git_stdout(root, &["rev-parse", "--verify", &format!("{sha}^")]);
     let original_bytes = match &parent {
-        Some(parent) => git_blob(root, &format!("{parent}:{relative}")).unwrap_or_default(),
+        Some(parent) => git_blob_capped(root, &format!("{parent}:{relative}")).unwrap_or_default(),
         None => Vec::new(),
     };
-    let current_bytes = git_blob(root, &format!("{sha}:{relative}")).unwrap_or_default();
+    let current_bytes = git_blob_capped(root, &format!("{sha}:{relative}")).unwrap_or_default();
     let binary = original_bytes.contains(&0) || current_bytes.contains(&0);
     let too_large = original_bytes.len() as u64 > MAX_TEXT_FILE_BYTES
         || current_bytes.len() as u64 > MAX_TEXT_FILE_BYTES;
@@ -2481,14 +2484,18 @@ fn git_discard_all_for(root: &Path) -> Result<(), String> {
 }
 
 fn git_staged_context_for(root: &Path) -> Result<GitStagedContext, String> {
-    let mut summary = git_run(root, &["diff", "--cached", "--stat", "--", "."]).unwrap_or_default();
+    let mut summary =
+        git_run_capped(root, &["diff", "--cached", "--stat", "--", "."]).unwrap_or_default();
     let mut patch =
-        git_run(root, &["diff", "--cached", "--no-ext-diff", "--", "."]).unwrap_or_default();
+        git_run_capped(root, &["diff", "--cached", "--no-ext-diff", "--", "."]).unwrap_or_default();
 
     if summary.trim().is_empty() && patch.trim().is_empty() {
-        summary = git_run(root, &["diff", "HEAD", "--stat", "--", "."]).unwrap_or_default();
-        patch = git_run(root, &["diff", "HEAD", "--no-ext-diff", "--", "."]).unwrap_or_default();
-        if let Some(untracked) = git_run(root, &["ls-files", "--others", "--exclude-standard"]) {
+        summary = git_run_capped(root, &["diff", "HEAD", "--stat", "--", "."]).unwrap_or_default();
+        patch =
+            git_run_capped(root, &["diff", "HEAD", "--no-ext-diff", "--", "."]).unwrap_or_default();
+        if let Some(untracked) =
+            git_run_capped(root, &["ls-files", "--others", "--exclude-standard"])
+        {
             let names = untracked.trim();
             if !names.is_empty() {
                 if !summary.trim().is_empty() {
@@ -2575,10 +2582,10 @@ fn git_range_context_for(root: &Path) -> Result<GitRangeContext, String> {
         _ => default_branch.clone(),
     };
     let spec = format!("{base_ref}...HEAD");
-    let commit_summary =
-        git_run(root, &["log", "--format=%s", &format!("{base_ref}..HEAD")]).unwrap_or_default();
-    let diff_summary = git_run(root, &["diff", "--stat", &spec]).unwrap_or_default();
-    let diff_patch = git_run(root, &["diff", "--no-ext-diff", &spec]).unwrap_or_default();
+    let range = format!("{base_ref}..HEAD");
+    let commit_summary = git_run_capped(root, &["log", "--format=%s", &range]).unwrap_or_default();
+    let diff_summary = git_run_capped(root, &["diff", "--stat", &spec]).unwrap_or_default();
+    let diff_patch = git_run_capped(root, &["diff", "--no-ext-diff", &spec]).unwrap_or_default();
     if commit_summary.trim().is_empty() && diff_patch.trim().is_empty() {
         return Err("No commits to include in a pull request".into());
     }
@@ -4099,12 +4106,37 @@ pub(crate) fn git_checked(root: &Path, args: &[&str]) -> Result<(), String> {
     Err(format!("git {} failed", args.join(" ")))
 }
 
-fn git_blob(root: &Path, spec: &str) -> Option<Vec<u8>> {
-    git_output(root, &["cat-file", "-p", spec])
+/// Reads at most `MAX_TEXT_FILE_BYTES + 1` bytes; callers treat a longer
+/// result as "too large" without ever holding the whole blob.
+fn git_blob_capped(root: &Path, spec: &str) -> Option<Vec<u8>> {
+    git_output_capped(
+        root,
+        &["cat-file", "-p", spec],
+        MAX_TEXT_FILE_BYTES as usize + 1,
+        None,
+    )
+    .map(|(bytes, _)| bytes)
+}
+
+fn read_file_capped(path: &Path) -> std::io::Result<Vec<u8>> {
+    let mut bytes = Vec::new();
+    std::fs::File::open(path)?
+        .take(MAX_TEXT_FILE_BYTES + 1)
+        .read_to_end(&mut bytes)?;
+    Ok(bytes)
 }
 
 fn git_run(root: &Path, args: &[&str]) -> Option<String> {
     git_output(root, args).map(|bytes| String::from_utf8_lossy(&bytes).into_owned())
+}
+
+/// The frontend keeps only the first 40k characters of commit and PR text
+/// (`gitText.ts`), so there is no point reading more of the diff than this.
+const GIT_CONTEXT_MAX_BYTES: usize = 1024 * 1024;
+
+fn git_run_capped(root: &Path, args: &[&str]) -> Option<String> {
+    git_output_capped(root, args, GIT_CONTEXT_MAX_BYTES, None)
+        .map(|(bytes, _)| String::from_utf8_lossy(&bytes).into_owned())
 }
 
 fn git_output(root: &Path, args: &[&str]) -> Option<Vec<u8>> {
@@ -5689,6 +5721,32 @@ pub fn reveal_path(path: String) -> Result<(), String> {
     }
 }
 
+/// Files the OS would run rather than show. Opening these from a link is how
+/// a disguised markdown link turns into code execution.
+fn launches_code(path: &Path, meta: &std::fs::Metadata) -> bool {
+    const LAUNCHERS: &[&str] = &[
+        "app", "command", "tool", "terminal", "workflow", "action", "pkg", "mpkg", "jar", "exe",
+        "msi", "bat", "cmd", "com", "scr", "ps1", "vbs", "jse", "wsf", "lnk", "url", "webloc",
+        "desktop", "appimage", "run",
+    ];
+    let ext = path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(str::to_ascii_lowercase);
+    ext.is_some_and(|ext| LAUNCHERS.contains(&ext.as_str())) || is_executable_file(meta)
+}
+
+#[cfg(unix)]
+fn is_executable_file(meta: &std::fs::Metadata) -> bool {
+    use std::os::unix::fs::PermissionsExt;
+    meta.is_file() && meta.permissions().mode() & 0o111 != 0
+}
+
+#[cfg(not(unix))]
+fn is_executable_file(_meta: &std::fs::Metadata) -> bool {
+    false
+}
+
 #[tauri::command]
 pub async fn open_path_with_default_app(path: String) -> Result<(), String> {
     // The Tauri opener command needs a static path scope, and its detached
@@ -5698,7 +5756,14 @@ pub async fn open_path_with_default_app(path: String) -> Result<(), String> {
         if !path.is_absolute() {
             return Err("Expected an absolute file path".to_string());
         }
-        std::fs::metadata(&path).map_err(|error| format!("{}: {error}", path.display()))?;
+        let meta =
+            std::fs::metadata(&path).map_err(|error| format!("{}: {error}", path.display()))?;
+        if launches_code(&path, &meta) {
+            return Err(format!(
+                "{} looks like a program, so Bonocode won't launch it. Use Reveal instead.",
+                path.display()
+            ));
+        }
         open::that(&path).map_err(|error| error.to_string())
     })
     .await
@@ -5712,6 +5777,43 @@ mod tests {
     use std::sync::Arc;
 
     static TMP_SEQ: AtomicU64 = AtomicU64::new(0);
+
+    #[test]
+    fn launch_allows_documents_and_refuses_program_bundles() {
+        let dir = tmp("launch-documents");
+        std::fs::write(dir.0.join("README.md"), "docs").unwrap();
+        std::fs::write(dir.0.join("setup.command"), "#!/bin/sh").unwrap();
+        std::fs::create_dir(dir.0.join("Tool.APP")).unwrap();
+        let check = |name: &str| {
+            let path = dir.0.join(name);
+            let meta = std::fs::metadata(&path).unwrap();
+            launches_code(&path, &meta)
+        };
+        assert!(!check("README.md"));
+        assert!(check("setup.command"));
+        assert!(check("Tool.APP"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn launch_checks_the_exec_bit_for_plain_files() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tmp("launch-exec-bit");
+        let script = dir.0.join("script.sh");
+        std::fs::write(&script, "echo hi").unwrap();
+        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o644)).unwrap();
+        assert!(!launches_code(
+            &script,
+            &std::fs::metadata(&script).unwrap()
+        ));
+
+        let tool = dir.0.join("tool");
+        std::fs::write(&tool, "echo hi").unwrap();
+        std::fs::set_permissions(&tool, std::fs::Permissions::from_mode(0o755)).unwrap();
+        assert!(launches_code(&tool, &std::fs::metadata(&tool).unwrap()));
+        std::fs::set_permissions(&tool, std::fs::Permissions::from_mode(0o644)).unwrap();
+        assert!(!launches_code(&tool, &std::fs::metadata(&tool).unwrap()));
+    }
 
     #[test]
     fn claude_shell_commands_match_only_requested_bash_tool_ids() {
@@ -6937,6 +7039,20 @@ mod tests {
         let diff = git_file_diff_for(&dir.0, "a.txt", false).unwrap();
         assert_eq!(diff.original, "alpha\nBETA\ngamma\ndelta\n");
         assert_eq!(diff.current, "alpha\nBETA\ngamma\nDELTA\n");
+    }
+
+    #[test]
+    fn git_file_diff_marks_oversized_files_too_large() {
+        let dir = tmp("git-file-diff-big");
+        if !init_git_commit(&dir.0, &[("big.txt", "small\n")]) {
+            return;
+        }
+        let big = vec![b'a'; MAX_TEXT_FILE_BYTES as usize + 10];
+        std::fs::write(dir.0.join("big.txt"), big).unwrap();
+
+        let diff = git_file_diff_for(&dir.0, "big.txt", false).unwrap();
+        assert!(diff.too_large);
+        assert!(diff.current.is_empty());
     }
 
     #[test]
