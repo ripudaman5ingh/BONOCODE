@@ -33,6 +33,7 @@ export function useWorkspaceSnapshotSync({
   const projectCwd = useWorkspaceStore(workspace, (state) => state.projectCwd);
   const projectTerminals = useWorkspaceStore(workspace, (state) => state.projectTerminals);
   const lastDockSide = useWorkspaceStore(workspace, (state) => state.lastDockSide);
+  const changesDock = useWorkspaceStore(workspace, (state) => state.changesDock);
   const pendingSave = useRef<number | null>(null);
 
   useEffect(() => {
@@ -50,6 +51,7 @@ export function useWorkspaceSnapshotSync({
       }),
       projectTerminals,
       lastDockSide ?? undefined,
+      changesDock,
     );
     const key = workspaceSnapshotKey(snapshot);
     if (workspaceSyncKey.current === key) return;
@@ -66,6 +68,7 @@ export function useWorkspaceSnapshotSync({
     projectCwd,
     projectTerminals,
     lastDockSide,
+    changesDock,
     windowTransfer,
   ]);
 

@@ -2,6 +2,7 @@ import { useSyncExternalStore, type SetStateAction } from "react";
 import { type WorkspaceTab } from "./layout";
 import { type RecentProject } from "../../projects/model/recents";
 import { type DockSide, type ProjectTerminalDock } from "../../projects/model/projectTerminal";
+import { type DockPlacement } from "./dockLayout";
 
 export type WorkspaceState = {
   tabs: WorkspaceTab[];
@@ -13,6 +14,8 @@ export type WorkspaceState = {
   lastDockSide: DockSide | null;
   projectTerminalFocused: boolean;
   dirtyFiles: Set<string>;
+  /** One per window, unlike the per-project terminal docks. */
+  changesDock: DockPlacement;
 };
 
 /**
@@ -72,6 +75,7 @@ export function createWorkspaceStore(initial: WorkspaceState) {
   const [setProjectTerminalFocused, projectTerminalFocusedRef] =
     field("projectTerminalFocused");
   const [setDirtyFiles, dirtyFilesRef] = field("dirtyFiles");
+  const [setChangesDock, changesDockRef] = field("changesDock");
 
   return {
     get,
@@ -91,6 +95,8 @@ export function createWorkspaceStore(initial: WorkspaceState) {
     projectTerminalFocusedRef,
     setDirtyFiles,
     dirtyFilesRef,
+    setChangesDock,
+    changesDockRef,
   };
 }
 

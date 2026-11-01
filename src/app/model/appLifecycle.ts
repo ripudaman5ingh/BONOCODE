@@ -41,6 +41,7 @@ import {
   hydrateWorkspaceSnapshot,
   parseWorkspaceSnapshot,
 } from "../../features/workspace/model/workspaceSnapshot";
+import type { DockPlacement } from "../../features/workspace/model/dockLayout";
 import { loadWindowTransfer } from "./windowTransferBootstrap";
 import type { WindowTransferPayload } from "./windowTransfer";
 import { lastProjectPath, normalizeProjectPath, sameProjectPath } from "../../features/projects/model/recents";
@@ -70,6 +71,7 @@ let liveWorkspace: {
   projectTerminals: () => ProjectTerminalDock[];
   projectReturnMemory: () => ProjectReturnMemory;
   lastDockSide: () => DockSide | null;
+  changesDock: () => DockPlacement | undefined;
   flush: () => void;
 } | null = null;
 
@@ -86,6 +88,7 @@ export function setQuitWorkspace(
   projectReturnMemory: () => ProjectReturnMemory,
   flush: () => void,
   lastDockSide: () => DockSide | null = () => null,
+  changesDock: () => DockPlacement | undefined = () => undefined,
 ): () => void {
   liveWorkspace = {
     sessions,
@@ -95,6 +98,7 @@ export function setQuitWorkspace(
     projectTerminals,
     projectReturnMemory,
     lastDockSide,
+    changesDock,
     flush,
   };
   bootingResumed = null;
@@ -121,6 +125,7 @@ export async function handleQuitRequested(): Promise<boolean> {
         "quit",
         liveWorkspace.projectTerminals(),
         liveWorkspace.lastDockSide() ?? undefined,
+        liveWorkspace.changesDock(),
       );
       return true;
     } catch {
@@ -200,6 +205,7 @@ export async function closeBusyWindow(): Promise<void> {
     liveWorkspace.projectReturnMemory(),
     liveWorkspace.projectTerminals(),
     liveWorkspace.lastDockSide() ?? undefined,
+    liveWorkspace.changesDock(),
   );
 }
 
@@ -380,6 +386,7 @@ export async function persistQuitState(
   mode: "quit" | "unload" = "quit",
   projectTerminals: ProjectTerminalDock[] = [],
   lastDockSide?: DockSide,
+  changesDock?: DockPlacement,
 ): Promise<void> {
   const refs = inFlightRefs(sessions, tabs);
   const interrupted = new Set(refs.map((ref) => ref.sessionId));
@@ -408,6 +415,7 @@ export async function persistQuitState(
         memory,
         projectTerminals,
         lastDockSide,
+        changesDock,
       ),
     ),
   );
@@ -433,6 +441,7 @@ async function persistBootingResume(workspace: ResumedWorkspace): Promise<void> 
       workspace.projectReturnMemory ?? new Map(),
       workspace.projectTerminals ?? [],
       workspace.lastDockSide,
+      workspace.changesDock,
     ),
   ).catch(() => undefined);
   await replaceInFlightSessions(
@@ -453,6 +462,7 @@ async function confirmAndCloseWindow(
   memory: ProjectReturnMemory,
   projectTerminals: ProjectTerminalDock[] = [],
   lastDockSide?: DockSide,
+  changesDock?: DockPlacement,
 ): Promise<void> {
   if (quitDialogOpen) return;
   quitDialogOpen = true;
@@ -476,6 +486,7 @@ async function confirmAndCloseWindow(
         "quit",
         projectTerminals,
         lastDockSide,
+        changesDock,
       );
       await reapWindowRuntime(sessions, tabs, projectTerminals, false);
       await closeCurrentWindow();

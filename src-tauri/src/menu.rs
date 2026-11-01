@@ -149,7 +149,8 @@ pub fn dispatch(app: &AppHandle, id: &str) {
         | "forward_tab" | "split_right" | "split_down" | "focus_left" | "focus_right"
         | "focus_up" | "focus_down" | "sidebar_opacity" | "open_project" | "go_to_file"
         | "open_search" | "find_in_project" | "find" | "new_terminal" | "new_terminal_tab"
-        | "toggle_terminal" | "open_model_picker" | "open_settings" | "check_for_updates" => {
+        | "toggle_terminal" | "toggle_changes" | "open_model_picker" | "open_settings"
+        | "check_for_updates" => {
             let _ = app.emit(id, ());
         }
         // Sidebar, Zoom, Reload, Command Palette, and Close All Tabs target one window: a broadcast would
@@ -273,6 +274,14 @@ fn build(
         "Toggle Terminal",
         "CmdOrCtrl+J",
         "Terminal: Toggle Dock",
+        overrides,
+    )?;
+    let toggle_changes = menu_item(
+        app,
+        "toggle_changes",
+        "Toggle Changes",
+        "CmdOrCtrl+Alt+B",
+        "Changes: Toggle Dock",
         overrides,
     )?;
     let split_right = menu_item(
@@ -476,6 +485,7 @@ fn build(
         .item(&toggle_sidebar)
         .item(&toggle_session_sidebar)
         .item(&toggle_terminal)
+        .item(&toggle_changes)
         .item(&open_model_picker)
         .separator()
         .item(&focus_left)

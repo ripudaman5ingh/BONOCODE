@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { newTab, type WorkspaceTab } from "./layout";
 import { createWorkspaceStore, selectActiveTab, type WorkspaceState } from "./workspaceStore";
+import { DEFAULT_CHANGES_DOCK } from "./dockLayout";
 
 function tab(): WorkspaceTab {
   return newTab(crypto.randomUUID());
@@ -16,6 +17,7 @@ function state(overrides: Partial<WorkspaceState> = {}): WorkspaceState {
     lastDockSide: null,
     projectTerminalFocused: false,
     dirtyFiles: new Set(),
+    changesDock: DEFAULT_CHANGES_DOCK,
     ...overrides,
   };
 }

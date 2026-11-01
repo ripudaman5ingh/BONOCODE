@@ -410,4 +410,45 @@ describe("workspace flows through the App's menu events", () => {
     const snap = await lastSnapshot();
     expect(snap.tabs).toHaveLength(5);
   });
+
+  it("toggle_changes opens the changes dock on the right; a second toggle closes it", async () => {
+    expect((await lastSnapshot()).changesDock).toEqual({
+      side: "right",
+      size: 360,
+      open: false,
+    });
+
+    await fire("toggle_changes");
+    expect((await lastSnapshot()).changesDock).toEqual({
+      side: "right",
+      size: 360,
+      open: true,
+    });
+
+    await fire("toggle_changes");
+    expect((await lastSnapshot()).changesDock?.open).toBe(false);
+  });
+
+  it("toggle_terminal + toggle_changes: both docks are open and both are saved", async () => {
+    await fire("toggle_terminal");
+    await fire("toggle_changes");
+    const snap = await lastSnapshot();
+    const terminal = snap.projectTerminals.find((dock) => dock.projectPath === ALPHA);
+    expect(terminal?.open).toBe(true);
+    expect(terminal?.side).toBe("bottom");
+    expect(snap.changesDock).toEqual({ side: "right", size: 360, open: true });
+  });
+
+  it("open_project to beta keeps the window's changes dock; the terminal dock stays with its project", async () => {
+    await fire("toggle_terminal");
+    await fire("toggle_changes");
+
+    tauri.open.mockResolvedValue([BETA]);
+    await fire("open_project");
+    const beta = await lastSnapshot();
+    expect(beta.projectCwd).toBe(BETA);
+    expect(beta.changesDock).toEqual({ side: "right", size: 360, open: true });
+    expect(beta.projectTerminals.map((dock) => dock.projectPath)).toEqual([ALPHA]);
+    expect(beta.projectTerminals[0]?.open).toBe(true);
+  });
 });

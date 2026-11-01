@@ -67,7 +67,7 @@ export function useWorkspaceLifecycle(deps: UseWorkspaceLifecycleDeps) {
     searchViewOpenRef,
     settingsOpenRef,
   } = deps;
-  const { tabsRef, activeTabIdRef, projectCwdRef, projectTerminalsRef, lastDockSideRef, projectTerminalFocusedRef } = workspace;
+  const { tabsRef, activeTabIdRef, projectCwdRef, projectTerminalsRef, lastDockSideRef, projectTerminalFocusedRef, changesDockRef } = workspace;
   const activeTabId = useWorkspaceStore(workspace, (state) => state.activeTabId);
 
   useEffect(() => {
@@ -84,6 +84,7 @@ export function useWorkspaceLifecycle(deps: UseWorkspaceLifecycleDeps) {
         "unload",
         projectTerminalsRef.current,
         lastDockSideRef.current ?? undefined,
+        changesDockRef.current,
       ).finally(() => {
         void reapWindowRuntime(
           sessionsRef.current,
@@ -166,6 +167,7 @@ export function useWorkspaceLifecycle(deps: UseWorkspaceLifecycleDeps) {
       readProjectReturnMemory,
       flushHarnessEvents,
       () => lastDockSideRef.current,
+      () => changesDockRef.current,
     );
     void getCurrentWindow()
       .onCloseRequested((event) => {
@@ -193,6 +195,7 @@ export function useWorkspaceLifecycle(deps: UseWorkspaceLifecycleDeps) {
           "unload",
           projectTerminalsRef.current,
           lastDockSideRef.current ?? undefined,
+          changesDockRef.current,
         ).finally(() => {
           void (toTray ? hideCurrentWindow() : closeCurrentWindow());
         });

@@ -22,8 +22,11 @@ import {
   collectWorkspaceSnapshot,
   hydrateWorkspaceSnapshot,
   parseWorkspaceSnapshot,
+  sanitizeChangesDock,
+  workspaceSnapshotKey,
   type WorkspaceSnapshot,
 } from "./workspaceSnapshot";
+import { DEFAULT_CHANGES_DOCK } from "./dockLayout";
 
 function chat(id: string, cwd: string): Session {
   const session = newSession("cursor", cwd);
@@ -649,5 +652,70 @@ describe("hydrateWorkspaceSnapshot", () => {
     );
     const workspace = hydrateWorkspaceSnapshot(snapshot, new Map());
     expect(workspace?.lastDockSide).toBe("left");
+  });
+});
+
+describe("changes dock snapshots", () => {
+  const tabs = [{ ...newTab("s1"), id: "t1" }];
+
+  it("gives an old snapshot without changesDock the default", () => {
+    const old = collectWorkspaceSnapshot(tabs, [], "t1", "/tmp/a", new Map());
+    expect(old).not.toHaveProperty("changesDock");
+    const parsed = parseWorkspaceSnapshot(JSON.parse(JSON.stringify(old)));
+    expect(parsed?.changesDock).toBeUndefined();
+    const workspace = hydrateWorkspaceSnapshot(old, new Map());
+    expect(workspace?.changesDock).toEqual(DEFAULT_CHANGES_DOCK);
+    expect(DEFAULT_CHANGES_DOCK).toEqual({ side: "right", size: 360, open: false });
+  });
+
+  it("sanitizes bad values", () => {
+    expect(sanitizeChangesDock(null)).toEqual(DEFAULT_CHANGES_DOCK);
+    expect(sanitizeChangesDock("right")).toEqual(DEFAULT_CHANGES_DOCK);
+    expect(
+      sanitizeChangesDock({ side: "middle", size: "wide", open: "yes" }),
+    ).toEqual(DEFAULT_CHANGES_DOCK);
+    // Sizes clamp to the side's range; only a literal true opens the dock.
+    expect(sanitizeChangesDock({ side: "bottom", size: 5, open: 1 })).toEqual({
+      side: "bottom",
+      size: 88,
+      open: false,
+    });
+    expect(
+      sanitizeChangesDock({ side: "left", size: 99_999, open: true }),
+    ).toEqual({ side: "left", size: 896, open: true });
+    const parsed = parseWorkspaceSnapshot({
+      ...collectWorkspaceSnapshot(tabs, [], "t1", "/tmp/a", new Map()),
+      changesDock: { side: 7, size: Number.NaN },
+    });
+    expect(parsed?.changesDock).toEqual(DEFAULT_CHANGES_DOCK);
+  });
+
+  it("round-trips through save, parse and hydrate, and is part of the key", () => {
+    const dock = { side: "bottom" as const, size: 240, open: true };
+    const snapshot = collectWorkspaceSnapshot(
+      tabs,
+      [],
+      "t1",
+      "/tmp/a",
+      new Map(),
+      [],
+      undefined,
+      dock,
+    );
+    expect(snapshot.changesDock).toEqual(dock);
+    const parsed = parseWorkspaceSnapshot(JSON.parse(JSON.stringify(snapshot)));
+    expect(parsed?.changesDock).toEqual(dock);
+    expect(hydrateWorkspaceSnapshot(snapshot, new Map())?.changesDock).toEqual(dock);
+    const closed = collectWorkspaceSnapshot(
+      tabs,
+      [],
+      "t1",
+      "/tmp/a",
+      new Map(),
+      [],
+      undefined,
+      { ...dock, open: false },
+    );
+    expect(workspaceSnapshotKey(closed)).not.toBe(workspaceSnapshotKey(snapshot));
   });
 });

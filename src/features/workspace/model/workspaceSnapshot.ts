@@ -22,6 +22,7 @@ import {
   type ProjectTerminalDock,
 } from "../../projects/model/projectTerminal";
 import { normalizeProjectPath } from "../../projects/model/recents";
+import { DEFAULT_CHANGES_DOCK, type DockPlacement } from "./dockLayout";
 import { pathKey } from "../../../shared/lib/paths";
 import {
   reconcileProjectReturn,
@@ -63,6 +64,7 @@ export type WorkspaceSnapshot = {
     paneId?: string;
   }[];
   lastDockSide?: DockSide;
+  changesDock?: DockPlacement;
 };
 
 export function collectWorkspaceSnapshot(
@@ -73,6 +75,7 @@ export function collectWorkspaceSnapshot(
   memory: ProjectReturnMemory,
   projectTerminals: ProjectTerminalDock[] = [],
   lastDockSide?: DockSide,
+  changesDock?: DockPlacement,
 ): WorkspaceSnapshot {
   const snapshot: WorkspaceSnapshot = {
     tabs: tabs
@@ -87,6 +90,7 @@ export function collectWorkspaceSnapshot(
       .map(sanitizeProjectTerminal)
       .filter((dock): dock is ProjectTerminalDock => dock != null),
     ...(isDockSide(lastDockSide) ? { lastDockSide } : {}),
+    ...(changesDock ? { changesDock: sanitizeChangesDock(changesDock) } : {}),
   };
   return withProjectReturnTargets(snapshot, memory);
 }
@@ -138,6 +142,7 @@ export function parseWorkspaceSnapshot(raw: unknown): WorkspaceSnapshot | null {
     projectTerminals?: unknown;
     projectReturnTargets?: unknown;
     lastDockSide?: unknown;
+    changesDock?: unknown;
   };
   if (!Array.isArray(value.tabs) || typeof value.activeTabId !== "string") {
     return null;
@@ -173,6 +178,9 @@ export function parseWorkspaceSnapshot(raw: unknown): WorkspaceSnapshot | null {
     projectCwd,
     projectTerminals,
     lastDockSide,
+    ...(value.changesDock !== undefined
+      ? { changesDock: sanitizeChangesDock(value.changesDock) }
+      : {}),
   };
   return snapshot.tabs.length > 0
     ? withProjectReturnTargets(
@@ -273,6 +281,20 @@ export function hydrateWorkspaceSnapshot(
       activeTabId,
     }),
     lastDockSide: parsed.lastDockSide,
+    // Snapshots from before the changes dock existed open with it closed.
+    changesDock: parsed.changesDock ?? DEFAULT_CHANGES_DOCK,
+  };
+}
+
+/** A saved changes dock, with any bad side or size replaced. */
+export function sanitizeChangesDock(raw: unknown): DockPlacement {
+  if (!raw || typeof raw !== "object") return DEFAULT_CHANGES_DOCK;
+  const value = raw as Record<string, unknown>;
+  const side = isDockSide(value.side) ? value.side : DEFAULT_CHANGES_DOCK.side;
+  return {
+    side,
+    size: clampDockSize(side, Number(value.size)),
+    open: value.open === true,
   };
 }
 
