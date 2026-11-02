@@ -1,0 +1,63 @@
+name: Bench build
+
+on:
+  workflow_dispatch:
+    inputs:
+      debug:
+        description: Also build a debug app (has Web Inspector, for the typing test)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bench-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+
+      - uses: Swatinem/rust-cache@v2
+
+      - run: npm ci
+
+      - name: Build release app
+        run: |
+          set -euo pipefail
+          npx tauri build --target aarch64-apple-darwin --bundles app --config '{"bundle":{"createUpdaterArtifacts":false}}'
+
+      - name: Build debug app
+        if: inputs.debug
+        run: |
+          set -euo pipefail
+          npx tauri build --debug --target aarch64-apple-darwin --bundles app --config '{"bundle":{"createUpdaterArtifacts":false}}'
+
+      - name: Zip apps
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          ditto -c -k --keepParent target/aarch64-apple-darwin/release/bundle/macos/Bonocode.app out/Bonocode-release.zip
+          if [[ -d target/aarch64-apple-darwin/debug/bundle/macos/Bonocode.app ]]; then
+            ditto -c -k --keepParent target/aarch64-apple-darwin/debug/bundle/macos/Bonocode.app out/Bonocode-debug.zip
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bonocode-bench
+          path: out/*.zip
+          retention-days: 7

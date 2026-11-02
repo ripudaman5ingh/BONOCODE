@@ -22,6 +22,17 @@ Measures a built app: time to first window, time until it goes idle, idle memory
   running (animations, polling).
 - Plug in the laptop and keep other heavy apps closed for stable numbers.
 
+## CI build (no local compile)
+
+Builds the app on GitHub instead of this Mac. The workflow must be on main to be run; `--ref` picks the branch to build.
+
+    gh workflow run bench-build.yml --ref <branch> -f debug=true
+    gh run list --workflow bench-build.yml --limit 1
+    gh run download <run id> -n bonocode-bench -D ~/bonocode-bench-apps/<label>
+    cd ~/bonocode-bench-apps/<label> && ditto -x -k Bonocode-release.zip release && ditto -x -k Bonocode-debug.zip debug && xattr -cr .
+
+Then measure `~/bonocode-bench-apps/<label>/release/Bonocode.app` as above. The debug app has Web Inspector for the typing test (`--hold`). Artifacts are kept 7 days.
+
 ## Fixture: 3 chats, one with 500 messages
 
     npm run bench:fixture
