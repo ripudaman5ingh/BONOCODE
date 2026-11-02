@@ -31,6 +31,7 @@ A lean Tauri 2 desktop workbench that runs coding-agent CLIs (Claude Code, Codex
 - Tauri commands are registered in `src-tauri/src/lib.rs` `generate_handler![…]` and called with `invoke("name")`. Change both together.
 - No PR should push a file past 1,000 lines (`docs/code-quality-review.md`).
 - Comments explain *why*, in full sentences, sparingly.
+- Colors and fonts come from the theme (src/features/themes): use token classes (text-content, bg-background-base, text-danger, …) or var(--…); no Tailwind palette colors or hex literals in UI code (src/styles/themeColors.test.ts enforces the palette part).
 
 ## Don't
 

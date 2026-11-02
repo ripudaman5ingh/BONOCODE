@@ -5,7 +5,7 @@
   "colors": {
     "background": "#f7f7f7",
     "foreground": "#2e2e2e",
-    "accent": "#459bf7",
+    "accent": "#2f7fe0",
     "link": "#0863c4",
     "skill": "#a07c10",
     "mention": "#0284c7",
@@ -23,10 +23,10 @@
   "syntax": {
     "keyword": "#a626a4",
     "callable": "#4078f2",
-    "string": "#50a14f",
-    "type": "#c18401",
+    "string": "#3d8a3c",
+    "type": "#a06d00",
     "number": "#986801",
-    "comment": "#8a9199",
+    "comment": "#7d848c",
     "property": "#e45649",
     "meta": "#5c6370",
     "invalid": "#cf222e"

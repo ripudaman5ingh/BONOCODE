@@ -134,15 +134,22 @@ export function isLightScheme(): boolean {
 }
 
 export function applyColorScheme(scheme: ColorScheme): ColorScheme {
-  document.documentElement.classList.toggle("theme-light", scheme === "light");
+  const root = document.documentElement;
+  // Every theme apply lands here, but only a flip changes the rendered chat
+  // background. Re-rendering it drops chat-background-effect-ready, so doing
+  // it on every theme-editor change made the background blink.
+  const flipped =
+    root.classList.contains("theme-light") !== (scheme === "light");
+  root.classList.toggle("theme-light", scheme === "light");
   if (nativeGlassReady) syncNativeGlass(scheme);
   window.dispatchEvent(
     new CustomEvent<ColorScheme>(SCHEME_CHANGE_EVENT, { detail: scheme }),
   );
   const backgroundPath = loadChatBackgroundPath();
   if (
+    flipped &&
     backgroundPath &&
-    document.documentElement.classList.contains("has-chat-background")
+    root.classList.contains("has-chat-background")
   ) {
     renderChatBackground(backgroundPath);
   }
