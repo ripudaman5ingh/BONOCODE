@@ -33,10 +33,6 @@ import {
   type ReactNode,
 } from "react";
 import { HarnessIcon } from "../../sessions/ui/HarnessIcon";
-import {
-  ColorPickerPopover,
-  ColorSwatchRow,
-} from "../../../shared/ui/ColorPickerPopover";
 import { Popover } from "../../../shared/ui/Popover";
 import { SecondaryButton } from "../../../shared/ui/SecondaryButton";
 import { GradientBlurBackground } from "./GradientBlurBackground";
@@ -51,50 +47,34 @@ import {
   applyChatBackgroundEmptyOpacity,
   applyChatBackgroundSessionOpacity,
   applyChatBackgroundScope,
-  applyAccentColor,
   applyBodyGlass,
   applySidebarBlur,
   applySidebarOpacity,
-  applyThemeDarkLightness,
-  applyThemePreference,
-  applyThemeTint,
   BODY_GLASS_DEFAULT,
-  ACCENT_COLOR_DEFAULT,
   CHAT_BACKGROUND_EMPTY_OPACITY_DEFAULT,
   CHAT_BACKGROUND_OPACITY_MAX,
   CHAT_BACKGROUND_OPACITY_MIN,
   CHAT_BACKGROUND_SESSION_OPACITY_DEFAULT,
   CHAT_BACKGROUND_SCOPE_DEFAULT,
-  THEME_PREFERENCE_DEFAULT,
   chatBackgroundSrc,
   loadBodyGlass,
-  loadAccentColor,
   loadChatBackgroundEmptyOpacity,
   loadChatBackgroundPath,
   loadChatBackgroundSessionOpacity,
   loadChatBackgroundScope,
   loadNewThreadBackgroundEffect,
-  loadThemeDarkLightness,
-  loadThemePreference,
   loadSidebarBlur,
   loadSidebarOpacity,
-  loadThemeHue,
-  loadThemeSaturation,
   loadTranscriptLayout,
   loadTranscriptAnchor,
   saveBodyGlass,
-  saveAccentColor,
   saveChatBackgroundEmptyOpacity,
   saveChatBackgroundPath,
   saveChatBackgroundSessionOpacity,
   saveChatBackgroundScope,
   setNewThreadBackgroundEffect,
-  saveThemeDarkLightness,
-  saveThemePreference,
   saveSidebarBlur,
   saveSidebarOpacity,
-  saveThemeHue,
-  saveThemeSaturation,
   isLightScheme,
   saveTranscriptLayout,
   saveTranscriptAnchor,
@@ -109,16 +89,6 @@ import {
   SIDEBAR_OPACITY_DEFAULT,
   SIDEBAR_OPACITY_MAX,
   SIDEBAR_OPACITY_MIN,
-  THEME_DARK_LIGHTNESS_DEFAULT,
-  THEME_DARK_LIGHTNESS_MAX,
-  THEME_DARK_LIGHTNESS_MIN,
-  THEME_HUE_DEFAULT,
-  THEME_HUE_MAX,
-  THEME_HUE_MIN,
-  THEME_SATURATION_DEFAULT,
-  THEME_SATURATION_MAX,
-  THEME_SATURATION_MIN,
-  type ThemePreference,
   type ChatBackgroundScope,
   NEW_THREAD_BACKGROUND_EFFECTS,
   NEW_THREAD_BACKGROUND_EFFECT_LABELS,
@@ -127,6 +97,12 @@ import {
   type NewThreadBackgroundEffect,
   type TranscriptLayout,
 } from "../model/appearance";
+import {
+  activeTheme,
+  DEFAULT_THEME_ID,
+  listThemes,
+  setTheme,
+} from "../../themes/model/themeEngine";
 import {
   pickAndSaveChatBackground,
   removeChatBackground,
@@ -1226,16 +1202,8 @@ function useAppearanceSettings(
     mode: CollapsedProjectRailMode,
   ) => void,
 ) {
-  const [themePreference, setThemePreference] =
-    useState<ThemePreference>(loadThemePreference);
-  const [accentColor, setAccentColor] = useState(loadAccentColor);
   const [opacity, setOpacity] = useState(loadSidebarOpacity);
   const [blur, setBlur] = useState(loadSidebarBlur);
-  const [themeHue, setThemeHue] = useState(loadThemeHue);
-  const [themeSaturation, setThemeSaturation] = useState(loadThemeSaturation);
-  const [themeDarkLightness, setThemeDarkLightness] = useState(
-    loadThemeDarkLightness,
-  );
   const [bodyGlass, setBodyGlass] = useState(loadBodyGlass);
   const [showExcludedFiles, setShowExcludedFiles] = useState(
     loadShowExcludedFiles,
@@ -1264,18 +1232,6 @@ function useAppearanceSettings(
 
   useEffect(() => subscribeUiScale(() => setUiScale(loadUiScale())), []);
 
-  const onThemePreference = useCallback((next: ThemePreference) => {
-    applyThemePreference(next);
-    saveThemePreference(next);
-    setThemePreference(next);
-  }, []);
-
-  const onAccentColor = useCallback((value: string | null) => {
-    const next = applyAccentColor(value);
-    saveAccentColor(next);
-    setAccentColor(next);
-  }, []);
-
   const onOpacity = useCallback((percent: number) => {
     const next = applySidebarOpacity(percent / 100);
     saveSidebarOpacity(next);
@@ -1286,20 +1242,6 @@ function useAppearanceSettings(
     const next = applySidebarBlur(radius);
     saveSidebarBlur(next);
     setBlur(next);
-  }, []);
-
-  const onTint = useCallback((hue: number, saturation: number) => {
-    const next = applyThemeTint(hue, saturation);
-    saveThemeHue(next.hue);
-    saveThemeSaturation(next.saturation);
-    setThemeHue(next.hue);
-    setThemeSaturation(next.saturation);
-  }, []);
-
-  const onDarkLightness = useCallback((value: number) => {
-    const next = applyThemeDarkLightness(value);
-    saveThemeDarkLightness(next);
-    setThemeDarkLightness(next);
   }, []);
 
   const onBodyGlass = useCallback((next: boolean) => {
@@ -1391,12 +1333,9 @@ function useAppearanceSettings(
   );
 
   const restoreDefaults = useCallback(() => {
-    onThemePreference(THEME_PREFERENCE_DEFAULT);
-    onAccentColor(ACCENT_COLOR_DEFAULT);
+    setTheme(DEFAULT_THEME_ID);
     onOpacity(Math.round(SIDEBAR_OPACITY_DEFAULT * 100));
     onBlur(SIDEBAR_BLUR_DEFAULT);
-    onTint(THEME_HUE_DEFAULT, THEME_SATURATION_DEFAULT);
-    onDarkLightness(THEME_DARK_LIGHTNESS_DEFAULT);
     onBodyGlass(BODY_GLASS_DEFAULT);
     onShowExcludedFiles(SHOW_EXCLUDED_FILES_DEFAULT);
     onChatBackgroundEmptyOpacity(
@@ -1419,24 +1358,15 @@ function useAppearanceSettings(
     onChatBackgroundScope,
     onNewThreadBackgroundEffect,
     onClearChatBackground,
-    onAccentColor,
     onShowExcludedFiles,
-    onThemePreference,
     onOpacity,
-    onTint,
-    onDarkLightness,
     onUiScale,
     onCollapsedProjectRailMode,
   ]);
 
   return {
-    themePreference,
-    accentColor,
     opacity,
     blur,
-    themeHue,
-    themeSaturation,
-    themeDarkLightness,
     bodyGlass,
     showExcludedFiles,
     chatBackgroundPath,
@@ -1448,12 +1378,8 @@ function useAppearanceSettings(
     chatBackgroundError,
     uiScale,
     collapsedProjectRailMode,
-    onThemePreference,
-    onAccentColor,
     onOpacity,
     onBlur,
-    onTint,
-    onDarkLightness,
     onBodyGlass,
     onShowExcludedFiles,
     onChooseChatBackground,
@@ -1471,92 +1397,24 @@ function useAppearanceSettings(
 function AppearancePage({ appearance }: { appearance: AppearanceSettings }) {
   const percent = Math.round(appearance.opacity * 100);
   const glassDisabled = useColorScheme() === "light";
+  const themeId = activeTheme.use();
 
   return (
     <>
-      <Group
-        title="Theme"
-        description="Dark and light share the same tint, so the color settings below apply to both."
-      >
+      <Group title="Theme">
         <Row
           id="theme"
           label="Theme"
-          description="System follows the OS appearance."
+          description="Colors and fonts for the whole interface, including whether it is dark or light."
         >
-          <Segmented
+          <Select
             label="Theme"
-            value={appearance.themePreference}
-            options={[
-              { value: "system", label: "System" },
-              { value: "dark", label: "Dark" },
-              { value: "light", label: "Light" },
-            ]}
-            onChange={appearance.onThemePreference}
-          />
-        </Row>
-        <Row
-          id="accent-color"
-          label="Accent color"
-          description="Used for the composer send button and your message bubbles."
-        >
-          <AccentColorPicker
-            value={appearance.accentColor}
-            onChange={appearance.onAccentColor}
-          />
-        </Row>
-      </Group>
-
-      <Group
-        title="Color"
-        description="Hue and saturation tint every surface. Lightness only moves the dark theme."
-      >
-        <Row
-          id="hue"
-          label="Hue"
-          description="Base hue for accents and tinted surfaces."
-        >
-          <Slider
-            label="Hue"
-            value={appearance.themeHue}
-            display={`${appearance.themeHue}°`}
-            min={THEME_HUE_MIN}
-            max={THEME_HUE_MAX}
-            onChange={(value) =>
-              appearance.onTint(value, appearance.themeSaturation)
-            }
-          />
-        </Row>
-        <Row
-          id="saturation"
-          label="Saturation"
-          description="How strongly the hue tints the interface. Zero keeps it neutral."
-        >
-          <Slider
-            label="Saturation"
-            value={appearance.themeSaturation}
-            display={`${appearance.themeSaturation}%`}
-            min={THEME_SATURATION_MIN}
-            max={THEME_SATURATION_MAX}
-            onChange={(value) => appearance.onTint(appearance.themeHue, value)}
-          />
-        </Row>
-        <Row
-          id="dark-lightness"
-          label="Dark-mode lightness"
-          description={
-            glassDisabled
-              ? "This only affects dark mode. Your dark-mode value is preserved."
-              : "Base brightness of the dark theme. Lower values are darker; zero is true black."
-          }
-        >
-          <Slider
-            label="Dark-mode lightness"
-            value={appearance.themeDarkLightness}
-            display={`${appearance.themeDarkLightness}%`}
-            min={THEME_DARK_LIGHTNESS_MIN}
-            max={THEME_DARK_LIGHTNESS_MAX}
-            onChange={appearance.onDarkLightness}
-            disabled={glassDisabled}
+            value={themeId}
+            options={listThemes().map((theme) => ({
+              value: theme.id,
+              label: theme.name,
+            }))}
+            onChange={setTheme}
           />
         </Row>
       </Group>
@@ -3461,68 +3319,6 @@ function Slider({
       <span className="w-10 shrink-0 text-right text-[12px] text-content tabular-nums">
         {display}
       </span>
-    </div>
-  );
-}
-
-const ACCENT_COLOR_PRESETS = [
-  "#4da3f5",
-  "#8b5cf6",
-  "#ec4899",
-  "#ef4444",
-  "#f59e0b",
-  "#10b981",
-] as const;
-
-function AccentColorPicker({
-  value,
-  onChange,
-}: {
-  value: string | null;
-  onChange: (value: string | null) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const root = useRef<HTMLDivElement>(null);
-  const colorIndex = value
-    ? ACCENT_COLOR_PRESETS.indexOf(
-        value as (typeof ACCENT_COLOR_PRESETS)[number],
-      )
-    : -1;
-  const presetIndex = value == null ? 0 : colorIndex >= 0 ? colorIndex + 1 : -1;
-
-  return (
-    <div ref={root} className="w-48">
-      <ColorSwatchRow
-        colors={["var(--color-content)", ...ACCENT_COLOR_PRESETS]}
-        labels={["Default", "Blue", "Violet", "Pink", "Red", "Orange", "Green"]}
-        colorIndex={presetIndex >= 0 ? presetIndex : undefined}
-        customColor={presetIndex < 0 ? (value ?? undefined) : undefined}
-        customPickerOpen={open}
-        onPickIndex={(index) => {
-          setOpen(false);
-          onChange(
-            index === 0
-              ? ACCENT_COLOR_DEFAULT
-              : (ACCENT_COLOR_PRESETS[index - 1] ?? ACCENT_COLOR_PRESETS[0]),
-          );
-        }}
-        onToggleCustom={() => setOpen((current) => !current)}
-      />
-      {open ? (
-        <Popover
-          anchor={root}
-          side="bottom"
-          align="end"
-          width={248}
-          onDismiss={() => setOpen(false)}
-          className="px-2 pb-2"
-        >
-          <ColorPickerPopover
-            value={value ?? ACCENT_COLOR_PRESETS[0]}
-            onChange={onChange}
-          />
-        </Popover>
-      ) : null}
     </div>
   );
 }

@@ -1,0 +1,25 @@
+{
+  "id": "bonocode-light",
+  "name": "Bonocode Light",
+  "scheme": "light",
+  "colors": {
+    "background": "#f7f7f7",
+    "foreground": "#2e2e2e",
+    "accent": "#459bf7",
+    "link": "#0863c4",
+    "skill": "#a07c10",
+    "mention": "#0284c7",
+    "heading": "#be185d"
+  },
+  "selection": {
+    "subtle": 5,
+    "base": 6,
+    "strong": 7,
+    "hover": 10,
+    "emphasis": 14
+  },
+  "fonts": {
+    "sans": "system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Fira Sans\", \"Droid Sans\", \"Helvetica Neue\", sans-serif",
+    "mono": "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace"
+  }
+}

@@ -9,36 +9,29 @@
       (function () {
         try {
           var root = document.documentElement;
-          var hue = localStorage.getItem("bonocode.themeHue");
-          var sat = localStorage.getItem("bonocode.themeSaturation");
-          var darkLightness = localStorage.getItem(
-            "bonocode.themeDarkLightness",
-          );
+          // Written by the theme engine (themeEngine.ts) on every apply.
+          try {
+            var cache = JSON.parse(
+              localStorage.getItem("bonocode.themeCache") || "null",
+            );
+            if (cache && typeof cache.vars === "object" && cache.vars) {
+              for (var name in cache.vars) {
+                if (typeof cache.vars[name] === "string") {
+                  root.style.setProperty(name, cache.vars[name]);
+                }
+              }
+              if (typeof cache.vars["--user-accent-color"] === "string") {
+                root.classList.add("has-user-accent");
+              }
+            }
+            if (cache && cache.scheme === "light") {
+              root.classList.add("theme-light");
+            }
+          } catch (_) {}
           var opacity = localStorage.getItem("bonocode.sidebarOpacity");
-          if (hue != null) {
-            var h = Math.max(0, Math.min(360, Number(hue) || 0));
-            root.style.setProperty("--theme-hue", String(h));
-          }
-          if (sat != null) {
-            var s = Math.max(0, Math.min(100, Number(sat) || 0));
-            root.style.setProperty("--theme-saturation", s + "%");
-          }
-          if (darkLightness != null) {
-            var l = Math.max(0, Math.min(30, Number(darkLightness) || 0));
-            root.style.setProperty("--theme-dark-lightness", l + "%");
-          }
           if (opacity != null) {
             var o = Math.max(0.15, Math.min(1, Number(opacity) || 0.85));
             root.style.setProperty("--sidebar-opacity", String(o));
-          }
-          var scheme = localStorage.getItem("bonocode.colorScheme");
-          if (scheme === "system") {
-            scheme = window.matchMedia("(prefers-color-scheme: light)").matches
-              ? "light"
-              : "dark";
-          }
-          if (scheme === "light") {
-            root.classList.add("theme-light");
           }
           var bodyGlass = localStorage.getItem("bonocode.bodyGlass");
           if (bodyGlass == null || bodyGlass === "1" || bodyGlass === "true") {
@@ -55,18 +48,8 @@
     </script>
     <style>
       :root {
-        --theme-hue: 240;
-        --theme-saturation: 0%;
-        --theme-dark-lightness: 9%;
         --sidebar-opacity: 0.85;
-        --background-lightness: var(--theme-dark-lightness);
-        --color-background-base: hsl(
-          var(--theme-hue) var(--theme-saturation) var(--background-lightness)
-        );
-      }
-
-      html.theme-light {
-        --background-lightness: 97%;
+        --color-background-base: #171717;
       }
 
       html,

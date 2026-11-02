@@ -56,55 +56,6 @@ afterEach(() => {
 });
 
 describe("numeric appearance settings", () => {
-  it("themeHue stores rounded integers in 0..360 and loads defaults and garbage", () => {
-    appearance.saveThemeHue(200.4);
-    expect(store.getItem("bonocode.themeHue")).toBe("200");
-    appearance.saveThemeHue(500);
-    expect(store.getItem("bonocode.themeHue")).toBe("360");
-    appearance.saveThemeHue(-5);
-    expect(store.getItem("bonocode.themeHue")).toBe("0");
-
-    store.removeItem("bonocode.themeHue");
-    expect(appearance.loadThemeHue()).toBe(240);
-    store.setItem("bonocode.themeHue", "abc");
-    expect(appearance.loadThemeHue()).toBe(240);
-    store.setItem("bonocode.themeHue", "400");
-    expect(appearance.loadThemeHue()).toBe(360);
-    store.setItem("bonocode.themeHue", "120.6");
-    expect(appearance.loadThemeHue()).toBe(121);
-    // Looks wrong: Number("") is 0, so an empty value loads as 0, not the default.
-    store.setItem("bonocode.themeHue", "");
-    expect(appearance.loadThemeHue()).toBe(0);
-  });
-
-  it("themeSaturation stores rounded integers in 0..100", () => {
-    appearance.saveThemeSaturation(42.5);
-    expect(store.getItem("bonocode.themeSaturation")).toBe("43");
-    appearance.saveThemeSaturation(150);
-    expect(store.getItem("bonocode.themeSaturation")).toBe("100");
-    store.removeItem("bonocode.themeSaturation");
-    expect(appearance.loadThemeSaturation()).toBe(0);
-    store.setItem("bonocode.themeSaturation", "nope");
-    expect(appearance.loadThemeSaturation()).toBe(0);
-    store.setItem("bonocode.themeSaturation", "-3");
-    expect(appearance.loadThemeSaturation()).toBe(0);
-    store.setItem("bonocode.themeSaturation", "77.4");
-    expect(appearance.loadThemeSaturation()).toBe(77);
-  });
-
-  it("themeDarkLightness stores rounded integers in 0..30", () => {
-    appearance.saveThemeDarkLightness(12.6);
-    expect(store.getItem("bonocode.themeDarkLightness")).toBe("13");
-    appearance.saveThemeDarkLightness(50);
-    expect(store.getItem("bonocode.themeDarkLightness")).toBe("30");
-    store.removeItem("bonocode.themeDarkLightness");
-    expect(appearance.loadThemeDarkLightness()).toBe(9);
-    store.setItem("bonocode.themeDarkLightness", "99");
-    expect(appearance.loadThemeDarkLightness()).toBe(30);
-    store.setItem("bonocode.themeDarkLightness", "x");
-    expect(appearance.loadThemeDarkLightness()).toBe(9);
-  });
-
   it("sidebarOpacity is clamped to 0.15..1 and not rounded", () => {
     appearance.saveSidebarOpacity(0.5555);
     expect(store.getItem("bonocode.sidebarOpacity")).toBe("0.5555");
@@ -168,18 +119,6 @@ describe("numeric appearance settings", () => {
 });
 
 describe("enum and JSON settings", () => {
-  it("colorScheme stores dark, light and system as raw strings", () => {
-    appearance.saveThemePreference("dark");
-    expect(store.getItem("bonocode.colorScheme")).toBe("dark");
-    appearance.saveThemePreference("light");
-    expect(store.getItem("bonocode.colorScheme")).toBe("light");
-    appearance.saveThemePreference("system");
-    expect(store.getItem("bonocode.colorScheme")).toBe("system");
-    expect(appearance.loadThemePreference()).toBe("system");
-    store.setItem("bonocode.colorScheme", "blue");
-    expect(appearance.loadThemePreference()).toBe("dark");
-  });
-
   it("sidebarTabOrder: default, partial, duplicate, invalid and fresh arrays", () => {
     expect(appearance.loadSidebarTabOrder()).toEqual([
       "sessions",
@@ -333,22 +272,6 @@ describe("chat background", () => {
     expect(store.getItem("bonocode.chatBackgroundOpacity")).toBeNull();
   });
 
-  it("accentColor: null removes the key, valid hex is stored lowercase", () => {
-    appearance.saveAccentColor("#ABCDEF");
-    expect(store.getItem("bonocode.accentColor")).toBe("#abcdef");
-    expect(appearance.loadAccentColor()).toBe("#abcdef");
-
-    appearance.saveAccentColor(null);
-    expect(store.getItem("bonocode.accentColor")).toBeNull();
-    expect(appearance.loadAccentColor()).toBeNull();
-
-    appearance.saveAccentColor("not-a-color");
-    expect(store.getItem("bonocode.accentColor")).toBeNull();
-
-    store.setItem("bonocode.accentColor", "red");
-    expect(appearance.loadAccentColor()).toBeNull();
-  });
-
   it("chatBackgroundPath: empty removes the key, load trims, stored value is as given", () => {
     appearance.saveChatBackgroundPath("  /a/b.png  ");
     expect(store.getItem("bonocode.chatBackgroundPath")).toBe("  /a/b.png  ");
@@ -483,8 +406,6 @@ describe("events and subscriptions", () => {
     settings.saveCloseToTray(false);
     appearance.saveChangesView("tree");
     appearance.saveSidebarTabOrder(["changes", "files", "sessions"]);
-    appearance.saveThemePreference("light");
-    appearance.saveAccentColor("#123456");
     appearance.saveNewThreadBackgroundEffect("dither");
     appearance.saveChatBackgroundScope("empty");
     settings.saveAgentIdleMs(60_000);

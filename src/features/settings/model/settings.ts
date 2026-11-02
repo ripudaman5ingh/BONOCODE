@@ -54,7 +54,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     group: "app",
     label: "Appearance",
     description:
-      "Theme, tint, translucency, workspace layout, and conversation backgrounds.",
+      "Theme, translucency, workspace layout, and conversation backgrounds.",
     keywords:
       "theme dark light color accent glass blur zoom scale wallpaper rail sidebar",
   },
@@ -208,31 +208,7 @@ export const SETTINGS_INDEX: SettingsEntry[] = [
     id: "theme",
     section: "appearance",
     label: "Theme",
-    keywords: "dark light system appearance mode",
-  },
-  {
-    id: "accent-color",
-    section: "appearance",
-    label: "Accent color",
-    keywords: "highlight bubble send button tint",
-  },
-  {
-    id: "hue",
-    section: "appearance",
-    label: "Hue",
-    keywords: "tint color chrome",
-  },
-  {
-    id: "saturation",
-    section: "appearance",
-    label: "Saturation",
-    keywords: "tint color neutral grey gray",
-  },
-  {
-    id: "dark-lightness",
-    section: "appearance",
-    label: "Dark-mode lightness",
-    keywords: "black brightness contrast background",
+    keywords: "dark light color palette accent font",
   },
   {
     id: "sidebar-opacity",

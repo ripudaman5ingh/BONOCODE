@@ -1,5 +1,5 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
-import { hslToRgb, isHexColor, type Rgb } from "../../../shared/lib/colorUtils";
+import { hexToRgb, isHexColor, type Rgb } from "../../../shared/lib/colorUtils";
 import { IS_LINUX, IS_MAC } from "../../../platform/tauri/platform";
 import {
   clampedNumber,
@@ -14,16 +14,11 @@ import {
   clearPreparedNewThreadBackground,
 } from "./newThreadBackgroundEffects";
 
-const ACCENT_COLOR_KEY = "bonocode.accentColor";
-const THEME_HUE_KEY = "bonocode.themeHue";
-const THEME_SATURATION_KEY = "bonocode.themeSaturation";
-const THEME_DARK_LIGHTNESS_KEY = "bonocode.themeDarkLightness";
 const OPACITY_KEY = "bonocode.sidebarOpacity";
 const BLUR_KEY = "bonocode.sidebarBlur";
 const PROJECT_RAIL_OPEN_KEY = "bonocode.projectRailOpen";
 const SESSION_SIDEBAR_OPEN_KEY = "bonocode.sessionSidebarOpen";
 const BODY_KEY = "bonocode.bodyGlass";
-const SCHEME_KEY = "bonocode.colorScheme";
 const SIDEBAR_TAB_ORDER_KEY = "bonocode.sidebarTabOrder";
 const PROJECT_RAIL_WIDTH_KEY = "bonocode.projectRailWidth";
 const TRANSCRIPT_LAYOUT_KEY = "bonocode.transcriptLayout";
@@ -46,7 +41,6 @@ export const CHAT_BACKGROUND_PATH_CHANGE_EVENT =
   "bonocode:chat-background-path-change";
 
 export type ColorScheme = "dark" | "light";
-export type ThemePreference = ColorScheme | "system";
 export type TranscriptLayout = "full" | "chat";
 export type ChatBackgroundScope = "empty" | "all";
 export type NewThreadBackgroundEffect =
@@ -83,10 +77,6 @@ export const NEW_THREAD_BACKGROUND_EFFECT_DESCRIPTIONS: Record<
   "gradient-blur": "Blurs and fades the artwork into the background below.",
 };
 
-export const THEME_PREFERENCE_DEFAULT: ThemePreference = "dark";
-
-export const ACCENT_COLOR_DEFAULT = null;
-
 /** Fired on `window` whenever the color scheme flips (detail: ColorScheme). */
 export const SCHEME_CHANGE_EVENT = "bonocode:schemechange";
 
@@ -116,18 +106,6 @@ const DEFAULT_SIDEBAR_TAB_ORDER: SidebarTabId[] = [
   "changes",
 ];
 
-export const THEME_HUE_MIN = 0;
-export const THEME_HUE_MAX = 360;
-export const THEME_HUE_DEFAULT = 240;
-
-export const THEME_SATURATION_MIN = 0;
-export const THEME_SATURATION_MAX = 100;
-export const THEME_SATURATION_DEFAULT = 0;
-
-export const THEME_DARK_LIGHTNESS_MIN = 0;
-export const THEME_DARK_LIGHTNESS_MAX = 30;
-export const THEME_DARK_LIGHTNESS_DEFAULT = 9;
-
 export const SIDEBAR_OPACITY_MIN = 0.15;
 export const SIDEBAR_OPACITY_MAX = 1;
 export const SIDEBAR_OPACITY_DEFAULT = 0.85;
@@ -155,111 +133,8 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
-function normalizeAccentColor(value: unknown): string | null {
-  return typeof value === "string" && isHexColor(value)
-    ? value.toLowerCase()
-    : ACCENT_COLOR_DEFAULT;
-}
-
-function accentForeground(color: string): "#000000" | "#ffffff" {
-  const channels = [1, 3, 5].map((offset) => {
-    const value = Number.parseInt(color.slice(offset, offset + 2), 16) / 255;
-    return value <= 0.04045
-      ? value / 12.92
-      : Math.pow((value + 0.055) / 1.055, 2.4);
-  });
-  const luminance =
-    0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
-  return luminance > 0.179 ? "#000000" : "#ffffff";
-}
-
-const accentColor = defineSetting<string | null>({
-  key: ACCENT_COLOR_KEY,
-  default: ACCENT_COLOR_DEFAULT,
-  parse: (raw) => normalizeAccentColor(raw),
-  serialize: (value) => value,
-  normalize: normalizeAccentColor,
-});
-
-export const loadAccentColor = accentColor.load;
-export const saveAccentColor = accentColor.save;
-
-export function applyAccentColor(value: string | null) {
-  const next = normalizeAccentColor(value);
-  document.documentElement.classList.toggle("has-user-accent", next != null);
-  if (next == null) {
-    document.documentElement.style.removeProperty("--user-accent-color");
-    document.documentElement.style.removeProperty("--user-accent-foreground");
-    return next;
-  }
-  document.documentElement.style.setProperty("--user-accent-color", next);
-  document.documentElement.style.setProperty(
-    "--user-accent-foreground",
-    accentForeground(next),
-  );
-  return next;
-}
-
-const themeHue = defineSetting<number>({
-  key: THEME_HUE_KEY,
-  default: THEME_HUE_DEFAULT,
-  ...clampedNumber(THEME_HUE_MIN, THEME_HUE_MAX, { round: true }),
-});
-
-export const loadThemeHue = themeHue.load;
-export const saveThemeHue = themeHue.save;
-
-const themeSaturation = defineSetting<number>({
-  key: THEME_SATURATION_KEY,
-  default: THEME_SATURATION_DEFAULT,
-  ...clampedNumber(THEME_SATURATION_MIN, THEME_SATURATION_MAX, { round: true }),
-});
-
-export const loadThemeSaturation = themeSaturation.load;
-export const saveThemeSaturation = themeSaturation.save;
-
-const themeDarkLightness = defineSetting<number>({
-  key: THEME_DARK_LIGHTNESS_KEY,
-  default: THEME_DARK_LIGHTNESS_DEFAULT,
-  ...clampedNumber(THEME_DARK_LIGHTNESS_MIN, THEME_DARK_LIGHTNESS_MAX, {
-    round: true,
-  }),
-});
-
-export const loadThemeDarkLightness = themeDarkLightness.load;
-export const saveThemeDarkLightness = themeDarkLightness.save;
-
-export function applyThemeDarkLightness(value: number) {
-  const next = Math.round(
-    clamp(value, THEME_DARK_LIGHTNESS_MIN, THEME_DARK_LIGHTNESS_MAX),
-  );
-  document.documentElement.style.setProperty(
-    "--theme-dark-lightness",
-    `${next}%`,
-  );
-  return next;
-}
-
-export function applyThemeTint(hue: number, saturation: number) {
-  const nextHue = Math.round(clamp(hue, THEME_HUE_MIN, THEME_HUE_MAX));
-  const nextSaturation = Math.round(
-    clamp(saturation, THEME_SATURATION_MIN, THEME_SATURATION_MAX),
-  );
-  document.documentElement.style.setProperty("--theme-hue", String(nextHue));
-  document.documentElement.style.setProperty(
-    "--theme-saturation",
-    `${nextSaturation}%`,
-  );
-  return { hue: nextHue, saturation: nextSaturation };
-}
-
 export function initAppearance() {
   document.documentElement.classList.toggle("is-mac", IS_MAC);
-  applyAccentColor(loadAccentColor());
-  applyThemeTint(loadThemeHue(), loadThemeSaturation());
-  applyThemeDarkLightness(loadThemeDarkLightness());
-  applyThemePreference(loadThemePreference());
-  watchSystemColorScheme();
   applySidebarOpacity(loadSidebarOpacity());
   applySidebarBlur(loadSidebarBlur());
   applyBodyGlass(loadBodyGlass());
@@ -270,38 +145,15 @@ export function initAppearance() {
   void applyUiScale(loadUiScale());
 }
 
-const colorScheme = defineSetting<ThemePreference>({
-  key: SCHEME_KEY,
-  default: THEME_PREFERENCE_DEFAULT,
-  ...oneOf<ThemePreference>("dark", "light", "system"),
-});
-
-export const loadThemePreference = colorScheme.load;
-export const saveThemePreference = colorScheme.save;
-
-function systemQuery(): MediaQueryList | null {
-  if (typeof window === "undefined" || !window.matchMedia) return null;
-  return window.matchMedia("(prefers-color-scheme: light)");
-}
-
-function systemColorScheme(): ColorScheme {
-  return systemQuery()?.matches ? "light" : "dark";
-}
-
-export function resolveColorScheme(value: ThemePreference): ColorScheme {
-  return value === "system" ? systemColorScheme() : value;
-}
-
 export function isLightScheme(): boolean {
   return document.documentElement.classList.contains("theme-light");
 }
 
-export function applyThemePreference(value: ThemePreference): ColorScheme {
-  const next = resolveColorScheme(value);
-  document.documentElement.classList.toggle("theme-light", next === "light");
-  if (nativeGlassReady) syncNativeGlass(next);
+export function applyColorScheme(scheme: ColorScheme): ColorScheme {
+  document.documentElement.classList.toggle("theme-light", scheme === "light");
+  if (nativeGlassReady) syncNativeGlass(scheme);
   window.dispatchEvent(
-    new CustomEvent<ColorScheme>(SCHEME_CHANGE_EVENT, { detail: next }),
+    new CustomEvent<ColorScheme>(SCHEME_CHANGE_EVENT, { detail: scheme }),
   );
   const backgroundPath = loadChatBackgroundPath();
   if (
@@ -310,21 +162,15 @@ export function applyThemePreference(value: ThemePreference): ColorScheme {
   ) {
     renderChatBackground(backgroundPath);
   }
-  return next;
+  return scheme;
 }
 
 /** The page colour the native window sits behind while glass is off. */
 function opaqueWindowBackground(): Rgb {
-  const style = getComputedStyle(document.documentElement);
-  const read = (name: string, fallback: number) => {
-    const value = Number.parseFloat(style.getPropertyValue(name));
-    return Number.isFinite(value) ? value : fallback;
-  };
-  return hslToRgb(
-    read("--theme-hue", THEME_HUE_DEFAULT),
-    read("--theme-saturation", THEME_SATURATION_DEFAULT),
-    read("--background-lightness", THEME_DARK_LIGHTNESS_DEFAULT),
-  );
+  const value = getComputedStyle(document.documentElement)
+    .getPropertyValue("--color-background-base")
+    .trim();
+  return hexToRgb(isHexColor(value) ? value : "#171717");
 }
 
 /** How long the page takes to reach opaque, from the same token the CSS uses. */
@@ -378,16 +224,6 @@ export function syncNativeGlass(scheme: ColorScheme) {
 export function activateWindowAppearance() {
   nativeGlassReady = true;
   syncNativeGlass(isLightScheme() ? "light" : "dark");
-}
-
-/** Keeps the "system" preference in sync when the OS flips appearance. */
-export function watchSystemColorScheme() {
-  const query = systemQuery();
-  if (!query) return;
-  query.addEventListener("change", () => {
-    const preference = loadThemePreference();
-    if (preference === "system") applyThemePreference(preference);
-  });
 }
 
 const sidebarOpacity = defineSetting<number>({

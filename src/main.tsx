@@ -7,6 +7,7 @@ import {
   initAppearance,
 } from "./features/settings/model/appearance";
 import { initSounds } from "./features/settings/model/sounds";
+import { initTheme } from "./features/themes/model/themeEngine";
 import { loadAgentIdleMs } from "./features/settings/model/settings";
 import { setHarnessIdleParkMs } from "./integrations/harness/core/registry";
 import {
@@ -26,6 +27,7 @@ performance.mark("bonocode:bootstrap");
 // Let local boot IPC overlap loading/evaluating the workspace UI.
 const appLoaded = import("./app/App");
 
+initTheme();
 initAppearance();
 initSounds();
 setHarnessIdleParkMs(loadAgentIdleMs());
