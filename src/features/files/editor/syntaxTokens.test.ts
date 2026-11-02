@@ -7,30 +7,29 @@ import {
   highlightSource,
 } from "./syntaxTokens";
 
-const KEYWORD_DARK = "#ff8ffd";
-const STRING_DARK = "#b4fa72";
-const COMMENT_DARK = "#fefdc2";
+const KEYWORD = "var(--syntax-keyword)";
+const STRING = "var(--syntax-string)";
+const COMMENT = "var(--syntax-comment)";
 
 describe("highlightSource", () => {
   it("colors TypeScript keywords, strings, and comments", () => {
     const lines = highlightSource(
       'const name = "agent";\n// note',
       javascript({ typescript: true }),
-      "dark",
     );
-    expect(token(lines[0], "const")?.color).toBe(KEYWORD_DARK);
-    expect(token(lines[0], '"agent"')?.color).toBe(STRING_DARK);
-    expect(token(lines[1], "// note")?.color).toBe(COMMENT_DARK);
+    expect(token(lines[0], "const")?.color).toBe(KEYWORD);
+    expect(token(lines[0], '"agent"')?.color).toBe(STRING);
+    expect(token(lines[1], "// note")?.color).toBe(COMMENT);
   });
 
   it("colors comments in JSONC files", async () => {
     const language = await languageForPath("settings.jsonc");
-    const lines = highlightSource('{\n  // note\n  "a": 1\n}', language, "dark");
-    expect(token(lines[1], "// note")?.color).toBe(COMMENT_DARK);
+    const lines = highlightSource('{\n  // note\n  "a": 1\n}', language);
+    expect(token(lines[1], "// note")?.color).toBe(COMMENT);
   });
 
   it("leaves unknown languages unstyled", () => {
-    const lines = highlightSource("plain text", null, "dark");
+    const lines = highlightSource("plain text", null);
     expect(lines).toEqual([[{ text: "plain text" }]]);
   });
 });
@@ -46,15 +45,14 @@ describe("highlightDiffFile", () => {
         path: "src/lib/settings.ts",
         blocks: diff.blocks,
       },
-      "dark",
     );
     const deleted = diff.lines.find((line) => line.kind === "del");
     const added = diff.lines.find((line) => line.kind === "add");
     expect(deleted && token(tokens.get(deleted), "const")?.color).toBe(
-      KEYWORD_DARK,
+      KEYWORD,
     );
     expect(added && token(tokens.get(added), "const")?.color).toBe(
-      KEYWORD_DARK,
+      KEYWORD,
     );
   });
 
@@ -70,7 +68,6 @@ describe("highlightDiffFile", () => {
         path: "large.ts",
         blocks: [{ kind: "hunk", lines: [line] }],
       },
-      "dark",
     );
     expect(tokens.size).toBe(0);
   });

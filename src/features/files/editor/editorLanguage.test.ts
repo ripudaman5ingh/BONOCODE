@@ -1,7 +1,8 @@
 import { language } from "@codemirror/language";
 import { EditorState, type Extension } from "@codemirror/state";
 import { describe, expect, it } from "vitest";
-import { languageForPath } from "./editorLanguage";
+import { SYNTAX_KEYS } from "../../themes/model/themeFormat";
+import { editorHighlightStyleFor, languageForPath } from "./editorLanguage";
 
 function languageName(extension: Extension): string | null {
   return (
@@ -57,5 +58,16 @@ describe("languageForPath", () => {
 
   it("leaves unknown file types as plain text", async () => {
     await expect(languageForPath("notes.unknown")).resolves.toBeNull();
+  });
+});
+
+describe("editorHighlightStyleFor", () => {
+  it("colors code with the theme's syntax variables", () => {
+    const css = editorHighlightStyleFor().module?.getRules() ?? "";
+    for (const key of SYNTAX_KEYS) {
+      expect(css, key).toContain(`var(--syntax-${key})`);
+    }
+    expect(css).toContain("var(--color-markdown-heading)");
+    expect(css).not.toMatch(/#[\da-f]{6}/i);
   });
 });

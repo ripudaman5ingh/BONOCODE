@@ -1,4 +1,4 @@
-import { code } from "@streamdown/code";
+import { createCodePlugin } from "@streamdown/code";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   createContext,
@@ -28,6 +28,7 @@ import {
 import type { PluggableList } from "unified";
 import { ExplorerMenu, type ExplorerMenuItem } from "../../files/ui/ExplorerMenu";
 import { FileActionError } from "../../files/ui/FileActionError";
+import { BONOCODE_SHIKI_THEME } from "../../themes/model/shikiTheme";
 import { FileTypeIcon } from "../../files/ui/FileTypeIcon";
 import { createLazyMermaidPlugin } from "../../files/editor/mermaidPlugin";
 import {
@@ -59,6 +60,12 @@ const mermaid = createLazyMermaidPlugin({
     ...MERMAID_BASE_CONFIG,
     theme: "dark",
   },
+});
+
+// The same theme in both slots: its colors are CSS variables, so they already
+// follow the active theme.
+const code = createCodePlugin({
+  themes: [BONOCODE_SHIKI_THEME, BONOCODE_SHIKI_THEME],
 });
 
 const MARKDOWN_PLUGINS = { code, mermaid };

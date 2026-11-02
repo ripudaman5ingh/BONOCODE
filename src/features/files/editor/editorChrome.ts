@@ -137,7 +137,7 @@ export function editorThemeFor(scheme: ColorScheme): Extension {
 export function schemeExtensions(scheme: ColorScheme): Extension[] {
   return [
     editorThemeFor(scheme),
-    syntaxHighlighting(editorHighlightStyleFor(scheme)),
+    syntaxHighlighting(editorHighlightStyleFor()),
   ];
 }
 

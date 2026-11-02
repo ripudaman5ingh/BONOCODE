@@ -11,6 +11,35 @@
     "mention": "#0284c7",
     "heading": "#be185d"
   },
+  "syntax": {
+    "keyword": "#a626a4",
+    "callable": "#4078f2",
+    "string": "#50a14f",
+    "type": "#c18401",
+    "number": "#986801",
+    "comment": "#8a9199",
+    "property": "#e45649",
+    "meta": "#5c6370",
+    "invalid": "#cf222e"
+  },
+  "terminal": {
+    "black": "#383a42",
+    "red": "#e45649",
+    "green": "#50a14f",
+    "yellow": "#c18401",
+    "blue": "#4078f2",
+    "magenta": "#a626a4",
+    "cyan": "#0184bc",
+    "white": "#fafafa",
+    "brightBlack": "#7c8591",
+    "brightRed": "#df6b60",
+    "brightGreen": "#68b567",
+    "brightYellow": "#d19a2f",
+    "brightBlue": "#5c89f5",
+    "brightMagenta": "#b54bb3",
+    "brightCyan": "#1f9cc9",
+    "brightWhite": "#ffffff"
+  },
   "selection": {
     "subtle": 5,
     "base": 6,

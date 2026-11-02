@@ -4,7 +4,6 @@ import {
 } from "@codemirror/language";
 import { EditorState, type Extension } from "@codemirror/state";
 import { highlightCode } from "@lezer/highlight";
-import type { ColorScheme } from "../../settings/model/appearance";
 import type { UnifiedBlock, UnifiedLine } from "../../source-control/model/unifiedDiff";
 import {
   languageForPath,
@@ -29,7 +28,6 @@ const SYNTAX_TREE_BUDGET_MS = 100;
 export function highlightSource(
   text: string,
   language: Extension | null,
-  scheme: ColorScheme,
 ): SyntaxToken[][] {
   if (!text) return [[]];
   if (!language) return unstyledLines(text);
@@ -42,7 +40,7 @@ export function highlightSource(
   const tree =
     ensureSyntaxTree(state, state.doc.length, SYNTAX_TREE_BUDGET_MS) ??
     syntaxTree(state);
-  const highlighter = syntaxTagHighlighter(scheme);
+  const highlighter = syntaxTagHighlighter();
   const lines: SyntaxToken[][] = [[]];
   highlightCode(
     code,
@@ -64,7 +62,6 @@ export function highlightSource(
 
 export async function highlightDiffFile(
   file: DiffFile,
-  scheme: ColorScheme,
 ): Promise<Map<UnifiedLine, SyntaxToken[]>> {
   const map = new Map<UnifiedLine, SyntaxToken[]>();
   if (file.binary || file.tooLarge) return map;
@@ -99,12 +96,10 @@ export async function highlightDiffFile(
   const originalTokens = highlightSource(
     original.map((line) => line.text).join("\n"),
     language,
-    scheme,
   );
   const currentTokens = highlightSource(
     current.map((line) => line.text).join("\n"),
     language,
-    scheme,
   );
   assignLineTokens(
     map,

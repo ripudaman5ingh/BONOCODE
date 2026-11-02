@@ -26,6 +26,12 @@ import {
   type TerminalFitMode,
 } from "../model/terminalLayout";
 import { IS_MAC } from "../../../platform/tauri/platform";
+import bonocodeDark from "../../themes/model/builtin/bonocode-dark.json";
+import {
+  TERMINAL_KEYS,
+  terminalCssVar,
+  type ThemeTerminal,
+} from "../../themes/model/themeFormat";
 import "@xterm/xterm/css/xterm.css";
 
 type Props = {
@@ -60,46 +66,20 @@ function cssHexColor(expr: string, fallback: string): string {
     .join("")}`;
 }
 
-const ANSI_DARK = {
-  black: "#1d2428",
-  red: "#f87171",
-  green: "#4ade80",
-  yellow: "#fbbf24",
-  blue: "#60a5fa",
-  magenta: "#c084fc",
-  cyan: "#22d3ee",
-  white: "#e8eef2",
-  brightBlack: "#64748b",
-  brightRed: "#fca5a5",
-  brightGreen: "#86efac",
-  brightYellow: "#fde68a",
-  brightBlue: "#93c5fd",
-  brightMagenta: "#d8b4fe",
-  brightCyan: "#67e8f9",
-  brightWhite: "#f8fafc",
-};
+const FALLBACK_ANSI: ThemeTerminal = bonocodeDark.terminal;
 
-// One-Light-family palette tuned for a near-white canvas.
-const ANSI_LIGHT = {
-  black: "#383a42",
-  red: "#e45649",
-  green: "#50a14f",
-  yellow: "#c18401",
-  blue: "#4078f2",
-  magenta: "#a626a4",
-  cyan: "#0184bc",
-  white: "#fafafa",
-  brightBlack: "#7c8591",
-  brightRed: "#df6b60",
-  brightGreen: "#68b567",
-  brightYellow: "#d19a2f",
-  brightBlue: "#5c89f5",
-  brightMagenta: "#b54bb3",
-  brightCyan: "#1f9cc9",
-  brightWhite: "#ffffff",
-};
+// The var() fallback matters: a missing variable would otherwise resolve to
+// the inherited text color instead of reaching cssColor's fallback.
+function ansiColors(): ThemeTerminal {
+  const colors = { ...FALLBACK_ANSI };
+  for (const key of TERMINAL_KEYS) {
+    const fallback = FALLBACK_ANSI[key];
+    colors[key] = cssColor(`var(${terminalCssVar(key)}, ${fallback})`, fallback);
+  }
+  return colors;
+}
 
-function terminalTheme(light: boolean) {
+export function terminalTheme(light: boolean) {
   return {
     background: "#00000000",
     foreground: cssColor("var(--color-content)", light ? "#2e2e2e" : "#e8eef2"),
@@ -109,7 +89,7 @@ function terminalTheme(light: boolean) {
     selectionInactiveBackground: light
       ? "rgba(0,0,0,0.08)"
       : "rgba(255,255,255,0.08)",
-    ...(light ? ANSI_LIGHT : ANSI_DARK),
+    ...ansiColors(),
   };
 }
 

@@ -22,11 +22,49 @@ export type ThemeSelection = {
   emphasis: number;
 };
 
+export const SYNTAX_KEYS = [
+  "keyword",
+  "callable",
+  "string",
+  "type",
+  "number",
+  "comment",
+  "property",
+  "meta",
+  "invalid",
+] as const;
+
+export const TERMINAL_KEYS = [
+  "black",
+  "red",
+  "green",
+  "yellow",
+  "blue",
+  "magenta",
+  "cyan",
+  "white",
+  "brightBlack",
+  "brightRed",
+  "brightGreen",
+  "brightYellow",
+  "brightBlue",
+  "brightMagenta",
+  "brightCyan",
+  "brightWhite",
+] as const;
+
+/** Code colors for the editor, diffs and chat code blocks. Headings use colors.heading. */
+export type ThemeSyntax = Record<(typeof SYNTAX_KEYS)[number], string>;
+/** The 16 ANSI colors, keyed like xterm's ITheme. */
+export type ThemeTerminal = Record<(typeof TERMINAL_KEYS)[number], string>;
+
 export type Theme = {
   id: string;
   name: string;
   scheme: ThemeScheme;
   colors: ThemeColors;
+  syntax: ThemeSyntax;
+  terminal: ThemeTerminal;
   /** Percent of the foreground mixed into each selection fill, 0 to 100. */
   selection: ThemeSelection;
   /** CSS font-family lists. */
@@ -86,6 +124,34 @@ function nonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim() !== "";
 }
 
+/** A required object whose every key is a #rrggbb color. */
+function hexSection<K extends string>(
+  value: unknown,
+  section: string,
+  keys: readonly K[],
+  errors: string[],
+): Record<K, string> {
+  const out: Partial<Record<K, string>> = {};
+  if (!isRecord(value)) {
+    errors.push(`${section} must be an object`);
+  } else {
+    for (const key of keys) {
+      const raw = value[key];
+      if (typeof raw === "string" && isHexColor(raw)) {
+        out[key] = raw.toLowerCase();
+      } else {
+        errors.push(`${section}.${key} must be a #rrggbb color`);
+      }
+    }
+  }
+  // Only read when errors is empty, which means every key was filled.
+  return out as Record<K, string>;
+}
+
+export function terminalCssVar(key: keyof ThemeTerminal): string {
+  return `--terminal-${key.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`;
+}
+
 /** Validates untrusted JSON. Colors come back lowercase; unknown keys are dropped. */
 export function parseTheme(value: unknown): ParsedTheme {
   const errors: string[] = [];
@@ -112,6 +178,8 @@ export function parseTheme(value: unknown): ParsedTheme {
   const colors: Partial<Record<keyof ThemeColors, string>> = {};
   for (const key of REQUIRED_COLORS) colors[key] = color(key);
   const userAccent = color("userAccent", true);
+  const syntax = hexSection(value.syntax, "syntax", SYNTAX_KEYS, errors);
+  const terminal = hexSection(value.terminal, "terminal", TERMINAL_KEYS, errors);
 
   const selectionIn = isRecord(value.selection) ? value.selection : null;
   if (!selectionIn) errors.push("selection must be an object");
@@ -150,6 +218,8 @@ export function parseTheme(value: unknown): ParsedTheme {
       colors: userAccent
         ? { ...checkedColors, userAccent }
         : { ...checkedColors },
+      syntax,
+      terminal,
       selection: selection as ThemeSelection,
       fonts: { sans: checkedFonts.sans, mono: checkedFonts.mono },
     },
@@ -182,6 +252,10 @@ export function accentForeground(color: string): "#000000" | "#ffffff" {
 export function themeCssVars(theme: Theme): Record<string, string> {
   const vars: Record<string, string> = {};
   for (const key of REQUIRED_COLORS) vars[COLOR_VARS[key]] = theme.colors[key];
+  for (const key of SYNTAX_KEYS) vars[`--syntax-${key}`] = theme.syntax[key];
+  for (const key of TERMINAL_KEYS) {
+    vars[terminalCssVar(key)] = theme.terminal[key];
+  }
   for (const key of SELECTION_KEYS) {
     vars[SELECTION_VARS[key]] = `${theme.selection[key]}%`;
   }
@@ -209,6 +283,15 @@ export function themeWarnings(theme: Theme): string[] {
     warnings.push(
       `accent on background has contrast ${accentRatio.toFixed(2)}, below 3`,
     );
+  }
+  // Terminal colors are left out: ANSI black on a dark background is normal.
+  for (const key of SYNTAX_KEYS) {
+    const ratio = contrastRatio(theme.syntax[key], background);
+    if (ratio < 3) {
+      warnings.push(
+        `syntax ${key} on background has contrast ${ratio.toFixed(2)}, below 3`,
+      );
+    }
   }
   return warnings;
 }

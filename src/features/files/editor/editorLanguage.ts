@@ -6,7 +6,6 @@ import {
 } from "@codemirror/language";
 import type { Extension } from "@codemirror/state";
 import { tagHighlighter, tags, type Highlighter } from "@lezer/highlight";
-import type { ColorScheme } from "../../settings/model/appearance";
 import { basename } from "../../../platform/tauri/fs";
 
 const HIGHLIGHT_TAGS = {
@@ -60,83 +59,58 @@ const HIGHLIGHT_TAGS = {
   ],
 };
 
-type HighlightPalette = {
-  keyword: string;
-  heading: string;
-  callable: string;
-  string: string;
-  type: string;
-  number: string;
-  comment: string;
-  property: string;
-  meta: string;
-  invalid: string;
+// Theme variables, so the editor and diffs follow the active theme without
+// rebuilding their styles.
+const HIGHLIGHT_PALETTE = {
+  keyword: "var(--syntax-keyword)",
+  heading: "var(--color-markdown-heading)",
+  callable: "var(--syntax-callable)",
+  string: "var(--syntax-string)",
+  type: "var(--syntax-type)",
+  number: "var(--syntax-number)",
+  comment: "var(--syntax-comment)",
+  property: "var(--syntax-property)",
+  meta: "var(--syntax-meta)",
+  invalid: "var(--syntax-invalid)",
 };
 
-const HIGHLIGHT_PALETTE: Record<ColorScheme, HighlightPalette> = {
-  dark: {
-    keyword: "#ff8ffd",
-    heading: "var(--color-markdown-heading)",
-    callable: "#a5d5fe",
-    string: "#b4fa72",
-    type: "#ff8272",
-    number: "#b4fa72",
-    comment: "#fefdc2",
-    property: "#d0d1fe",
-    meta: "#8e8e8e",
-    invalid: "#ffc4bd",
+const HIGHLIGHT_STYLE = HighlightStyle.define([
+  { tag: HIGHLIGHT_TAGS.keyword, color: HIGHLIGHT_PALETTE.keyword },
+  { tag: HIGHLIGHT_TAGS.heading, color: HIGHLIGHT_PALETTE.heading },
+  { tag: HIGHLIGHT_TAGS.callable, color: HIGHLIGHT_PALETTE.callable },
+  { tag: HIGHLIGHT_TAGS.string, color: HIGHLIGHT_PALETTE.string },
+  { tag: HIGHLIGHT_TAGS.type, color: HIGHLIGHT_PALETTE.type },
+  { tag: HIGHLIGHT_TAGS.number, color: HIGHLIGHT_PALETTE.number },
+  { tag: HIGHLIGHT_TAGS.comment, color: HIGHLIGHT_PALETTE.comment },
+  { tag: HIGHLIGHT_TAGS.property, color: HIGHLIGHT_PALETTE.property },
+  { tag: HIGHLIGHT_TAGS.meta, color: HIGHLIGHT_PALETTE.meta },
+  {
+    tag: tags.invalid,
+    color: HIGHLIGHT_PALETTE.invalid,
+    textDecoration: "underline",
   },
-  light: {
-    keyword: "#a626a4",
-    heading: "var(--color-markdown-heading)",
-    callable: "#4078f2",
-    string: "#50a14f",
-    type: "#c18401",
-    number: "#986801",
-    comment: "#8a9199",
-    property: "#e45649",
-    meta: "#5c6370",
-    invalid: "#cf222e",
-  },
-};
-
-function highlightStyleFrom(palette: HighlightPalette) {
-  return HighlightStyle.define([
-    { tag: HIGHLIGHT_TAGS.keyword, color: palette.keyword },
-    { tag: HIGHLIGHT_TAGS.heading, color: palette.heading },
-    { tag: HIGHLIGHT_TAGS.callable, color: palette.callable },
-    { tag: HIGHLIGHT_TAGS.string, color: palette.string },
-    { tag: HIGHLIGHT_TAGS.type, color: palette.type },
-    { tag: HIGHLIGHT_TAGS.number, color: palette.number },
-    { tag: HIGHLIGHT_TAGS.comment, color: palette.comment },
-    { tag: HIGHLIGHT_TAGS.property, color: palette.property },
-    { tag: HIGHLIGHT_TAGS.meta, color: palette.meta },
-    { tag: tags.invalid, color: palette.invalid, textDecoration: "underline" },
-  ]);
-}
-
-const HIGHLIGHT_DARK = highlightStyleFrom(HIGHLIGHT_PALETTE.dark);
-const HIGHLIGHT_LIGHT = highlightStyleFrom(HIGHLIGHT_PALETTE.light);
-
-export function editorHighlightStyleFor(scheme: ColorScheme) {
-  return scheme === "light" ? HIGHLIGHT_LIGHT : HIGHLIGHT_DARK;
-}
+]);
 
 /** Same tag → color map as the editor, for highlighting outside CodeMirror. */
-export function syntaxTagHighlighter(scheme: ColorScheme): Highlighter {
-  const palette = HIGHLIGHT_PALETTE[scheme];
-  return tagHighlighter([
-    { tag: HIGHLIGHT_TAGS.keyword, class: palette.keyword },
-    { tag: HIGHLIGHT_TAGS.heading, class: palette.heading },
-    { tag: HIGHLIGHT_TAGS.callable, class: palette.callable },
-    { tag: HIGHLIGHT_TAGS.string, class: palette.string },
-    { tag: HIGHLIGHT_TAGS.type, class: palette.type },
-    { tag: HIGHLIGHT_TAGS.number, class: palette.number },
-    { tag: HIGHLIGHT_TAGS.comment, class: palette.comment },
-    { tag: HIGHLIGHT_TAGS.property, class: palette.property },
-    { tag: HIGHLIGHT_TAGS.meta, class: palette.meta },
-    { tag: tags.invalid, class: palette.invalid },
-  ]);
+const SYNTAX_TAG_HIGHLIGHTER = tagHighlighter([
+  { tag: HIGHLIGHT_TAGS.keyword, class: HIGHLIGHT_PALETTE.keyword },
+  { tag: HIGHLIGHT_TAGS.heading, class: HIGHLIGHT_PALETTE.heading },
+  { tag: HIGHLIGHT_TAGS.callable, class: HIGHLIGHT_PALETTE.callable },
+  { tag: HIGHLIGHT_TAGS.string, class: HIGHLIGHT_PALETTE.string },
+  { tag: HIGHLIGHT_TAGS.type, class: HIGHLIGHT_PALETTE.type },
+  { tag: HIGHLIGHT_TAGS.number, class: HIGHLIGHT_PALETTE.number },
+  { tag: HIGHLIGHT_TAGS.comment, class: HIGHLIGHT_PALETTE.comment },
+  { tag: HIGHLIGHT_TAGS.property, class: HIGHLIGHT_PALETTE.property },
+  { tag: HIGHLIGHT_TAGS.meta, class: HIGHLIGHT_PALETTE.meta },
+  { tag: tags.invalid, class: HIGHLIGHT_PALETTE.invalid },
+]);
+
+export function editorHighlightStyleFor(): HighlightStyle {
+  return HIGHLIGHT_STYLE;
+}
+
+export function syntaxTagHighlighter(): Highlighter {
+  return SYNTAX_TAG_HIGHLIGHTER;
 }
 
 function legacyLanguage(parser: StreamParser<unknown>): Extension {
