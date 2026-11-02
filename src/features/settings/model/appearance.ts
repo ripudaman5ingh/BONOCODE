@@ -1,7 +1,13 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { hslToRgb, isHexColor, type Rgb } from "../../../shared/lib/colorUtils";
 import { IS_LINUX, IS_MAC } from "../../../platform/tauri/platform";
-import { readFlag, writeFlag } from "./storageFlags";
+import {
+  clampedNumber,
+  defineSetting,
+  flag,
+  oneOf,
+  readStored,
+} from "./defineSetting";
 import { applyUiScale, loadUiScale } from "./uiScale";
 import {
   applyPreparedNewThreadBackground,
@@ -149,25 +155,6 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
-function readNumber(key: string): number | null {
-  try {
-    const raw = localStorage.getItem(key);
-    if (raw == null) return null;
-    const parsed = Number(raw);
-    return Number.isFinite(parsed) ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeNumber(key: string, value: number) {
-  try {
-    localStorage.setItem(key, String(value));
-  } catch {
-    // private mode / quota
-  }
-}
-
 function normalizeAccentColor(value: unknown): string | null {
   return typeof value === "string" && isHexColor(value)
     ? value.toLowerCase()
@@ -186,23 +173,16 @@ function accentForeground(color: string): "#000000" | "#ffffff" {
   return luminance > 0.179 ? "#000000" : "#ffffff";
 }
 
-export function loadAccentColor(): string | null {
-  try {
-    return normalizeAccentColor(localStorage.getItem(ACCENT_COLOR_KEY));
-  } catch {
-    return ACCENT_COLOR_DEFAULT;
-  }
-}
+const accentColor = defineSetting<string | null>({
+  key: ACCENT_COLOR_KEY,
+  default: ACCENT_COLOR_DEFAULT,
+  parse: (raw) => normalizeAccentColor(raw),
+  serialize: (value) => value,
+  normalize: normalizeAccentColor,
+});
 
-export function saveAccentColor(value: string | null) {
-  try {
-    const next = normalizeAccentColor(value);
-    if (next == null) localStorage.removeItem(ACCENT_COLOR_KEY);
-    else localStorage.setItem(ACCENT_COLOR_KEY, next);
-  } catch {
-    // private mode / quota
-  }
-}
+export const loadAccentColor = accentColor.load;
+export const saveAccentColor = accentColor.save;
 
 export function applyAccentColor(value: string | null) {
   const next = normalizeAccentColor(value);
@@ -220,58 +200,34 @@ export function applyAccentColor(value: string | null) {
   return next;
 }
 
-export function loadThemeHue(): number {
-  return Math.round(
-    clamp(
-      readNumber(THEME_HUE_KEY) ?? THEME_HUE_DEFAULT,
-      THEME_HUE_MIN,
-      THEME_HUE_MAX,
-    ),
-  );
-}
+const themeHue = defineSetting<number>({
+  key: THEME_HUE_KEY,
+  default: THEME_HUE_DEFAULT,
+  ...clampedNumber(THEME_HUE_MIN, THEME_HUE_MAX, { round: true }),
+});
 
-export function saveThemeHue(value: number) {
-  writeNumber(
-    THEME_HUE_KEY,
-    Math.round(clamp(value, THEME_HUE_MIN, THEME_HUE_MAX)),
-  );
-}
+export const loadThemeHue = themeHue.load;
+export const saveThemeHue = themeHue.save;
 
-export function loadThemeSaturation(): number {
-  return Math.round(
-    clamp(
-      readNumber(THEME_SATURATION_KEY) ?? THEME_SATURATION_DEFAULT,
-      THEME_SATURATION_MIN,
-      THEME_SATURATION_MAX,
-    ),
-  );
-}
+const themeSaturation = defineSetting<number>({
+  key: THEME_SATURATION_KEY,
+  default: THEME_SATURATION_DEFAULT,
+  ...clampedNumber(THEME_SATURATION_MIN, THEME_SATURATION_MAX, { round: true }),
+});
 
-export function saveThemeSaturation(value: number) {
-  writeNumber(
-    THEME_SATURATION_KEY,
-    Math.round(clamp(value, THEME_SATURATION_MIN, THEME_SATURATION_MAX)),
-  );
-}
+export const loadThemeSaturation = themeSaturation.load;
+export const saveThemeSaturation = themeSaturation.save;
 
-export function loadThemeDarkLightness(): number {
-  return Math.round(
-    clamp(
-      readNumber(THEME_DARK_LIGHTNESS_KEY) ?? THEME_DARK_LIGHTNESS_DEFAULT,
-      THEME_DARK_LIGHTNESS_MIN,
-      THEME_DARK_LIGHTNESS_MAX,
-    ),
-  );
-}
+const themeDarkLightness = defineSetting<number>({
+  key: THEME_DARK_LIGHTNESS_KEY,
+  default: THEME_DARK_LIGHTNESS_DEFAULT,
+  ...clampedNumber(THEME_DARK_LIGHTNESS_MIN, THEME_DARK_LIGHTNESS_MAX, {
+    round: true,
+  }),
+});
 
-export function saveThemeDarkLightness(value: number) {
-  writeNumber(
-    THEME_DARK_LIGHTNESS_KEY,
-    Math.round(
-      clamp(value, THEME_DARK_LIGHTNESS_MIN, THEME_DARK_LIGHTNESS_MAX),
-    ),
-  );
-}
+export const loadThemeDarkLightness = themeDarkLightness.load;
+export const saveThemeDarkLightness = themeDarkLightness.save;
 
 export function applyThemeDarkLightness(value: number) {
   const next = Math.round(
@@ -314,26 +270,14 @@ export function initAppearance() {
   void applyUiScale(loadUiScale());
 }
 
-function isThemePreference(value: unknown): value is ThemePreference {
-  return value === "dark" || value === "light" || value === "system";
-}
+const colorScheme = defineSetting<ThemePreference>({
+  key: SCHEME_KEY,
+  default: THEME_PREFERENCE_DEFAULT,
+  ...oneOf<ThemePreference>("dark", "light", "system"),
+});
 
-export function loadThemePreference(): ThemePreference {
-  try {
-    const raw = localStorage.getItem(SCHEME_KEY);
-    return isThemePreference(raw) ? raw : THEME_PREFERENCE_DEFAULT;
-  } catch {
-    return THEME_PREFERENCE_DEFAULT;
-  }
-}
-
-export function saveThemePreference(value: ThemePreference) {
-  try {
-    localStorage.setItem(SCHEME_KEY, value);
-  } catch {
-    // private mode / quota
-  }
-}
+export const loadThemePreference = colorScheme.load;
+export const saveThemePreference = colorScheme.save;
 
 function systemQuery(): MediaQueryList | null {
   if (typeof window === "undefined" || !window.matchMedia) return null;
@@ -446,20 +390,14 @@ export function watchSystemColorScheme() {
   });
 }
 
-export function loadSidebarOpacity(): number {
-  return clamp(
-    readNumber(OPACITY_KEY) ?? SIDEBAR_OPACITY_DEFAULT,
-    SIDEBAR_OPACITY_MIN,
-    SIDEBAR_OPACITY_MAX,
-  );
-}
+const sidebarOpacity = defineSetting<number>({
+  key: OPACITY_KEY,
+  default: SIDEBAR_OPACITY_DEFAULT,
+  ...clampedNumber(SIDEBAR_OPACITY_MIN, SIDEBAR_OPACITY_MAX),
+});
 
-export function saveSidebarOpacity(value: number) {
-  writeNumber(
-    OPACITY_KEY,
-    clamp(value, SIDEBAR_OPACITY_MIN, SIDEBAR_OPACITY_MAX),
-  );
-}
+export const loadSidebarOpacity = sidebarOpacity.load;
+export const saveSidebarOpacity = sidebarOpacity.save;
 
 export function applySidebarOpacity(value: number) {
   const next = clamp(value, SIDEBAR_OPACITY_MIN, SIDEBAR_OPACITY_MAX);
@@ -467,22 +405,14 @@ export function applySidebarOpacity(value: number) {
   return next;
 }
 
-export function loadSidebarBlur(): number {
-  return Math.round(
-    clamp(
-      readNumber(BLUR_KEY) ?? SIDEBAR_BLUR_DEFAULT,
-      SIDEBAR_BLUR_MIN,
-      SIDEBAR_BLUR_MAX,
-    ),
-  );
-}
+const sidebarBlur = defineSetting<number>({
+  key: BLUR_KEY,
+  default: SIDEBAR_BLUR_DEFAULT,
+  ...clampedNumber(SIDEBAR_BLUR_MIN, SIDEBAR_BLUR_MAX, { round: true }),
+});
 
-export function saveSidebarBlur(value: number) {
-  writeNumber(
-    BLUR_KEY,
-    Math.round(clamp(value, SIDEBAR_BLUR_MIN, SIDEBAR_BLUR_MAX)),
-  );
-}
+export const loadSidebarBlur = sidebarBlur.load;
+export const saveSidebarBlur = sidebarBlur.save;
 
 export function applySidebarBlur(value: number) {
   const next = Math.round(clamp(value, SIDEBAR_BLUR_MIN, SIDEBAR_BLUR_MAX));
@@ -490,47 +420,31 @@ export function applySidebarBlur(value: number) {
   return next;
 }
 
-export function loadBodyGlass(): boolean {
-  return readFlag(BODY_KEY) ?? BODY_GLASS_DEFAULT;
-}
+const bodyGlass = defineSetting<boolean>({
+  key: BODY_KEY,
+  default: BODY_GLASS_DEFAULT,
+  ...flag(),
+});
 
-export function saveBodyGlass(value: boolean) {
-  writeFlag(BODY_KEY, value);
-}
+export const loadBodyGlass = bodyGlass.load;
+export const saveBodyGlass = bodyGlass.save;
 
 export function applyBodyGlass(value: boolean) {
   document.documentElement.classList.toggle("glass-body", value);
   return value;
 }
 
-export function loadChatBackgroundPath(): string | null {
-  try {
-    return localStorage.getItem(CHAT_BACKGROUND_PATH_KEY)?.trim() || null;
-  } catch {
-    return null;
-  }
-}
+const chatBackgroundPath = defineSetting<string | null>({
+  key: CHAT_BACKGROUND_PATH_KEY,
+  default: null,
+  parse: (raw) => raw?.trim() || null,
+  serialize: (value) => value || null,
+  event: CHAT_BACKGROUND_PATH_CHANGE_EVENT,
+});
 
-export function saveChatBackgroundPath(value: string | null) {
-  try {
-    if (value) localStorage.setItem(CHAT_BACKGROUND_PATH_KEY, value);
-    else localStorage.removeItem(CHAT_BACKGROUND_PATH_KEY);
-  } catch {
-    // private mode / quota
-  }
-  if (typeof window === "undefined") return;
-  window.dispatchEvent(new Event(CHAT_BACKGROUND_PATH_CHANGE_EVENT));
-}
-
-export function subscribeChatBackgroundPath(onStoreChange: () => void) {
-  if (typeof window === "undefined") return () => {};
-  window.addEventListener(CHAT_BACKGROUND_PATH_CHANGE_EVENT, onStoreChange);
-  return () =>
-    window.removeEventListener(
-      CHAT_BACKGROUND_PATH_CHANGE_EVENT,
-      onStoreChange,
-    );
-}
+export const loadChatBackgroundPath = chatBackgroundPath.load;
+export const saveChatBackgroundPath = chatBackgroundPath.save;
+export const subscribeChatBackgroundPath = chatBackgroundPath.subscribe;
 
 export function applyChatBackground(path: string | null) {
   const root = document.documentElement;
@@ -548,34 +462,14 @@ export function chatBackgroundSrc(path: string | null): string | null {
   return path ? `${convertFileSrc(path)}?v=${chatBackgroundRevision}` : null;
 }
 
-function isNewThreadBackgroundEffect(
-  value: unknown,
-): value is NewThreadBackgroundEffect {
-  return NEW_THREAD_BACKGROUND_EFFECTS.includes(
-    value as NewThreadBackgroundEffect,
-  );
-}
+const newThreadBackgroundEffect = defineSetting<NewThreadBackgroundEffect>({
+  key: NEW_THREAD_BACKGROUND_EFFECT_KEY,
+  default: NEW_THREAD_BACKGROUND_EFFECT_DEFAULT,
+  ...oneOf<NewThreadBackgroundEffect>(...NEW_THREAD_BACKGROUND_EFFECTS),
+});
 
-export function loadNewThreadBackgroundEffect(): NewThreadBackgroundEffect {
-  try {
-    const raw = localStorage.getItem(NEW_THREAD_BACKGROUND_EFFECT_KEY);
-    return isNewThreadBackgroundEffect(raw)
-      ? raw
-      : NEW_THREAD_BACKGROUND_EFFECT_DEFAULT;
-  } catch {
-    return NEW_THREAD_BACKGROUND_EFFECT_DEFAULT;
-  }
-}
-
-export function saveNewThreadBackgroundEffect(
-  effect: NewThreadBackgroundEffect,
-) {
-  try {
-    localStorage.setItem(NEW_THREAD_BACKGROUND_EFFECT_KEY, effect);
-  } catch {
-    // private mode / quota
-  }
-}
+export const loadNewThreadBackgroundEffect = newThreadBackgroundEffect.load;
+export const saveNewThreadBackgroundEffect = newThreadBackgroundEffect.save;
 
 function renderChatBackground(
   path: string,
@@ -607,9 +501,49 @@ export function setNewThreadBackgroundEffect(
   window.dispatchEvent(new Event(CHAT_BACKGROUND_PATH_CHANGE_EVENT));
 }
 
-export function loadChatBackgroundOpacity(): number {
-  return loadChatBackgroundEmptyOpacity();
+const chatBackgroundOpacityRange = clampedNumber(
+  CHAT_BACKGROUND_OPACITY_MIN,
+  CHAT_BACKGROUND_OPACITY_MAX,
+);
+
+/**
+ * One surface's opacity. A missing or unreadable value falls back to the single
+ * key that predates the per-surface split.
+ */
+function chatBackgroundOpacitySetting(key: string, fallback: number) {
+  return defineSetting<number>({
+    key,
+    default: fallback,
+    ...chatBackgroundOpacityRange,
+    parse: (raw) =>
+      chatBackgroundOpacityRange.parse(raw) ??
+      chatBackgroundOpacityRange.parse(readStored(CHAT_BACKGROUND_OPACITY_KEY)),
+  });
 }
+
+const chatBackgroundEmptyOpacity = chatBackgroundOpacitySetting(
+  CHAT_BACKGROUND_EMPTY_OPACITY_KEY,
+  CHAT_BACKGROUND_EMPTY_OPACITY_DEFAULT,
+);
+const chatBackgroundSessionOpacity = chatBackgroundOpacitySetting(
+  CHAT_BACKGROUND_SESSION_OPACITY_KEY,
+  CHAT_BACKGROUND_SESSION_OPACITY_DEFAULT,
+);
+/** Kept in step with the per-surface keys for anything still reading the old key. */
+const chatBackgroundLegacyOpacity = defineSetting<number>({
+  key: CHAT_BACKGROUND_OPACITY_KEY,
+  default: CHAT_BACKGROUND_OPACITY_DEFAULT,
+  ...chatBackgroundOpacityRange,
+});
+
+/** The empty-state opacity doubles as the general one. */
+export const loadChatBackgroundOpacity = chatBackgroundEmptyOpacity.load;
+export const loadChatBackgroundEmptyOpacity = chatBackgroundEmptyOpacity.load;
+export const saveChatBackgroundEmptyOpacity = chatBackgroundEmptyOpacity.save;
+export const loadChatBackgroundSessionOpacity =
+  chatBackgroundSessionOpacity.load;
+export const saveChatBackgroundSessionOpacity =
+  chatBackgroundSessionOpacity.save;
 
 export function saveChatBackgroundOpacity(value: number) {
   const next = clamp(
@@ -617,9 +551,9 @@ export function saveChatBackgroundOpacity(value: number) {
     CHAT_BACKGROUND_OPACITY_MIN,
     CHAT_BACKGROUND_OPACITY_MAX,
   );
-  saveChatBackgroundEmptyOpacity(next);
-  saveChatBackgroundSessionOpacity(next);
-  writeNumber(CHAT_BACKGROUND_OPACITY_KEY, next);
+  chatBackgroundEmptyOpacity.save(next);
+  chatBackgroundSessionOpacity.save(next);
+  chatBackgroundLegacyOpacity.save(next);
 }
 
 export function applyChatBackgroundOpacity(value: number) {
@@ -628,23 +562,6 @@ export function applyChatBackgroundOpacity(value: number) {
   return next;
 }
 
-function loadChatBackgroundOpacityValue(key: string): number {
-  const next = clamp(
-    readNumber(key) ??
-      readNumber(CHAT_BACKGROUND_OPACITY_KEY) ??
-      CHAT_BACKGROUND_OPACITY_DEFAULT,
-    CHAT_BACKGROUND_OPACITY_MIN,
-    CHAT_BACKGROUND_OPACITY_MAX,
-  );
-  return next;
-}
-
-function saveChatBackgroundOpacityValue(key: string, value: number) {
-  writeNumber(
-    key,
-    clamp(value, CHAT_BACKGROUND_OPACITY_MIN, CHAT_BACKGROUND_OPACITY_MAX),
-  );
-}
 
 function applyChatBackgroundOpacityValue(variable: string, value: number) {
   const next = clamp(
@@ -656,13 +573,6 @@ function applyChatBackgroundOpacityValue(variable: string, value: number) {
   return next;
 }
 
-export function loadChatBackgroundEmptyOpacity(): number {
-  return loadChatBackgroundOpacityValue(CHAT_BACKGROUND_EMPTY_OPACITY_KEY);
-}
-
-export function saveChatBackgroundEmptyOpacity(value: number) {
-  saveChatBackgroundOpacityValue(CHAT_BACKGROUND_EMPTY_OPACITY_KEY, value);
-}
 
 export function applyChatBackgroundEmptyOpacity(value: number) {
   return applyChatBackgroundOpacityValue(
@@ -671,13 +581,6 @@ export function applyChatBackgroundEmptyOpacity(value: number) {
   );
 }
 
-export function loadChatBackgroundSessionOpacity(): number {
-  return loadChatBackgroundOpacityValue(CHAT_BACKGROUND_SESSION_OPACITY_KEY);
-}
-
-export function saveChatBackgroundSessionOpacity(value: number) {
-  saveChatBackgroundOpacityValue(CHAT_BACKGROUND_SESSION_OPACITY_KEY, value);
-}
 
 export function applyChatBackgroundSessionOpacity(value: number) {
   return applyChatBackgroundOpacityValue(
@@ -686,26 +589,14 @@ export function applyChatBackgroundSessionOpacity(value: number) {
   );
 }
 
-function isChatBackgroundScope(value: unknown): value is ChatBackgroundScope {
-  return value === "empty" || value === "all";
-}
+const chatBackgroundScope = defineSetting<ChatBackgroundScope>({
+  key: CHAT_BACKGROUND_SCOPE_KEY,
+  default: CHAT_BACKGROUND_SCOPE_DEFAULT,
+  ...oneOf<ChatBackgroundScope>("empty", "all"),
+});
 
-export function loadChatBackgroundScope(): ChatBackgroundScope {
-  try {
-    const raw = localStorage.getItem(CHAT_BACKGROUND_SCOPE_KEY);
-    return isChatBackgroundScope(raw) ? raw : CHAT_BACKGROUND_SCOPE_DEFAULT;
-  } catch {
-    return CHAT_BACKGROUND_SCOPE_DEFAULT;
-  }
-}
-
-export function saveChatBackgroundScope(value: ChatBackgroundScope) {
-  try {
-    localStorage.setItem(CHAT_BACKGROUND_SCOPE_KEY, value);
-  } catch {
-    // private mode / quota
-  }
-}
+export const loadChatBackgroundScope = chatBackgroundScope.load;
+export const saveChatBackgroundScope = chatBackgroundScope.save;
 
 export function applyChatBackgroundScope(value: ChatBackgroundScope) {
   document.documentElement.classList.toggle(
@@ -723,145 +614,100 @@ function isSidebarTabId(value: unknown): value is SidebarTabId {
   );
 }
 
-export function loadProjectRailOpen(): boolean {
-  return readFlag(PROJECT_RAIL_OPEN_KEY) ?? true;
-}
+const projectRailOpen = defineSetting<boolean>({
+  key: PROJECT_RAIL_OPEN_KEY,
+  default: true,
+  ...flag(),
+});
 
-export function saveProjectRailOpen(value: boolean) {
-  writeFlag(PROJECT_RAIL_OPEN_KEY, value);
-}
+export const loadProjectRailOpen = projectRailOpen.load;
+export const saveProjectRailOpen = projectRailOpen.save;
 
-export function loadSessionSidebarOpen(): boolean {
-  return readFlag(SESSION_SIDEBAR_OPEN_KEY) ?? true;
-}
+const sessionSidebarOpen = defineSetting<boolean>({
+  key: SESSION_SIDEBAR_OPEN_KEY,
+  default: true,
+  ...flag(),
+});
 
-export function saveSessionSidebarOpen(value: boolean) {
-  writeFlag(SESSION_SIDEBAR_OPEN_KEY, value);
-}
+export const loadSessionSidebarOpen = sessionSidebarOpen.load;
+export const saveSessionSidebarOpen = sessionSidebarOpen.save;
 
-export function loadSidebarTabOrder(): SidebarTabId[] {
-  try {
-    const raw = localStorage.getItem(SIDEBAR_TAB_ORDER_KEY);
-    if (!raw) return [...DEFAULT_SIDEBAR_TAB_ORDER];
+const sidebarTabOrder = defineSetting<SidebarTabId[]>({
+  key: SIDEBAR_TAB_ORDER_KEY,
+  default: DEFAULT_SIDEBAR_TAB_ORDER,
+  parse: (raw) => {
+    if (!raw) return undefined;
     const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [...DEFAULT_SIDEBAR_TAB_ORDER];
+    if (!Array.isArray(parsed)) return undefined;
     const next = parsed.filter(isSidebarTabId);
     for (const id of DEFAULT_SIDEBAR_TAB_ORDER) {
       if (!next.includes(id)) next.push(id);
     }
-    return next.length === DEFAULT_SIDEBAR_TAB_ORDER.length
-      ? next
-      : [...DEFAULT_SIDEBAR_TAB_ORDER];
-  } catch {
-    return [...DEFAULT_SIDEBAR_TAB_ORDER];
-  }
+    return next.length === DEFAULT_SIDEBAR_TAB_ORDER.length ? next : undefined;
+  },
+  serialize: (order) => JSON.stringify(order),
+});
+
+/** A fresh array on every call, so callers can change what they get back. */
+export function loadSidebarTabOrder(): SidebarTabId[] {
+  return [...sidebarTabOrder.load()];
 }
 
-export function saveSidebarTabOrder(order: SidebarTabId[]) {
-  try {
-    localStorage.setItem(SIDEBAR_TAB_ORDER_KEY, JSON.stringify(order));
-  } catch {
-    // private mode / quota
-  }
-}
+export const saveSidebarTabOrder = sidebarTabOrder.save;
 
-export function loadProjectRailWidth(): number {
-  return Math.round(
-    clamp(
-      readNumber(PROJECT_RAIL_WIDTH_KEY) ?? PROJECT_RAIL_WIDTH_DEFAULT,
-      PROJECT_RAIL_WIDTH_MIN,
-      PROJECT_RAIL_WIDTH_MAX,
-    ),
-  );
-}
+const projectRailWidth = defineSetting<number>({
+  key: PROJECT_RAIL_WIDTH_KEY,
+  default: PROJECT_RAIL_WIDTH_DEFAULT,
+  ...clampedNumber(PROJECT_RAIL_WIDTH_MIN, PROJECT_RAIL_WIDTH_MAX, {
+    round: true,
+  }),
+});
 
-export function saveProjectRailWidth(value: number) {
-  writeNumber(
-    PROJECT_RAIL_WIDTH_KEY,
-    Math.round(clamp(value, PROJECT_RAIL_WIDTH_MIN, PROJECT_RAIL_WIDTH_MAX)),
-  );
-}
+export const loadProjectRailWidth = projectRailWidth.load;
+export const saveProjectRailWidth = projectRailWidth.save;
 
 function isTranscriptLayout(value: unknown): value is TranscriptLayout {
   return value === "full" || value === "chat";
 }
 
-export function loadTranscriptLayout(): TranscriptLayout {
-  try {
-    const raw = localStorage.getItem(TRANSCRIPT_LAYOUT_KEY);
-    return isTranscriptLayout(raw) ? raw : TRANSCRIPT_LAYOUT_DEFAULT;
-  } catch {
-    return TRANSCRIPT_LAYOUT_DEFAULT;
-  }
-}
+export const transcriptLayoutSetting = defineSetting<TranscriptLayout>({
+  key: TRANSCRIPT_LAYOUT_KEY,
+  default: TRANSCRIPT_LAYOUT_DEFAULT,
+  ...oneOf<TranscriptLayout>("full", "chat"),
+  normalize: (value) =>
+    isTranscriptLayout(value) ? value : TRANSCRIPT_LAYOUT_DEFAULT,
+  event: TRANSCRIPT_LAYOUT_CHANGE_EVENT,
+});
 
-export function saveTranscriptLayout(value: TranscriptLayout) {
-  const next = isTranscriptLayout(value) ? value : TRANSCRIPT_LAYOUT_DEFAULT;
-  try {
-    localStorage.setItem(TRANSCRIPT_LAYOUT_KEY, next);
-  } catch {
-    // private mode / quota
-  }
-  if (typeof window === "undefined") return;
-  window.dispatchEvent(
-    new CustomEvent<TranscriptLayout>(TRANSCRIPT_LAYOUT_CHANGE_EVENT, {
-      detail: next,
-    }),
-  );
-}
+export const loadTranscriptLayout = transcriptLayoutSetting.load;
+export const saveTranscriptLayout = transcriptLayoutSetting.save;
 
-function isChangesView(value: unknown): value is ChangesView {
-  return value === "list" || value === "tree";
-}
+const changesView = defineSetting<ChangesView>({
+  key: CHANGES_VIEW_KEY,
+  default: CHANGES_VIEW_DEFAULT,
+  ...oneOf<ChangesView>("list", "tree"),
+});
 
-export function loadChangesView(): ChangesView {
-  try {
-    const raw = localStorage.getItem(CHANGES_VIEW_KEY);
-    return isChangesView(raw) ? raw : CHANGES_VIEW_DEFAULT;
-  } catch {
-    return CHANGES_VIEW_DEFAULT;
-  }
-}
+export const loadChangesView = changesView.load;
+export const saveChangesView = changesView.save;
 
-export function saveChangesView(value: ChangesView) {
-  try {
-    localStorage.setItem(CHANGES_VIEW_KEY, value);
-  } catch {
-    // private mode / quota
-  }
-}
+export const transcriptAnchorSetting = defineSetting<boolean>({
+  key: TRANSCRIPT_ANCHOR_KEY,
+  default: TRANSCRIPT_ANCHOR_DEFAULT,
+  ...flag(),
+  event: TRANSCRIPT_ANCHOR_CHANGE_EVENT,
+});
 
-export function loadTranscriptAnchor(): boolean {
-  return readFlag(TRANSCRIPT_ANCHOR_KEY) ?? TRANSCRIPT_ANCHOR_DEFAULT;
-}
+export const loadTranscriptAnchor = transcriptAnchorSetting.load;
+export const saveTranscriptAnchor = transcriptAnchorSetting.save;
 
-export function saveTranscriptAnchor(value: boolean) {
-  writeFlag(TRANSCRIPT_ANCHOR_KEY, value);
-  if (typeof window === "undefined") return;
-  window.dispatchEvent(
-    new CustomEvent<boolean>(TRANSCRIPT_ANCHOR_CHANGE_EVENT, {
-      detail: value,
-    }),
-  );
-}
+const showExcludedFiles = defineSetting<boolean>({
+  key: SHOW_EXCLUDED_FILES_KEY,
+  default: SHOW_EXCLUDED_FILES_DEFAULT,
+  ...flag(),
+  event: SHOW_EXCLUDED_FILES_CHANGE_EVENT,
+});
 
-export function loadShowExcludedFiles(): boolean {
-  return readFlag(SHOW_EXCLUDED_FILES_KEY) ?? SHOW_EXCLUDED_FILES_DEFAULT;
-}
-
-export function saveShowExcludedFiles(value: boolean) {
-  writeFlag(SHOW_EXCLUDED_FILES_KEY, value);
-  if (typeof window === "undefined") return;
-  window.dispatchEvent(
-    new CustomEvent<boolean>(SHOW_EXCLUDED_FILES_CHANGE_EVENT, {
-      detail: value,
-    }),
-  );
-}
-
-export function subscribeShowExcludedFiles(onStoreChange: () => void) {
-  if (typeof window === "undefined") return () => {};
-  window.addEventListener(SHOW_EXCLUDED_FILES_CHANGE_EVENT, onStoreChange);
-  return () =>
-    window.removeEventListener(SHOW_EXCLUDED_FILES_CHANGE_EVENT, onStoreChange);
-}
+export const loadShowExcludedFiles = showExcludedFiles.load;
+export const saveShowExcludedFiles = showExcludedFiles.save;
+export const subscribeShowExcludedFiles = showExcludedFiles.subscribe;
