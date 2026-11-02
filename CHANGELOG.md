@@ -7,13 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-02
+
+### Added
+
+- Themes: Bonocode Dark (default), Bonocode Light, Catppuccin Mocha, Catppuccin Latte and Dracula. A theme sets UI colors, fonts, code font size, syntax colors, terminal colors, status colors and glass.
+- Theme editor with live preview in Settings → Appearance. Duplicate a built-in theme to customize it.
+- Changes dock: every changed file's diff, stacked and editable in place, on the right by default. Docks can sit on any side.
+- Layout presets: Default, Focus, Review and your own. ⌘⌥L cycles them; Reset Layout restores the default.
+
+### Changed
+
+- Themes replace the Dark / Light / System, accent, tint and translucency settings. Those settings reset; the default theme is Bonocode Dark.
+
+### Fixed
+
+- Workspace changes made in a background window were sometimes not saved.
+
 ## [0.6.1] - 2026-10-31
 
 ### Changed
 
 - Releases are macOS (Apple Silicon) only for now and are published on GitHub Releases. The app updates itself from there.
 - Renamed app to Bonocode: product name, bundle identifier (dev.ripudaman.bonocode), window titles, menu labels and icons.
-- Disabled the inherited MonoCode auto-updater endpoints.
 - Renamed internal storage: database is now bonocode.db, settings keys use the bonocode. prefix, app events use the bonocode: prefix. MonoCode data is not migrated.
 - Replaced remaining MonoCode text in the UI with Bonocode and updated the macOS app icon.
 - Remaining MonoCode names and links now say Bonocode.
