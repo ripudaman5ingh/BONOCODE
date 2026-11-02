@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import bonocodeDark from "./builtin/bonocode-dark.json";
 import bonocodeLight from "./builtin/bonocode-light.json";
+import catppuccinLatte from "./builtin/catppuccin-latte.json";
+import catppuccinMocha from "./builtin/catppuccin-mocha.json";
+import dracula from "./builtin/dracula.json";
 import {
   contrastRatio,
   parseTheme,
@@ -8,6 +11,12 @@ import {
   themeCssVars,
   themeWarnings,
   type Theme,
+  type ThemeColors,
+  type ThemeScheme,
+  type ThemeSelection,
+  type ThemeStatus,
+  type ThemeSyntax,
+  type ThemeTerminal,
 } from "./themeFormat";
 
 const SANS =
@@ -15,121 +24,107 @@ const SANS =
 const MONO =
   'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
 
-const DARK: Theme = {
-  id: "bonocode-dark",
-  name: "Bonocode Dark",
-  scheme: "dark",
-  colors: {
-    background: "#171717",
-    foreground: "#ebebeb",
-    accent: "#459bf7",
-    link: "#7dd3fc",
-    skill: "#e8c547",
-    mention: "#38bdf8",
-    heading: "#f9a8c9",
-    strong: "#ebebeb",
-    searchMatch: "#e2c08d",
-  },
-  status: {
-    danger: "#f87171",
-    success: "#34d399",
-    warning: "#fbbf24",
-    info: "#38bdf8",
-    merged: "#a78bfa",
-  },
-  // HIGHLIGHT_PALETTE.dark from editorLanguage.ts before themes owned it.
-  syntax: {
-    keyword: "#ff8ffd",
-    callable: "#a5d5fe",
-    string: "#b4fa72",
-    type: "#ff8272",
-    number: "#b4fa72",
-    comment: "#fefdc2",
-    property: "#d0d1fe",
-    meta: "#8e8e8e",
-    invalid: "#ffc4bd",
-  },
-  // ANSI_DARK from TerminalView.tsx before themes owned it.
-  terminal: {
-    black: "#1d2428",
-    red: "#f87171",
-    green: "#4ade80",
-    yellow: "#fbbf24",
-    blue: "#60a5fa",
-    magenta: "#c084fc",
-    cyan: "#22d3ee",
-    white: "#e8eef2",
-    brightBlack: "#64748b",
-    brightRed: "#fca5a5",
-    brightGreen: "#86efac",
-    brightYellow: "#fde68a",
-    brightBlue: "#93c5fd",
-    brightMagenta: "#d8b4fe",
-    brightCyan: "#67e8f9",
-    brightWhite: "#f8fafc",
-  },
-  selection: { subtle: 8, base: 10, strong: 12, hover: 15, emphasis: 20 },
-  fonts: { sans: SANS, mono: MONO, codeSize: 13 },
-  glass: { sidebarOpacity: 0.85, paneOpacity: 0.85, blur: 24 },
+// The built-in table from the theme plan: one column per built-in, in
+// listThemes order. Every built-in uses today's font stacks, code size 13 and
+// glass 0.85 / 0.85 / 24.
+type Column = 0 | 1 | 2 | 3 | 4;
+type Row = readonly [string, string, string, string, string];
+
+const IDS: Row = ["bonocode-dark", "bonocode-light", "catppuccin-mocha", "catppuccin-latte", "dracula"];
+const NAMES: Row = ["Bonocode Dark", "Bonocode Light", "Catppuccin Mocha", "Catppuccin Latte", "Dracula"];
+const SCHEMES: readonly ThemeScheme[] = ["dark", "light", "dark", "light", "dark"];
+const SELECTIONS: readonly ThemeSelection[] = [
+  { subtle: 8, base: 10, strong: 12, hover: 15, emphasis: 20 },
+  { subtle: 5, base: 6, strong: 7, hover: 10, emphasis: 14 },
+  { subtle: 8, base: 10, strong: 12, hover: 15, emphasis: 20 },
+  { subtle: 5, base: 6, strong: 7, hover: 10, emphasis: 14 },
+  { subtle: 8, base: 10, strong: 12, hover: 15, emphasis: 20 },
+];
+
+const COLORS: Record<keyof Omit<ThemeColors, "userAccent">, Row> = {
+  background: ["#171717", "#f7f7f7", "#1e1e2e", "#eff1f5", "#282a36"],
+  foreground: ["#ebebeb", "#2e2e2e", "#cdd6f4", "#4c4f69", "#f8f8f2"],
+  accent: ["#459bf7", "#2f7fe0", "#cba6f7", "#8839ef", "#bd93f9"],
+  link: ["#7dd3fc", "#0863c4", "#89b4fa", "#1e66f5", "#8be9fd"],
+  skill: ["#e8c547", "#a07c10", "#f9e2af", "#df8e1d", "#f1fa8c"],
+  mention: ["#38bdf8", "#0284c7", "#74c7ec", "#209fb5", "#8be9fd"],
+  heading: ["#f9a8c9", "#be185d", "#f5c2e7", "#ea76cb", "#bd93f9"],
+  strong: ["#ebebeb", "#2e2e2e", "#cdd6f4", "#4c4f69", "#ffb86c"],
+  searchMatch: ["#e2c08d", "#e2c08d", "#f9e2af", "#df8e1d", "#ffb86c"],
 };
 
-const LIGHT: Theme = {
-  id: "bonocode-light",
-  name: "Bonocode Light",
-  scheme: "light",
-  colors: {
-    background: "#f7f7f7",
-    foreground: "#2e2e2e",
-    accent: "#459bf7",
-    link: "#0863c4",
-    skill: "#a07c10",
-    mention: "#0284c7",
-    heading: "#be185d",
-    strong: "#2e2e2e",
-    searchMatch: "#e2c08d",
-  },
-  status: {
-    danger: "#dc2626",
-    success: "#059669",
-    warning: "#b45309",
-    info: "#0284c7",
-    merged: "#7c3aed",
-  },
-  // HIGHLIGHT_PALETTE.light from editorLanguage.ts.
-  syntax: {
-    keyword: "#a626a4",
-    callable: "#4078f2",
-    string: "#50a14f",
-    type: "#c18401",
-    number: "#986801",
-    comment: "#8a9199",
-    property: "#e45649",
-    meta: "#5c6370",
-    invalid: "#cf222e",
-  },
-  // ANSI_LIGHT from TerminalView.tsx.
-  terminal: {
-    black: "#383a42",
-    red: "#e45649",
-    green: "#50a14f",
-    yellow: "#c18401",
-    blue: "#4078f2",
-    magenta: "#a626a4",
-    cyan: "#0184bc",
-    white: "#fafafa",
-    brightBlack: "#7c8591",
-    brightRed: "#df6b60",
-    brightGreen: "#68b567",
-    brightYellow: "#d19a2f",
-    brightBlue: "#5c89f5",
-    brightMagenta: "#b54bb3",
-    brightCyan: "#1f9cc9",
-    brightWhite: "#ffffff",
-  },
-  selection: { subtle: 5, base: 6, strong: 7, hover: 10, emphasis: 14 },
-  fonts: { sans: SANS, mono: MONO, codeSize: 13 },
-  glass: { sidebarOpacity: 0.85, paneOpacity: 0.85, blur: 24 },
+const STATUS: Record<keyof ThemeStatus, Row> = {
+  danger: ["#f87171", "#dc2626", "#f38ba8", "#d20f39", "#ff5555"],
+  success: ["#34d399", "#059669", "#a6e3a1", "#40a02b", "#50fa7b"],
+  warning: ["#fbbf24", "#b45309", "#fab387", "#fe640b", "#ffb86c"],
+  info: ["#38bdf8", "#0284c7", "#89dceb", "#04a5e5", "#8be9fd"],
+  merged: ["#a78bfa", "#7c3aed", "#cba6f7", "#8839ef", "#bd93f9"],
 };
+
+const SYNTAX: Record<keyof ThemeSyntax, Row> = {
+  keyword: ["#ff8ffd", "#a626a4", "#cba6f7", "#8839ef", "#ff79c6"],
+  callable: ["#a5d5fe", "#4078f2", "#89b4fa", "#1e66f5", "#50fa7b"],
+  string: ["#b4fa72", "#3d8a3c", "#a6e3a1", "#40a02b", "#f1fa8c"],
+  type: ["#ff8272", "#a06d00", "#f9e2af", "#df8e1d", "#8be9fd"],
+  number: ["#b4fa72", "#986801", "#fab387", "#fe640b", "#bd93f9"],
+  comment: ["#fefdc2", "#7d848c", "#9399b2", "#7c7f93", "#6272a4"],
+  property: ["#d0d1fe", "#e45649", "#b4befe", "#7287fd", "#f8f8f2"],
+  meta: ["#8e8e8e", "#5c6370", "#a6adc8", "#6c6f85", "#6272a4"],
+  invalid: ["#ffc4bd", "#cf222e", "#f38ba8", "#d20f39", "#ff5555"],
+};
+
+const TERMINAL: Record<keyof ThemeTerminal, Row> = {
+  black: ["#1d2428", "#383a42", "#45475a", "#5c5f77", "#21222c"],
+  red: ["#f87171", "#e45649", "#f38ba8", "#d20f39", "#ff5555"],
+  green: ["#4ade80", "#50a14f", "#a6e3a1", "#40a02b", "#50fa7b"],
+  yellow: ["#fbbf24", "#c18401", "#f9e2af", "#df8e1d", "#f1fa8c"],
+  blue: ["#60a5fa", "#4078f2", "#89b4fa", "#1e66f5", "#bd93f9"],
+  magenta: ["#c084fc", "#a626a4", "#f5c2e7", "#ea76cb", "#ff79c6"],
+  cyan: ["#22d3ee", "#0184bc", "#94e2d5", "#179299", "#8be9fd"],
+  white: ["#e8eef2", "#fafafa", "#a6adc8", "#acb0be", "#f8f8f2"],
+  brightBlack: ["#64748b", "#7c8591", "#585b70", "#6c6f85", "#6272a4"],
+  brightRed: ["#fca5a5", "#df6b60", "#f37799", "#de293e", "#ff6e6e"],
+  brightGreen: ["#86efac", "#68b567", "#89d88b", "#49af3d", "#69ff94"],
+  brightYellow: ["#fde68a", "#d19a2f", "#ebd391", "#eea02d", "#ffffa5"],
+  brightBlue: ["#93c5fd", "#5c89f5", "#74a8fc", "#456eff", "#d6acff"],
+  brightMagenta: ["#d8b4fe", "#b54bb3", "#f2aede", "#fe85d8", "#ff92df"],
+  brightCyan: ["#67e8f9", "#1f9cc9", "#6bd7ca", "#2d9fa8", "#a4ffff"],
+  brightWhite: ["#f8fafc", "#ffffff", "#bac2de", "#bcc0cc", "#ffffff"],
+};
+
+function column<K extends string>(
+  rows: Record<K, Row>,
+  index: Column,
+): Record<K, string> {
+  const out: Partial<Record<K, string>> = {};
+  for (const key of Object.keys(rows) as K[]) out[key] = rows[key][index];
+  return out as Record<K, string>;
+}
+
+function tableTheme(index: Column): Theme {
+  return {
+    id: IDS[index],
+    name: NAMES[index],
+    scheme: SCHEMES[index],
+    colors: column(COLORS, index),
+    status: column(STATUS, index),
+    syntax: column(SYNTAX, index),
+    terminal: column(TERMINAL, index),
+    selection: SELECTIONS[index],
+    fonts: { sans: SANS, mono: MONO, codeSize: 13 },
+    glass: { sidebarOpacity: 0.85, paneOpacity: 0.85, blur: 24 },
+  };
+}
+
+const BUILTIN_JSON = [
+  bonocodeDark,
+  bonocodeLight,
+  catppuccinMocha,
+  catppuccinLatte,
+  dracula,
+] as const;
+
+const DARK = tableTheme(0);
 
 function parsed(value: unknown): Theme {
   const result = parseTheme(value);
@@ -148,9 +143,10 @@ function withField(key: string, value: unknown): Record<string, unknown> {
 }
 
 describe("built-in themes", () => {
-  it("parse and reproduce today's default look exactly", () => {
-    expect(parsed(bonocodeDark)).toEqual(DARK);
-    expect(parsed(bonocodeLight)).toEqual(LIGHT);
+  it("each parse to exactly the built-in table", () => {
+    BUILTIN_JSON.forEach((json, index) => {
+      expect(parsed(json), IDS[index]).toEqual(tableTheme(index as Column));
+    });
   });
 });
 
@@ -470,18 +466,24 @@ describe("contrast", () => {
     ]);
   });
 
-  it("has no warnings for the dark built-in", () => {
-    expect(themeWarnings(DARK)).toEqual([]);
+  it("has no warnings for any built-in except Catppuccin Latte", () => {
+    BUILTIN_JSON.forEach((json, index) => {
+      if (IDS[index] === "catppuccin-latte") return;
+      expect(themeWarnings(parsed(json)), IDS[index]).toEqual([]);
+    });
   });
 
-  // Today's light accent and three light syntax colors sit just under 3:1.
-  // A later change retunes the light theme.
-  it("flags the accent and three syntax colors for the light built-in", () => {
-    expect(themeWarnings(LIGHT)).toEqual([
-      "accent on background has contrast 2.69, below 3",
-      "syntax string on background has contrast 2.99, below 3",
-      "syntax type on background has contrast 2.98, below 3",
-      "syntax comment on background has contrast 2.97, below 3",
+  // Catppuccin Latte keeps the official palette, whose pastels sit under 3:1
+  // on its light base.
+  it("flags Catppuccin Latte's official status and syntax colors", () => {
+    expect(themeWarnings(parsed(catppuccinLatte))).toEqual([
+      "status success on background has contrast 2.96, below 3",
+      "status warning on background has contrast 2.64, below 3",
+      "status info on background has contrast 2.47, below 3",
+      "syntax string on background has contrast 2.96, below 3",
+      "syntax type on background has contrast 2.31, below 3",
+      "syntax number on background has contrast 2.64, below 3",
+      "syntax property on background has contrast 2.81, below 3",
     ]);
   });
 });

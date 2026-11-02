@@ -110,6 +110,16 @@ describe("applyTheme", () => {
 });
 
 describe("active theme", () => {
+  it("lists the built-ins in order", () => {
+    expect(listThemes().map((theme) => theme.name)).toEqual([
+      "Bonocode Dark",
+      "Bonocode Light",
+      "Catppuccin Mocha",
+      "Catppuccin Latte",
+      "Dracula",
+    ]);
+  });
+
   it("defaults to bonocode-dark", () => {
     expect(getActiveTheme().id).toBe("bonocode-dark");
   });

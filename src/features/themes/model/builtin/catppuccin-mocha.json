@@ -1,0 +1,69 @@
+{
+  "id": "catppuccin-mocha",
+  "name": "Catppuccin Mocha",
+  "scheme": "dark",
+  "colors": {
+    "background": "#1e1e2e",
+    "foreground": "#cdd6f4",
+    "accent": "#cba6f7",
+    "link": "#89b4fa",
+    "skill": "#f9e2af",
+    "mention": "#74c7ec",
+    "heading": "#f5c2e7",
+    "strong": "#cdd6f4",
+    "searchMatch": "#f9e2af"
+  },
+  "status": {
+    "danger": "#f38ba8",
+    "success": "#a6e3a1",
+    "warning": "#fab387",
+    "info": "#89dceb",
+    "merged": "#cba6f7"
+  },
+  "syntax": {
+    "keyword": "#cba6f7",
+    "callable": "#89b4fa",
+    "string": "#a6e3a1",
+    "type": "#f9e2af",
+    "number": "#fab387",
+    "comment": "#9399b2",
+    "property": "#b4befe",
+    "meta": "#a6adc8",
+    "invalid": "#f38ba8"
+  },
+  "terminal": {
+    "black": "#45475a",
+    "red": "#f38ba8",
+    "green": "#a6e3a1",
+    "yellow": "#f9e2af",
+    "blue": "#89b4fa",
+    "magenta": "#f5c2e7",
+    "cyan": "#94e2d5",
+    "white": "#a6adc8",
+    "brightBlack": "#585b70",
+    "brightRed": "#f37799",
+    "brightGreen": "#89d88b",
+    "brightYellow": "#ebd391",
+    "brightBlue": "#74a8fc",
+    "brightMagenta": "#f2aede",
+    "brightCyan": "#6bd7ca",
+    "brightWhite": "#bac2de"
+  },
+  "selection": {
+    "subtle": 8,
+    "base": 10,
+    "strong": 12,
+    "hover": 15,
+    "emphasis": 20
+  },
+  "fonts": {
+    "sans": "system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Fira Sans\", \"Droid Sans\", \"Helvetica Neue\", sans-serif",
+    "mono": "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace",
+    "codeSize": 13
+  },
+  "glass": {
+    "sidebarOpacity": 0.85,
+    "paneOpacity": 0.85,
+    "blur": 24
+  }
+}

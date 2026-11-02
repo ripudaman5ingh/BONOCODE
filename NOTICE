@@ -8,3 +8,7 @@ Bonocode is not affiliated with, endorsed by, or sponsored by the makers of the
 agent harnesses it can drive.
 
 Provider marks that appear in the UI (including Claude, Codex, Cursor, GitHub, Grok, OpenCode, Pi, omp, fx, Hermes, and Nous Research) are trademarks of their respective owners and are used only to identify those products.
+
+The Catppuccin Mocha and Catppuccin Latte themes use the Catppuccin palette
+(https://github.com/catppuccin/catppuccin), and the Dracula theme uses the
+Dracula palette (https://draculatheme.com), both under the MIT License.

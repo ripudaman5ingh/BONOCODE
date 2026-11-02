@@ -5,6 +5,9 @@ import {
 import { defineSetting } from "../../settings/model/defineSetting";
 import bonocodeDark from "./builtin/bonocode-dark.json";
 import bonocodeLight from "./builtin/bonocode-light.json";
+import catppuccinLatte from "./builtin/catppuccin-latte.json";
+import catppuccinMocha from "./builtin/catppuccin-mocha.json";
+import dracula from "./builtin/dracula.json";
 import {
   parseTheme,
   themeClasses,
@@ -29,6 +32,9 @@ function builtin(value: unknown): Theme {
 const BUILTIN_THEMES: readonly Theme[] = [
   builtin(bonocodeDark),
   builtin(bonocodeLight),
+  builtin(catppuccinMocha),
+  builtin(catppuccinLatte),
+  builtin(dracula),
 ];
 
 export function listThemes(): readonly Theme[] {
