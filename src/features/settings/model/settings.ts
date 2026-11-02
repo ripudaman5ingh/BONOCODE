@@ -211,24 +211,6 @@ export const SETTINGS_INDEX: SettingsEntry[] = [
     keywords: "dark light color palette accent font",
   },
   {
-    id: "sidebar-opacity",
-    section: "appearance",
-    label: "Sidebar opacity",
-    keywords: "glass translucent transparency vibrancy",
-  },
-  {
-    id: "blur",
-    section: "appearance",
-    label: "Blur radius",
-    keywords: "glass translucent vibrancy backdrop",
-  },
-  {
-    id: "main-pane-glass",
-    section: "appearance",
-    label: "Main pane glass",
-    keywords: "translucent transparency body window",
-  },
-  {
     id: "interface-scale",
     section: "appearance",
     label: "Interface scale",

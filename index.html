@@ -20,21 +20,23 @@
                   root.style.setProperty(name, cache.vars[name]);
                 }
               }
-              if (typeof cache.vars["--user-accent-color"] === "string") {
-                root.classList.add("has-user-accent");
-              }
             }
             if (cache && cache.scheme === "light") {
               root.classList.add("theme-light");
             }
-          } catch (_) {}
-          var opacity = localStorage.getItem("bonocode.sidebarOpacity");
-          if (opacity != null) {
-            var o = Math.max(0.15, Math.min(1, Number(opacity) || 0.85));
-            root.style.setProperty("--sidebar-opacity", String(o));
-          }
-          var bodyGlass = localStorage.getItem("bonocode.bodyGlass");
-          if (bodyGlass == null || bodyGlass === "1" || bodyGlass === "true") {
+            var classes = cache && cache.classes;
+            if (Array.isArray(classes)) {
+              for (var i = 0; i < classes.length; i++) {
+                var c = classes[i];
+                if (c === "has-user-accent" || c === "glass-body") {
+                  root.classList.add(c);
+                }
+              }
+            } else {
+              // No cache yet, or one written before themes owned glass.
+              root.classList.add("glass-body");
+            }
+          } catch (_) {
             root.classList.add("glass-body");
           }
           var isMac =
@@ -49,6 +51,7 @@
     <style>
       :root {
         --sidebar-opacity: 0.85;
+        --pane-opacity: 0.85;
         --color-background-base: #171717;
       }
 

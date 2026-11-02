@@ -9,7 +9,9 @@
     "link": "#7dd3fc",
     "skill": "#e8c547",
     "mention": "#38bdf8",
-    "heading": "#f9a8c9"
+    "heading": "#f9a8c9",
+    "strong": "#ebebeb",
+    "searchMatch": "#e2c08d"
   },
   "status": {
     "danger": "#f87171",
@@ -56,6 +58,12 @@
   },
   "fonts": {
     "sans": "system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Fira Sans\", \"Droid Sans\", \"Helvetica Neue\", sans-serif",
-    "mono": "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace"
+    "mono": "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace",
+    "codeSize": 13
+  },
+  "glass": {
+    "sidebarOpacity": 0.85,
+    "paneOpacity": 0.85,
+    "blur": 24
   }
 }

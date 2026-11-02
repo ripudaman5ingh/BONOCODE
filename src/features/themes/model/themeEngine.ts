@@ -1,9 +1,13 @@
-import { applyColorScheme } from "../../settings/model/appearance";
+import {
+  applyColorScheme,
+  applySidebarBlur,
+} from "../../settings/model/appearance";
 import { defineSetting } from "../../settings/model/defineSetting";
 import bonocodeDark from "./builtin/bonocode-dark.json";
 import bonocodeLight from "./builtin/bonocode-light.json";
 import {
   parseTheme,
+  themeClasses,
   themeCssVars,
   USER_ACCENT_VARS,
   type Theme,
@@ -53,13 +57,18 @@ export function applyTheme(theme: Theme) {
   for (const [name, value] of Object.entries(vars)) {
     root.style.setProperty(name, value);
   }
-  root.classList.toggle("has-user-accent", theme.colors.userAccent != null);
-  // After the variables, so the native window picks up the new background.
+  const classes = themeClasses(theme);
+  for (const name of ["has-user-accent", "glass-body"]) {
+    root.classList.toggle(name, classes.includes(name));
+  }
+  applySidebarBlur(theme.glass.blur);
+  // After the variables and classes, so the native window picks up the new
+  // background and glass.
   applyColorScheme(theme.scheme);
   try {
     localStorage.setItem(
       THEME_CACHE_KEY,
-      JSON.stringify({ scheme: theme.scheme, vars }),
+      JSON.stringify({ scheme: theme.scheme, vars, classes }),
     );
   } catch {
     // Private mode / quota: the next launch paints the CSS defaults first.

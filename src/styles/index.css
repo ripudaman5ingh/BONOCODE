@@ -88,8 +88,6 @@
   --selection-hover-strength: 15%;
   --selection-emphasis-strength: 20%;
   --link-color: #7dd3fc;
-  --color-skill: #e8c547;
-  --color-mention: #38bdf8;
   --color-markdown-heading: #f9a8c9;
 }
 
@@ -522,7 +520,7 @@ html.has-chat-background.chat-background-effect-ready.chat-background-gradient-b
 }
 
 ::highlight(bonocode-transcript-search-match) {
-  background-color: color-mix(in srgb, #e2c08d 46%, transparent);
+  background-color: color-mix(in srgb, var(--color-search-match) 46%, transparent);
 }
 
 ::highlight(bonocode-transcript-search-current) {
@@ -931,7 +929,7 @@ html.has-user-accent .user-message-bubble[data-draft="true"] {
 html.has-native-glass.glass-body:not(.theme-light) .body-glass {
   background: color-mix(
     in srgb,
-    var(--color-background-base) calc(var(--sidebar-opacity) * 100%),
+    var(--color-background-base) calc(var(--pane-opacity) * 100%),
     transparent
   );
 }
@@ -1610,17 +1608,17 @@ header[data-tauri-drag-region] button {
   margin-top: 0.5rem;
 }
 
-.agent-markdown p strong,
 .agent-markdown p em,
-.agent-markdown p [data-streamdown="strong"] {
+.agent-markdown li em {
   color: var(--color-content) !important;
   opacity: 1;
 }
 
+.agent-markdown p strong,
+.agent-markdown p [data-streamdown="strong"],
 .agent-markdown li strong,
-.agent-markdown li em,
 .agent-markdown li [data-streamdown="strong"] {
-  color: var(--color-content) !important;
+  color: var(--color-strong) !important;
   opacity: 1;
 }
 

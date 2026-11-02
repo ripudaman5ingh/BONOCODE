@@ -41,54 +41,35 @@ import { InboxProviderMark } from "../../github/ui/InboxProviderMark";
 import { RemoveProjectDialog } from "../../projects/ui/RemoveProjectDialog";
 import { WindowControls } from "../../../app/shell/WindowControls";
 import { useLockOverscroll } from "../../../shared/hooks/useLockOverscroll";
-import { useColorScheme } from "../../../shared/hooks/useColorScheme";
 import {
   applyChatBackground,
   applyChatBackgroundEmptyOpacity,
   applyChatBackgroundSessionOpacity,
   applyChatBackgroundScope,
-  applyBodyGlass,
-  applySidebarBlur,
-  applySidebarOpacity,
-  BODY_GLASS_DEFAULT,
   CHAT_BACKGROUND_EMPTY_OPACITY_DEFAULT,
   CHAT_BACKGROUND_OPACITY_MAX,
   CHAT_BACKGROUND_OPACITY_MIN,
   CHAT_BACKGROUND_SESSION_OPACITY_DEFAULT,
   CHAT_BACKGROUND_SCOPE_DEFAULT,
   chatBackgroundSrc,
-  loadBodyGlass,
   loadChatBackgroundEmptyOpacity,
   loadChatBackgroundPath,
   loadChatBackgroundSessionOpacity,
   loadChatBackgroundScope,
   loadNewThreadBackgroundEffect,
-  loadSidebarBlur,
-  loadSidebarOpacity,
   loadTranscriptLayout,
   loadTranscriptAnchor,
-  saveBodyGlass,
   saveChatBackgroundEmptyOpacity,
   saveChatBackgroundPath,
   saveChatBackgroundSessionOpacity,
   saveChatBackgroundScope,
   setNewThreadBackgroundEffect,
-  saveSidebarBlur,
-  saveSidebarOpacity,
-  isLightScheme,
   saveTranscriptLayout,
   saveTranscriptAnchor,
-  syncNativeGlass,
   TRANSCRIPT_ANCHOR_CHANGE_EVENT,
   loadShowExcludedFiles,
   saveShowExcludedFiles,
   SHOW_EXCLUDED_FILES_DEFAULT,
-  SIDEBAR_BLUR_DEFAULT,
-  SIDEBAR_BLUR_MAX,
-  SIDEBAR_BLUR_MIN,
-  SIDEBAR_OPACITY_DEFAULT,
-  SIDEBAR_OPACITY_MAX,
-  SIDEBAR_OPACITY_MIN,
   type ChatBackgroundScope,
   NEW_THREAD_BACKGROUND_EFFECTS,
   NEW_THREAD_BACKGROUND_EFFECT_LABELS,
@@ -160,7 +141,7 @@ import {
   projectName,
 } from "../../../shared/lib/paths";
 import { revealPath } from "../../../platform/tauri/fs";
-import { IS_LINUX, IS_MAC, IS_WIN } from "../../../platform/tauri/platform";
+import { IS_MAC, IS_WIN } from "../../../platform/tauri/platform";
 import {
   loadArchivedProjects,
   looksLikeProject,
@@ -1202,9 +1183,6 @@ function useAppearanceSettings(
     mode: CollapsedProjectRailMode,
   ) => void,
 ) {
-  const [opacity, setOpacity] = useState(loadSidebarOpacity);
-  const [blur, setBlur] = useState(loadSidebarBlur);
-  const [bodyGlass, setBodyGlass] = useState(loadBodyGlass);
   const [showExcludedFiles, setShowExcludedFiles] = useState(
     loadShowExcludedFiles,
   );
@@ -1231,25 +1209,6 @@ function useAppearanceSettings(
     controlledCollapsedProjectRailMode ?? storedCollapsedProjectRailMode;
 
   useEffect(() => subscribeUiScale(() => setUiScale(loadUiScale())), []);
-
-  const onOpacity = useCallback((percent: number) => {
-    const next = applySidebarOpacity(percent / 100);
-    saveSidebarOpacity(next);
-    setOpacity(next);
-  }, []);
-
-  const onBlur = useCallback((radius: number) => {
-    const next = applySidebarBlur(radius);
-    saveSidebarBlur(next);
-    setBlur(next);
-  }, []);
-
-  const onBodyGlass = useCallback((next: boolean) => {
-    applyBodyGlass(next);
-    saveBodyGlass(next);
-    setBodyGlass(next);
-    if (IS_LINUX) syncNativeGlass(isLightScheme() ? "light" : "dark");
-  }, []);
 
   const onShowExcludedFiles = useCallback((next: boolean) => {
     saveShowExcludedFiles(next);
@@ -1334,9 +1293,6 @@ function useAppearanceSettings(
 
   const restoreDefaults = useCallback(() => {
     setTheme(DEFAULT_THEME_ID);
-    onOpacity(Math.round(SIDEBAR_OPACITY_DEFAULT * 100));
-    onBlur(SIDEBAR_BLUR_DEFAULT);
-    onBodyGlass(BODY_GLASS_DEFAULT);
     onShowExcludedFiles(SHOW_EXCLUDED_FILES_DEFAULT);
     onChatBackgroundEmptyOpacity(
       Math.round(CHAT_BACKGROUND_EMPTY_OPACITY_DEFAULT * 100),
@@ -1351,23 +1307,17 @@ function useAppearanceSettings(
     onCollapsedProjectRailMode(COLLAPSED_PROJECT_RAIL_MODE_DEFAULT);
   }, [
     chatBackgroundPath,
-    onBlur,
-    onBodyGlass,
     onChatBackgroundEmptyOpacity,
     onChatBackgroundSessionOpacity,
     onChatBackgroundScope,
     onNewThreadBackgroundEffect,
     onClearChatBackground,
     onShowExcludedFiles,
-    onOpacity,
     onUiScale,
     onCollapsedProjectRailMode,
   ]);
 
   return {
-    opacity,
-    blur,
-    bodyGlass,
     showExcludedFiles,
     chatBackgroundPath,
     chatBackgroundEmptyOpacity,
@@ -1378,9 +1328,6 @@ function useAppearanceSettings(
     chatBackgroundError,
     uiScale,
     collapsedProjectRailMode,
-    onOpacity,
-    onBlur,
-    onBodyGlass,
     onShowExcludedFiles,
     onChooseChatBackground,
     onClearChatBackground,
@@ -1395,8 +1342,6 @@ function useAppearanceSettings(
 }
 
 function AppearancePage({ appearance }: { appearance: AppearanceSettings }) {
-  const percent = Math.round(appearance.opacity * 100);
-  const glassDisabled = useColorScheme() === "light";
   const themeId = activeTheme.use();
 
   return (
@@ -1415,58 +1360,6 @@ function AppearancePage({ appearance }: { appearance: AppearanceSettings }) {
               label: theme.name,
             }))}
             onChange={setTheme}
-          />
-        </Row>
-      </Group>
-
-      <Group
-        title="Translucency"
-        description={
-          glassDisabled
-            ? "Light mode always uses an opaque window, so these are off. Your dark-mode values are preserved."
-            : "How much of the desktop shows through Bonocode. Blur costs more to composite the higher it goes."
-        }
-      >
-        <Row
-          id="sidebar-opacity"
-          label="Sidebar opacity"
-          description="Applies to the project rail and the other glass panes."
-        >
-          <Slider
-            label="Sidebar opacity"
-            value={percent}
-            display={`${percent}%`}
-            min={Math.round(SIDEBAR_OPACITY_MIN * 100)}
-            max={Math.round(SIDEBAR_OPACITY_MAX * 100)}
-            onChange={appearance.onOpacity}
-            disabled={glassDisabled}
-          />
-        </Row>
-        <Row
-          id="blur"
-          label="Blur radius"
-          description="Background blur behind the window."
-        >
-          <Slider
-            label="Blur radius"
-            value={appearance.blur}
-            display={String(appearance.blur)}
-            min={SIDEBAR_BLUR_MIN}
-            max={SIDEBAR_BLUR_MAX}
-            onChange={appearance.onBlur}
-            disabled={glassDisabled}
-          />
-        </Row>
-        <Row
-          id="main-pane-glass"
-          label="Main pane glass"
-          description="Extend the translucent treatment to the main pane behind sessions and editors."
-        >
-          <Toggle
-            label="Main pane glass"
-            on={appearance.bodyGlass}
-            onChange={appearance.onBodyGlass}
-            disabled={glassDisabled}
           />
         </Row>
       </Group>

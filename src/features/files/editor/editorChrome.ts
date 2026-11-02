@@ -14,7 +14,7 @@ function editorThemeStyles(dark: boolean) {
       height: "100%",
       backgroundColor: "transparent",
       color: "var(--color-content)",
-      fontSize: "13px",
+      fontSize: "var(--font-code-size)",
       userSelect: "text",
     },
     "&.cm-focused": {

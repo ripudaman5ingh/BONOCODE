@@ -172,9 +172,9 @@ function PreviewLine({
 }) {
   const bg =
     line.kind === "add"
-      ? "bg-success/20"
+      ? "bg-success/10"
       : line.kind === "del"
-        ? "bg-danger/20"
+        ? "bg-danger/10"
         : "";
   const bar =
     line.kind === "add"

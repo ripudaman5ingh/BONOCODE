@@ -12,6 +12,10 @@ export type ThemeColors = {
   skill: string;
   mention: string;
   heading: string;
+  /** Bold text in chat. */
+  strong: string;
+  /** Search hits in the transcript. */
+  searchMatch: string;
 };
 
 export type ThemeSelection = {
@@ -78,8 +82,24 @@ export type Theme = {
   terminal: ThemeTerminal;
   /** Percent of the foreground mixed into each selection fill, 0 to 100. */
   selection: ThemeSelection;
+  fonts: ThemeFonts;
+  /** Window translucency. It only shows in dark themes. */
+  glass: ThemeGlass;
+};
+
+export type ThemeFonts = {
   /** CSS font-family lists. */
-  fonts: { sans: string; mono: string };
+  sans: string;
+  mono: string;
+  /** Editor and terminal font size in px, 10 to 24. */
+  codeSize: number;
+};
+
+export type ThemeGlass = {
+  sidebarOpacity: number;
+  /** 1 keeps the main pane opaque. */
+  paneOpacity: number;
+  blur: number;
 };
 
 export type ParsedTheme = { theme: Theme } | { errors: string[] };
@@ -92,6 +112,8 @@ const REQUIRED_COLORS = [
   "skill",
   "mention",
   "heading",
+  "strong",
+  "searchMatch",
 ] as const;
 
 const SELECTION_KEYS = [
@@ -110,6 +132,8 @@ const COLOR_VARS: Record<(typeof REQUIRED_COLORS)[number], string> = {
   skill: "--color-skill",
   mention: "--color-mention",
   heading: "--color-markdown-heading",
+  strong: "--color-strong",
+  searchMatch: "--color-search-match",
 };
 
 const SELECTION_VARS: Record<keyof ThemeSelection, string> = {
@@ -133,6 +157,21 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function nonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim() !== "";
+}
+
+function inRange(
+  raw: unknown,
+  min: number,
+  max: number,
+  whole = false,
+): raw is number {
+  return (
+    typeof raw === "number" &&
+    Number.isFinite(raw) &&
+    raw >= min &&
+    raw <= max &&
+    (!whole || Number.isInteger(raw))
+  );
 }
 
 /** A required object whose every key is a #rrggbb color. */
@@ -198,12 +237,7 @@ export function parseTheme(value: unknown): ParsedTheme {
   const selection: Partial<ThemeSelection> = {};
   for (const key of SELECTION_KEYS) {
     const raw = selectionIn?.[key];
-    if (
-      typeof raw === "number" &&
-      Number.isFinite(raw) &&
-      raw >= 0 &&
-      raw <= 100
-    ) {
+    if (inRange(raw, 0, 100)) {
       selection[key] = raw;
     } else if (selectionIn) {
       errors.push(`selection.${key} must be a number from 0 to 100`);
@@ -217,11 +251,26 @@ export function parseTheme(value: unknown): ParsedTheme {
       errors.push(`fonts.${key} must be a non-empty font-family list`);
     }
   }
+  if (fontsIn && !inRange(fontsIn.codeSize, 10, 24, true)) {
+    errors.push("fonts.codeSize must be a whole number from 10 to 24");
+  }
+
+  const glassIn = isRecord(value.glass) ? value.glass : null;
+  if (!glassIn) errors.push("glass must be an object");
+  for (const key of ["sidebarOpacity", "paneOpacity"] as const) {
+    if (glassIn && !inRange(glassIn[key], 0.15, 1)) {
+      errors.push(`glass.${key} must be a number from 0.15 to 1`);
+    }
+  }
+  if (glassIn && !inRange(glassIn.blur, 1, 64, true)) {
+    errors.push("glass.blur must be a whole number from 1 to 64");
+  }
 
   if (errors.length > 0) return { errors };
   // Every field was checked above; the casts only restate that for the compiler.
   const checkedColors = colors as Omit<ThemeColors, "userAccent">;
-  const checkedFonts = fontsIn as { sans: string; mono: string };
+  const checkedFonts = fontsIn as ThemeFonts;
+  const checkedGlass = glassIn as ThemeGlass;
   return {
     theme: {
       id: id as string,
@@ -234,7 +283,16 @@ export function parseTheme(value: unknown): ParsedTheme {
       syntax,
       terminal,
       selection: selection as ThemeSelection,
-      fonts: { sans: checkedFonts.sans, mono: checkedFonts.mono },
+      fonts: {
+        sans: checkedFonts.sans,
+        mono: checkedFonts.mono,
+        codeSize: checkedFonts.codeSize,
+      },
+      glass: {
+        sidebarOpacity: checkedGlass.sidebarOpacity,
+        paneOpacity: checkedGlass.paneOpacity,
+        blur: checkedGlass.blur,
+      },
     },
   };
 }
@@ -276,6 +334,9 @@ export function themeCssVars(theme: Theme): Record<string, string> {
   }
   vars["--font-sans"] = theme.fonts.sans;
   vars["--font-mono"] = theme.fonts.mono;
+  vars["--font-code-size"] = `${theme.fonts.codeSize}px`;
+  vars["--sidebar-opacity"] = String(theme.glass.sidebarOpacity);
+  vars["--pane-opacity"] = String(theme.glass.paneOpacity);
   const { userAccent } = theme.colors;
   if (userAccent) {
     vars[USER_ACCENT_VARS[0]] = userAccent;
@@ -284,13 +345,27 @@ export function themeCssVars(theme: Theme): Record<string, string> {
   return vars;
 }
 
+/** Classes on <html> that the theme turns on; the preload script reapplies them. */
+export function themeClasses(theme: Theme): string[] {
+  const classes: string[] = [];
+  if (theme.colors.userAccent) classes.push("has-user-accent");
+  if (theme.glass.paneOpacity < 1) classes.push("glass-body");
+  return classes;
+}
+
 export function themeWarnings(theme: Theme): string[] {
-  const { background, foreground, accent } = theme.colors;
+  const { background, foreground, accent, strong } = theme.colors;
   const warnings: string[] = [];
   const text = contrastRatio(foreground, background);
   if (text < 4.5) {
     warnings.push(
       `foreground on background has contrast ${text.toFixed(2)}, below 4.5`,
+    );
+  }
+  const strongRatio = contrastRatio(strong, background);
+  if (strongRatio < 4.5) {
+    warnings.push(
+      `strong on background has contrast ${strongRatio.toFixed(2)}, below 4.5`,
     );
   }
   const accentRatio = contrastRatio(accent, background);

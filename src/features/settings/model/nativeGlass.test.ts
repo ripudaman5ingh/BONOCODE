@@ -18,7 +18,10 @@ vi.mock("@tauri-apps/api/core", async (importOriginal) => ({
   invoke,
 }));
 
-const BODY_GLASS_KEY = "bonocode.bodyGlass";
+/** The class applyTheme sets for a translucent pane; the Linux check reads it. */
+function setPaneGlass(on: boolean) {
+  document.documentElement.classList.toggle("glass-body", on);
+}
 
 function hasGlass() {
   return document.documentElement.classList.contains("has-native-glass");
@@ -74,9 +77,9 @@ describe("native glass", () => {
     );
   });
 
-  it("keeps the dark theme opaque on Linux when main pane glass is off", async () => {
+  it("keeps the dark theme opaque on Linux when the theme's pane is opaque", async () => {
     platform.isLinux = true;
-    localStorage.setItem(BODY_GLASS_KEY, "0");
+    setPaneGlass(false);
     syncNativeGlass("dark");
     expect(hasGlass()).toBe(false);
     await vi.waitFor(() =>
@@ -87,9 +90,9 @@ describe("native glass", () => {
     );
   });
 
-  it("enables glass on Linux once main pane glass is on", async () => {
+  it("enables glass on Linux when the theme's pane is translucent", async () => {
     platform.isLinux = true;
-    localStorage.setItem(BODY_GLASS_KEY, "1");
+    setPaneGlass(true);
     syncNativeGlass("dark");
     await vi.waitFor(() => expect(hasGlass()).toBe(true));
     expect(invoke).toHaveBeenCalledWith(
@@ -114,12 +117,12 @@ describe("native glass", () => {
 
   it("fades the page opaque before the window stops being transparent", async () => {
     platform.isLinux = true;
-    localStorage.setItem(BODY_GLASS_KEY, "1");
+    setPaneGlass(true);
     syncNativeGlass("dark");
     await vi.waitFor(() => expect(hasGlass()).toBe(true));
 
     invoke.mockClear();
-    localStorage.setItem(BODY_GLASS_KEY, "0");
+    setPaneGlass(false);
     syncNativeGlass("dark");
     expect(hasGlass()).toBe(false);
     expect(invoke).not.toHaveBeenCalled();
@@ -133,14 +136,14 @@ describe("native glass", () => {
 
   it("drops a fade still owed to glass that is back on", async () => {
     platform.isLinux = true;
-    localStorage.setItem(BODY_GLASS_KEY, "1");
+    setPaneGlass(true);
     syncNativeGlass("dark");
     await vi.waitFor(() => expect(hasGlass()).toBe(true));
 
     invoke.mockClear();
-    localStorage.setItem(BODY_GLASS_KEY, "0");
+    setPaneGlass(false);
     syncNativeGlass("dark");
-    localStorage.setItem(BODY_GLASS_KEY, "1");
+    setPaneGlass(true);
     syncNativeGlass("dark");
     await vi.waitFor(() => expect(hasGlass()).toBe(true));
     await new Promise((resolve) => setTimeout(resolve, 250));
@@ -160,9 +163,9 @@ describe("native glass", () => {
     );
 
     platform.isLinux = true;
-    localStorage.setItem(BODY_GLASS_KEY, "1");
+    setPaneGlass(true);
     syncNativeGlass("dark");
-    localStorage.setItem(BODY_GLASS_KEY, "0");
+    setPaneGlass(false);
     syncNativeGlass("dark");
     expect(hasGlass()).toBe(false);
 

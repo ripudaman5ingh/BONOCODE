@@ -652,7 +652,7 @@ function ensureHighlightStyles(document: Document | null | undefined) {
   style.textContent = `
     ::highlight(${MATCH_HIGHLIGHT}) {
       background-color: rgba(226, 192, 141, 0.46);
-      background-color: color-mix(in srgb, #e2c08d 46%, transparent);
+      background-color: color-mix(in srgb, var(--color-search-match) 46%, transparent);
     }
     ::highlight(${CURRENT_HIGHLIGHT}) {
       background-color: rgba(69, 155, 247, 0.62);

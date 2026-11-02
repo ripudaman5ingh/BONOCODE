@@ -100,6 +100,17 @@ function monoFont(): string {
   return fromCss || "ui-monospace, SFMono-Regular, Menlo, Monaco, monospace";
 }
 
+/** The theme's code size in whole px; 13 until a theme has been applied. */
+function codeFontSize(): number {
+  const size = parseInt(
+    getComputedStyle(document.documentElement).getPropertyValue(
+      "--font-code-size",
+    ),
+    10,
+  );
+  return Number.isInteger(size) && size > 0 ? size : 13;
+}
+
 function oscColors() {
   const light = isLightScheme();
   return {
@@ -137,7 +148,7 @@ export function TerminalView({ id, cwd, active, onMetaChange }: Props) {
       cursorBlink: true,
       cursorStyle: "bar",
       fontFamily: monoFont(),
-      fontSize: 13,
+      fontSize: codeFontSize(),
       lineHeight: 1,
       letterSpacing: 0,
       scrollback: 5000,
@@ -266,6 +277,8 @@ export function TerminalView({ id, cwd, active, onMetaChange }: Props) {
     const onSchemeChange = () => {
       term.options.theme = terminalTheme(isLightScheme());
       term.options.fontFamily = monoFont();
+      term.options.fontSize = codeFontSize();
+      applySizeRef.current();
     };
     window.addEventListener(SCHEME_CHANGE_EVENT, onSchemeChange);
 

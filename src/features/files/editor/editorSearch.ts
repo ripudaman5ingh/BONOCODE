@@ -823,7 +823,7 @@ const findTheme = EditorView.theme(
       fontSize: "11px",
     },
     ".cm-searchMatch": {
-      backgroundColor: "color-mix(in srgb, #e2c08d 46%, transparent)",
+      backgroundColor: "color-mix(in srgb, var(--color-search-match) 46%, transparent)",
     },
     ".cm-searchMatch-selected": {
       backgroundColor:
