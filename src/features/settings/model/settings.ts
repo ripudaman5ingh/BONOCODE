@@ -211,6 +211,13 @@ export const SETTINGS_INDEX: SettingsEntry[] = [
     keywords: "dark light color palette accent font",
   },
   {
+    id: "theme-editor",
+    section: "appearance",
+    label: "Theme editor",
+    keywords:
+      "colors fonts code size glass translucency blur opacity status terminal syntax custom",
+  },
+  {
     id: "interface-scale",
     section: "appearance",
     label: "Interface scale",

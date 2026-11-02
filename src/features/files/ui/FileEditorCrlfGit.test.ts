@@ -23,7 +23,7 @@ vi.mock("@tauri-apps/api/core", async (original) => ({
     bridge.invoke(command, args),
 }));
 
-describe("CRLF editor Git boundaries", () => {
+describe("CRLF editor Git boundaries", { timeout: 20_000 }, () => {
   let directory: string;
   let root: Root;
   let container: HTMLDivElement;

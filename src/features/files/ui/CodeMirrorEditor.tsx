@@ -32,7 +32,10 @@ import { minimalSetup } from "codemirror";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useColorScheme } from "../../../shared/hooks/useColorScheme";
 import { useLockOverscroll } from "../../../shared/hooks/useLockOverscroll";
-import { isLightScheme } from "../../settings/model/appearance";
+import {
+  isLightScheme,
+  SCHEME_CHANGE_EVENT,
+} from "../../settings/model/appearance";
 import { loadAutosave, loadFormatOnSave } from "../../settings/model/settings";
 import { formatText } from "../../../shared/lib/format";
 import type { EditorNavigation } from "../../search/model/search";
@@ -432,6 +435,13 @@ export function CodeMirrorEditor({
       effects: editorScheme.reconfigure(schemeExtensions(colorScheme)),
     });
   }, [colorScheme]);
+
+  // A theme apply can change --font-code-size, which CodeMirror can't observe.
+  useEffect(() => {
+    const remeasure = () => viewRef.current?.requestMeasure();
+    window.addEventListener(SCHEME_CHANGE_EVENT, remeasure);
+    return () => window.removeEventListener(SCHEME_CHANGE_EVENT, remeasure);
+  }, []);
 
   useEffect(() => {
     const view = viewRef.current;
