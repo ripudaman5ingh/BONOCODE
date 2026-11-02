@@ -268,7 +268,7 @@ function AddServerModal({
         {error ? (
           <p
             role="alert"
-            className="rounded-md border border-red-500/30 bg-red-500/10 p-2 text-xs text-red-400"
+            className="rounded-md border border-danger/30 bg-danger/10 p-2 text-xs text-danger"
           >
             {error}
           </p>
@@ -525,7 +525,7 @@ function McpConnections({
       {error ? (
         <p
           role="alert"
-          className="rounded-md border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-400"
+          className="rounded-md border border-danger/30 bg-danger/10 p-3 text-xs text-danger"
         >
           {error}
         </p>

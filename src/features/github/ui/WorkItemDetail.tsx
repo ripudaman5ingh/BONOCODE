@@ -255,7 +255,7 @@ export function LinkedWorkItemPanel({
           />
         ) : error ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 px-8 text-center">
-            <CircleX className="size-5 text-rose-400/90" strokeWidth={1.75} />
+            <CircleX className="size-5 text-danger/90" strokeWidth={1.75} />
             <p role="alert" className="max-w-sm text-[12px] text-content/55">
               {error}
             </p>
@@ -347,7 +347,7 @@ export function inboxStatusMark(item: InboxItem): InboxStatusMark {
     };
   }
   if (label === "Merged") {
-    return { Icon: GitMerge, className: "text-violet-400/90", label };
+    return { Icon: GitMerge, className: "text-merged/90", label };
   }
   if (label === "Closed") {
     if (
@@ -355,17 +355,17 @@ export function inboxStatusMark(item: InboxItem): InboxStatusMark {
       item.kind === "issue" &&
       item.stateReason?.trim().toLowerCase() === "completed"
     ) {
-      return { Icon: CheckCircle, className: "text-violet-400/90", label };
+      return { Icon: CheckCircle, className: "text-merged/90", label };
     }
     return {
       Icon: pr ? GitPullRequestClosed : CircleX,
-      className: "text-rose-400/90",
+      className: "text-danger/90",
       label,
     };
   }
   return {
     Icon: pr ? GitPullRequest : CircleDot,
-    className: "text-emerald-400/90",
+    className: "text-success/90",
     label,
   };
 }
@@ -458,9 +458,9 @@ export function InboxDetail({
   const reviewLabel = githubReviewDecisionLabel(reviewDecision);
   const reviewClass =
     reviewDecision.toUpperCase() === "APPROVED"
-      ? "text-emerald-400/90"
+      ? "text-success/90"
       : reviewDecision.toUpperCase() === "CHANGES_REQUESTED"
-        ? "text-rose-400/90"
+        ? "text-danger/90"
         : "text-content/50";
   const baseRef =
     details?.baseRefName?.trim() || thread?.baseRefName?.trim() || "";
@@ -937,7 +937,7 @@ export function InboxDetail({
                 )}
               </div>
               {startError ? (
-                <p className="text-[12px] text-red-400/90">{startError}</p>
+                <p className="text-[12px] text-danger/90">{startError}</p>
               ) : null}
             </header>
             {isPr ? (
@@ -1103,7 +1103,7 @@ export function InboxDetail({
                 {agentNote ? (
                   <p
                     className={`text-[12px] ${
-                      agentNote.failed ? "text-red-400/90" : "text-content/50"
+                      agentNote.failed ? "text-danger/90" : "text-content/50"
                     }`}
                   >
                     {agentNote.text}

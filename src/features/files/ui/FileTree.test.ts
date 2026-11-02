@@ -172,7 +172,7 @@ describe("FileTree render isolation", () => {
       },
     };
     act(() => render(1));
-    expect(row("first.ts").querySelector(".text-amber-400")).not.toBeNull();
+    expect(row("first.ts").querySelector(".text-warning")).not.toBeNull();
     act(() => row("first.ts").click());
     expect(onOpenFile).toHaveBeenCalledWith(`${cwd}/first.ts`, undefined, {
       exact: true,

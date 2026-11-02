@@ -54,7 +54,7 @@ export function SaveLayoutDialog({ onSave, onCancel }: Props) {
         </label>
 
         {error ? (
-          <p role="alert" className="text-[11px] leading-4 text-red-400/90">
+          <p role="alert" className="text-[11px] leading-4 text-danger/90">
             {error}
           </p>
         ) : null}

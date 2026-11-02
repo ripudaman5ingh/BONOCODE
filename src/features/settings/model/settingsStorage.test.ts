@@ -56,40 +56,6 @@ afterEach(() => {
 });
 
 describe("numeric appearance settings", () => {
-  it("sidebarOpacity is clamped to 0.15..1 and not rounded", () => {
-    appearance.saveSidebarOpacity(0.5555);
-    expect(store.getItem("bonocode.sidebarOpacity")).toBe("0.5555");
-    expect(appearance.loadSidebarOpacity()).toBe(0.5555);
-    appearance.saveSidebarOpacity(0.1);
-    expect(store.getItem("bonocode.sidebarOpacity")).toBe("0.15");
-    appearance.saveSidebarOpacity(2);
-    expect(store.getItem("bonocode.sidebarOpacity")).toBe("1");
-    store.removeItem("bonocode.sidebarOpacity");
-    expect(appearance.loadSidebarOpacity()).toBe(0.85);
-    store.setItem("bonocode.sidebarOpacity", "2");
-    expect(appearance.loadSidebarOpacity()).toBe(1);
-    store.setItem("bonocode.sidebarOpacity", "garbage");
-    expect(appearance.loadSidebarOpacity()).toBe(0.85);
-    // Looks wrong: "" reads as 0 and clamps up to 0.15 rather than the default.
-    store.setItem("bonocode.sidebarOpacity", "");
-    expect(appearance.loadSidebarOpacity()).toBe(0.15);
-  });
-
-  it("sidebarBlur is rounded and clamped to 1..64", () => {
-    appearance.saveSidebarBlur(10.7);
-    expect(store.getItem("bonocode.sidebarBlur")).toBe("11");
-    appearance.saveSidebarBlur(100);
-    expect(store.getItem("bonocode.sidebarBlur")).toBe("64");
-    appearance.saveSidebarBlur(0);
-    expect(store.getItem("bonocode.sidebarBlur")).toBe("1");
-    store.removeItem("bonocode.sidebarBlur");
-    expect(appearance.loadSidebarBlur()).toBe(24);
-    store.setItem("bonocode.sidebarBlur", "oops");
-    expect(appearance.loadSidebarBlur()).toBe(24);
-    store.setItem("bonocode.sidebarBlur", "0.2");
-    expect(appearance.loadSidebarBlur()).toBe(1);
-  });
-
   it("projectRailWidth is rounded and clamped to 180..360", () => {
     appearance.saveProjectRailWidth(250.5);
     expect(store.getItem("bonocode.projectRailWidth")).toBe("251");

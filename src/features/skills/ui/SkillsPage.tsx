@@ -289,13 +289,13 @@ export function SkillsPage({
             ) : null}
 
             {actionError ? (
-              <p role="alert" className="pb-3 text-[12px] text-red-400">
+              <p role="alert" className="pb-3 text-[12px] text-danger">
                 {actionError}
               </p>
             ) : null}
 
             {error ? (
-              <p role="alert" className="text-[12px] text-red-400">
+              <p role="alert" className="text-[12px] text-danger">
                 {error}
               </p>
             ) : skills == null ? (
@@ -459,7 +459,7 @@ export function SkillsPage({
               {previewError ? (
                 <p
                   role="alert"
-                  className="break-words px-4 py-5 text-[12px] text-red-400"
+                  className="break-words px-4 py-5 text-[12px] text-danger"
                 >
                   {previewError}
                 </p>

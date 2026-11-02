@@ -60,7 +60,7 @@ export function PlanPreview({
           {onOpen ? (
             <button
               type="button"
-              className="block w-full truncate text-left font-sans text-[13px] font-medium text-content/90 hover:text-yellow-100"
+              className="block w-full truncate text-left font-sans text-[13px] font-medium text-content/90 hover:text-warning"
               title={title}
               onClick={onOpen}
             >

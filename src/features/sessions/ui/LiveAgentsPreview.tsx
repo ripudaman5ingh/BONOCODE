@@ -204,9 +204,9 @@ function LiveAgentCard({
       <span
         className={`mt-1 flex min-w-0 items-center gap-1.5 pl-4 text-[11px] leading-tight ${
           agent.needsApproval
-            ? "text-amber-400"
+            ? "text-warning"
             : agent.done
-              ? "text-emerald-400"
+              ? "text-success"
               : "text-content/50"
         }`}
       >

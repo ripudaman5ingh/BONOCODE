@@ -380,7 +380,7 @@ export function FileEditor({
     return (
       <div className={`grid place-items-center p-6 ${embedded ? "" : "h-full"}`}>
         <div className="max-w-md text-center">
-          <AlertCircle className="mx-auto mb-3 size-5 text-red-400" />
+          <AlertCircle className="mx-auto mb-3 size-5 text-danger" />
           <p className="text-[13px] text-content">
             Couldn’t open {basename(path)}
           </p>
@@ -494,7 +494,7 @@ export function FileEditor({
             <span>Saved</span>
           ) : saveState.status === "error" ? (
             <span
-              className="max-w-64 truncate text-red-400"
+              className="max-w-64 truncate text-danger"
               title={saveState.message}
             >
               Save failed: {saveState.message}

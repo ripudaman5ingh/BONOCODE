@@ -74,13 +74,6 @@ describe.each([
     undefined,
   ],
   [
-    "bonocode.bodyGlass",
-    appearance.loadBodyGlass,
-    appearance.saveBodyGlass,
-    appearance.BODY_GLASS_DEFAULT,
-    undefined,
-  ],
-  [
     "bonocode.projectRailOpen",
     appearance.loadProjectRailOpen,
     appearance.saveProjectRailOpen,

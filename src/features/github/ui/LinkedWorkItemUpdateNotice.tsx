@@ -228,8 +228,8 @@ export function LinkedWorkItemUpdateNotice({
               <TerminalIcon
                 className={
                   terminalState === "pr_merged"
-                    ? "size-3.5 shrink-0 text-violet-400/90"
-                    : "size-3.5 shrink-0 text-emerald-400/90"
+                    ? "size-3.5 shrink-0 text-merged/90"
+                    : "size-3.5 shrink-0 text-success/90"
                 }
                 strokeWidth={1.75}
               />
@@ -260,7 +260,7 @@ export function LinkedWorkItemUpdateNotice({
                 title="Delete session"
                 disabled={Boolean(cleanupAction) || !onDeleteSession}
                 onClick={() => void runCleanup("delete", onDeleteSession)}
-                className="inline-flex min-w-0 items-center gap-1.5 overflow-hidden rounded-md px-2 py-1 text-[11px] text-red-300/90 hover:bg-red-500/15 disabled:opacity-40"
+                className="inline-flex min-w-0 items-center gap-1.5 overflow-hidden rounded-md px-2 py-1 text-[11px] text-danger/90 hover:bg-danger/15 disabled:opacity-40"
               >
                 {cleanupAction === "delete" ? (
                   <Loader className="size-3 shrink-0 animate-spin" />

@@ -21,17 +21,17 @@ type ModeCommandStyle = {
 export const MODE_COMMAND_STYLES: Record<string, ModeCommandStyle> = {
   [PLAN_COMMAND.name]: {
     Icon: AiIdea,
-    className: "text-yellow-700 dark:text-yellow-200/90",
+    className: "text-warning",
     pill: {
       label: "Plan",
       title: "Plan mode",
       className:
-        "bg-yellow-300/12 text-yellow-700 hover:bg-yellow-300/18 dark:text-yellow-200/90",
+        "bg-warning/12 text-warning hover:bg-warning/18",
     },
     menu: {
       label: "Plan mode",
       description: "Review a plan before building",
-      iconClassName: "text-yellow-300/80",
+      iconClassName: "text-warning/80",
     },
   },
   [DRAFT_COMMAND.name]: {
@@ -51,7 +51,7 @@ export const MODE_COMMAND_STYLES: Record<string, ModeCommandStyle> = {
   },
   [BTW_COMMAND.name]: {
     Icon: MessageSquare,
-    className: "text-emerald-700 dark:text-emerald-200/90",
+    className: "text-success",
   },
 };
 

@@ -144,7 +144,7 @@ function HistoryRow({
               key={pathIndex}
               d={path.d}
               fill="none"
-              stroke={path.color}
+              style={{ stroke: path.color }}
               strokeWidth={path.strokeWidth}
               strokeLinecap="round"
             />
@@ -155,7 +155,7 @@ function HistoryRow({
               cx={circle.cx}
               cy={circle.cy}
               r={circle.r}
-              fill={circle.fill ?? "none"}
+              style={{ fill: circle.fill ?? "none" }}
               strokeWidth={circle.strokeWidth}
             />
           ))}

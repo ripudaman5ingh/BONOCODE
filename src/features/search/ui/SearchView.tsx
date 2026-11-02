@@ -451,7 +451,7 @@ export function SearchView({
         {empty ? (
           <EmptyState />
         ) : error && hits.length === 0 ? (
-          <p className="px-2 py-1.5 text-[12px] text-red-400">{error}</p>
+          <p className="px-2 py-1.5 text-[12px] text-danger">{error}</p>
         ) : noResults ? (
           <>
             <p className="px-2 py-1.5 text-[12px] text-content/50">No results</p>

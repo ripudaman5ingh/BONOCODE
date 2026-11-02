@@ -5,10 +5,7 @@ import { cspStyleNonce } from "../../../shared/lib/csp";
 import type { ColorScheme } from "../../settings/model/appearance";
 import { editorHighlightStyleFor } from "./editorLanguage";
 
-export {
-  editorHighlightStyleFor,
-  languageForPath,
-} from "./editorLanguage";
+export { languageForPath } from "./editorLanguage";
 
 function editorThemeStyles(dark: boolean) {
   return EditorView.theme(
@@ -17,7 +14,7 @@ function editorThemeStyles(dark: boolean) {
       height: "100%",
       backgroundColor: "transparent",
       color: "var(--color-content)",
-      fontSize: "13px",
+      fontSize: "var(--font-code-size)",
       userSelect: "text",
     },
     "&.cm-focused": {

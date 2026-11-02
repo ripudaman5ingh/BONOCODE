@@ -199,7 +199,7 @@ export function ProjectBackgroundDialog({ project, name, onClose }: Props) {
               : "This project currently follows the global Appearance setting."}
           </p>
           {error ? (
-            <p className="mt-1.5 text-[12px] text-red-400">{error}</p>
+            <p className="mt-1.5 text-[12px] text-danger">{error}</p>
           ) : null}
         </div>
 
@@ -305,7 +305,7 @@ export function ProjectBackgroundDialog({ project, name, onClose }: Props) {
             type="button"
             onClick={() => void removeImage()}
             disabled={busy}
-            className="w-full rounded-md border border-content/10 px-2.5 py-1.5 text-[12px] text-red-400 hover:border-red-400/40 hover:bg-red-400/10 disabled:opacity-40"
+            className="w-full rounded-md border border-content/10 px-2.5 py-1.5 text-[12px] text-danger hover:border-danger/40 hover:bg-danger/10 disabled:opacity-40"
           >
             Remove background image
           </button>

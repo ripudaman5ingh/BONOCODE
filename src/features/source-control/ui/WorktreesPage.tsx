@@ -108,14 +108,14 @@ export function WorktreesPage({
           aria-label="Refresh worktrees"
           disabled={!project}
           onClick={refresh}
-          className={`flex h-7 shrink-0 items-center gap-1.5 rounded-md bg-content/8 px-2 text-[11px] hover:bg-content/12 disabled:opacity-40 active:scale-[0.97] ${loadError ? "text-red-400" : "text-content/65"}`}
+          className={`flex h-7 shrink-0 items-center gap-1.5 rounded-md bg-content/8 px-2 text-[11px] hover:bg-content/12 disabled:opacity-40 active:scale-[0.97] ${loadError ? "text-danger" : "text-content/65"}`}
         >
           <RefreshCw className="size-3.5" />
           <span>Refresh</span>
         </button>
       </div>
       {error && (
-        <p role="alert" className="break-words text-[12px] text-red-400">
+        <p role="alert" className="break-words text-[12px] text-danger">
           {error}
         </p>
       )}
@@ -124,7 +124,7 @@ export function WorktreesPage({
           Add a project to manage its worktrees.
         </p>
       ) : !data && loadError ? (
-        <p role="alert" className="break-words text-[12px] text-red-400">
+        <p role="alert" className="break-words text-[12px] text-danger">
           {loadError}
         </p>
       ) : !data ? (
@@ -178,7 +178,7 @@ export function WorktreesPage({
                     <span>
                       {count} session{count === 1 ? "" : "s"} in this worktree
                     </span>
-                    <span className={tree.dirty ? "text-amber-400" : ""}>
+                    <span className={tree.dirty ? "text-warning" : ""}>
                       {tree.missing
                         ? "Missing folder"
                         : tree.dirty == null
@@ -217,7 +217,7 @@ export function WorktreesPage({
                     setError(undefined);
                     setDeleting(tree);
                   }}
-                  className="rounded-md p-1.5 text-content/40 hover:bg-red-500/10 hover:text-red-400 disabled:opacity-25"
+                  className="rounded-md p-1.5 text-content/40 hover:bg-danger/10 hover:text-danger disabled:opacity-25"
                 >
                   <Trash2 className="size-4" />
                 </button>

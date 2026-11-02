@@ -61,7 +61,7 @@ export function ProviderSignInPanel({
       </button>
       {state === "error" && error ? (
         <p
-          className="mt-2.5 max-w-60 text-[10px] leading-4 text-red-500"
+          className="mt-2.5 max-w-60 text-[10px] leading-4 text-danger"
           role="status"
         >
           {error}

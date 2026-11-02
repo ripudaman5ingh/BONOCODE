@@ -54,7 +54,7 @@ export function DeleteSessionDialog({
           <button
             type="button"
             onClick={() => onClose({ confirmed: true, deleteWorktree })}
-            className="rounded-md bg-red-500/20 px-3 py-1.5 font-medium text-red-400 hover:bg-red-500/30 active:scale-[0.97]"
+            className="rounded-md bg-danger/20 px-3 py-1.5 font-medium text-danger hover:bg-danger/30 active:scale-[0.97]"
           >
             Delete session
           </button>

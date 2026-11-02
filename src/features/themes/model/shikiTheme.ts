@@ -10,6 +10,9 @@ const NUMBER = "var(--syntax-number)";
 const COMMENT = "var(--syntax-comment)";
 const PROPERTY = "var(--syntax-property)";
 const INVALID = "var(--syntax-invalid)";
+const SUCCESS = "var(--color-success)";
+const DANGER = "var(--color-danger)";
+const WARNING = "var(--color-warning)";
 
 function rule(scope: string[], foreground: string) {
   return { scope, settings: { foreground } };
@@ -18,8 +21,9 @@ function rule(scope: string[], foreground: string) {
 /**
  * Chat code blocks in the active theme's colors. Scopes follow Shiki's
  * createCssVariablesTheme, with its constant and function groups split so
- * variables and types get their own colors. Shiki swaps each var() for a
- * placeholder hex while tokenizing and restores it in the output.
+ * variables and types get their own colors, and with support.type and
+ * variable.language moved so chat matches the editor. Shiki swaps each var()
+ * for a placeholder hex while tokenizing and restores it in the output.
  */
 export const BONOCODE_SHIKI_THEME: ThemeInput = {
   name: "bonocode",
@@ -61,7 +65,6 @@ export const BONOCODE_SHIKI_THEME: ThemeInput = {
     ),
     rule(
       [
-        "variable.language.this",
         "variable.other.object",
         "variable.other.class",
         "variable.other.constant",
@@ -73,6 +76,7 @@ export const BONOCODE_SHIKI_THEME: ThemeInput = {
     rule(
       [
         "keyword",
+        "variable.language",
         "storage.modifier",
         "storage.type",
         "storage.control.clojure",
@@ -86,7 +90,10 @@ export const BONOCODE_SHIKI_THEME: ThemeInput = {
       KEYWORD,
     ),
     rule(["variable.parameter.function"], PROPERTY),
-    rule(["entity.name.type", "entity.other.inherited-class"], TYPE),
+    rule(
+      ["entity.name.type", "entity.other.inherited-class", "support.type"],
+      TYPE,
+    ),
     rule(
       [
         "support.function",
@@ -133,6 +140,23 @@ export const BONOCODE_SHIKI_THEME: ThemeInput = {
       ],
       KEYWORD,
     ),
+    rule(
+      [
+        "markup.inserted",
+        "meta.diff.header.to-file",
+        "punctuation.definition.inserted",
+      ],
+      SUCCESS,
+    ),
+    rule(
+      [
+        "markup.deleted",
+        "meta.diff.header.from-file",
+        "punctuation.definition.deleted",
+      ],
+      DANGER,
+    ),
+    rule(["markup.changed", "punctuation.definition.changed"], WARNING),
     // Not in the css-variables theme, which has no invalid color.
     rule(["invalid"], INVALID),
   ],

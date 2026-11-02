@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SCHEME_CHANGE_EVENT } from "../../settings/model/appearance";
 import {
   activeTheme,
@@ -11,6 +11,12 @@ import {
   THEME_CHANGE_EVENT,
 } from "./themeEngine";
 import { themeCssVars, type Theme } from "./themeFormat";
+
+const invoke = vi.hoisted(() => vi.fn());
+vi.mock("@tauri-apps/api/core", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@tauri-apps/api/core")>()),
+  invoke,
+}));
 
 const root = document.documentElement;
 
@@ -29,6 +35,8 @@ function captureEvents(name: string): unknown[] {
 }
 
 beforeEach(() => {
+  invoke.mockReset();
+  invoke.mockResolvedValue(undefined);
   localStorage.clear();
   root.className = "";
   root.style.cssText = "";
@@ -65,6 +73,22 @@ describe("applyTheme", () => {
     expect(root.style.getPropertyValue("--user-accent-foreground")).toBe("");
   });
 
+  it("applies the theme's glass", () => {
+    const dark = builtin("bonocode-dark");
+    applyTheme(dark);
+    expect(root.classList.contains("glass-body")).toBe(true);
+    expect(root.style.getPropertyValue("--pane-opacity")).toBe("0.85");
+    expect(invoke).toHaveBeenCalledWith("set_window_background_blur", {
+      radius: 24,
+    });
+
+    applyTheme({ ...dark, glass: { ...dark.glass, paneOpacity: 1, blur: 8 } });
+    expect(root.classList.contains("glass-body")).toBe(false);
+    expect(invoke).toHaveBeenLastCalledWith("set_window_background_blur", {
+      radius: 8,
+    });
+  });
+
   it("announces the scheme on every apply", () => {
     const schemes = captureEvents(SCHEME_CHANGE_EVENT);
     applyTheme(builtin("bonocode-light"));
@@ -77,7 +101,11 @@ describe("applyTheme", () => {
     const light = builtin("bonocode-light");
     applyTheme(light);
     const cache: unknown = JSON.parse(localStorage.getItem(THEME_CACHE_KEY) ?? "");
-    expect(cache).toEqual({ scheme: "light", vars: themeCssVars(light) });
+    expect(cache).toEqual({
+      scheme: "light",
+      vars: themeCssVars(light),
+      classes: ["glass-body"],
+    });
   });
 });
 

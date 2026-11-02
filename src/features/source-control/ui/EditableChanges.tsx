@@ -78,7 +78,7 @@ export function EditableChanges({ cwd, onOpenFile, onDirtyChange }: Props) {
   if (error && !files) {
     return (
       <div className="grid h-full place-items-center p-6 text-center">
-        <AlertCircle className="mx-auto mb-3 size-5 text-red-400" />
+        <AlertCircle className="mx-auto mb-3 size-5 text-danger" />
         <p className="text-[13px] text-content">Couldn’t load changes</p>
         <p className="mt-1 text-[12px] text-content/50">{error}</p>
       </div>
@@ -290,7 +290,7 @@ function EntrySaveState({ dirty, state }: { dirty: boolean; state: SaveState }) 
   if (state.status === "error") {
     return (
       <span
-        className="max-w-40 shrink-0 truncate px-1 text-[10.5px] text-red-400"
+        className="max-w-40 shrink-0 truncate px-1 text-[10.5px] text-danger"
         title={state.message}
       >
         Save failed

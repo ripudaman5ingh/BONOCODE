@@ -871,7 +871,7 @@ function ProjectCard({
             role="img"
             aria-label={muteStatus}
             title={muteStatus}
-            className="grid size-4 shrink-0 place-items-center text-amber-400"
+            className="grid size-4 shrink-0 place-items-center text-warning"
           >
             <BellOff className="size-3.5" strokeWidth={1.75} aria-hidden="true" />
           </span>
@@ -948,10 +948,10 @@ function ProjectDiffStat({
       className="flex shrink-0 items-center gap-1 font-sans text-[11px] font-semibold tabular-nums"
     >
       {additions > 0 ? (
-        <span className="text-emerald-400">+{formatInteger(additions)}</span>
+        <span className="text-success">+{formatInteger(additions)}</span>
       ) : null}
       {deletions > 0 ? (
-        <span className="text-red-400">-{formatInteger(deletions)}</span>
+        <span className="text-danger">-{formatInteger(deletions)}</span>
       ) : null}
     </span>
   );

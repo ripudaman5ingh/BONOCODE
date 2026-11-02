@@ -86,7 +86,7 @@ function GenericLinkPreview({ link }: { link: UserLink }) {
       data-user-link-preview
       title={link.url}
       aria-label={`Open ${title}`}
-      className="user-link-preview group mx-0.5 text-sky-400/90 hover:text-sky-300 hover:underline"
+      className="user-link-preview group mx-0.5 text-info/90 hover:text-info hover:underline"
       onClick={(event) => openExternalLink(event, link.url)}
     >
       <span className="mr-1 inline-flex size-4 items-center justify-center overflow-hidden rounded bg-background-base/50 align-[-0.125em] text-[9px] font-semibold uppercase text-content/55">
@@ -265,8 +265,8 @@ function GithubWorkItemPreview({
               : "h-5 gap-1 rounded-[5px] px-1.5"
           } ${
             workItem.kind === "pr"
-              ? "bg-violet-400/10 text-violet-400/90"
-              : "bg-emerald-400/10 text-emerald-400/90"
+              ? "bg-merged/10 text-merged/90"
+              : "bg-success/10 text-success/90"
           }`}
         >
           {workItem.kind === "pr" ? (
@@ -541,20 +541,20 @@ function workItemStatus(
     return {
       Icon: GitMerge,
       label: "Merged",
-      className: "text-violet-400/90",
+      className: "text-merged/90",
     };
   }
   if (item?.state === "closed") {
     return {
       Icon: kind === "pr" ? GitPullRequestClosed : CircleX,
       label: "Closed",
-      className: "text-rose-400/90",
+      className: "text-danger/90",
     };
   }
   return {
     Icon: kind === "pr" ? GitPullRequest : CircleDot,
     label: "Open",
-    className: "text-emerald-400/90",
+    className: "text-success/90",
   };
 }
 

@@ -51,16 +51,16 @@ function overallMark(overall: GithubPrChecksOverall): {
     case "loading":
       return { Icon: LoaderCircle, className: "animate-spin text-content/45" };
     case "error":
-      return { Icon: AlertCircle, className: "text-rose-400/90" };
+      return { Icon: AlertCircle, className: "text-danger/90" };
     case "fail":
-      return { Icon: CircleX, className: "text-rose-400/90" };
+      return { Icon: CircleX, className: "text-danger/90" };
     case "pending":
       return {
         Icon: LoaderCircle,
-        className: "animate-spin text-amber-400/70",
+        className: "animate-spin text-warning/70",
       };
     case "pass":
-      return { Icon: CheckCircle, className: "text-emerald-400/90" };
+      return { Icon: CheckCircle, className: "text-success/90" };
     case "neutral":
       return { Icon: CircleDashed, className: "text-content/45" };
   }
@@ -72,9 +72,9 @@ function checkMark(state: GithubPrCheckState): {
 } {
   switch (state) {
     case "pass":
-      return { Icon: CheckCircle, className: "text-emerald-400/90" };
+      return { Icon: CheckCircle, className: "text-success/90" };
     case "fail":
-      return { Icon: CircleX, className: "text-rose-400/90" };
+      return { Icon: CircleX, className: "text-danger/90" };
     case "pending":
       return { Icon: LoaderCircle, className: "animate-spin text-content/55" };
     case "cancel":
@@ -452,7 +452,7 @@ function PrCheckRow({
                       return (
                         <li
                           key={index}
-                          className={`flex items-center gap-2 rounded px-2 py-1 ${step.state === "fail" ? "bg-rose-400/5" : ""}`}
+                          className={`flex items-center gap-2 rounded px-2 py-1 ${step.state === "fail" ? "bg-danger/5" : ""}`}
                         >
                           <stepMark.Icon
                             className={`size-4 shrink-0 ${stepMark.className}`}

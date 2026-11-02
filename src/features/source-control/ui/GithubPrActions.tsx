@@ -239,7 +239,7 @@ export function GithubPrActions({
           type="button"
           disabled={busy}
           onClick={(event) => askToRun("close", event.currentTarget)}
-          className={`${stateButton} hover:text-rose-400`}
+          className={`${stateButton} hover:text-danger`}
         >
           <GitPullRequestClosed className="size-3.5" strokeWidth={1.75} />
           Close pull request
@@ -294,7 +294,7 @@ export function GithubPrActions({
                 aria-hidden
                 className={`mt-1 size-1.5 shrink-0 rounded-full ${
                   option.action === mergeAction
-                    ? "bg-emerald-400"
+                    ? "bg-success"
                     : "bg-content/20"
                 }`}
               />
@@ -333,7 +333,7 @@ export function GithubPrActions({
           {actionError ? (
             <p
               role="alert"
-              className="mt-2 break-words text-[11px] leading-snug text-rose-400"
+              className="mt-2 break-words text-[11px] leading-snug text-danger"
             >
               {actionError}
             </p>
@@ -353,11 +353,11 @@ export function GithubPrActions({
               onClick={() => void runAction()}
               className={`inline-flex h-7 items-center gap-1.5 rounded-md px-3 text-[12px] font-medium disabled:cursor-default disabled:opacity-60 ${
                 confirmation.action === "close"
-                  ? "bg-rose-500/20 text-rose-700 hover:bg-rose-500/30 dark:text-rose-300"
+                  ? "bg-danger/20 text-danger hover:bg-danger/30"
                   : confirmation.action === "merge" ||
                       confirmation.action === "squash" ||
                       confirmation.action === "rebase"
-                    ? "bg-emerald-500/20 text-emerald-700 hover:bg-emerald-500/30 dark:text-emerald-300"
+                    ? "bg-success/20 text-success hover:bg-success/30"
                     : "bg-content text-background-base hover:bg-content/80"
               } ${PR_ACTION_PRESS}`}
             >

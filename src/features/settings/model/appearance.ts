@@ -14,11 +14,8 @@ import {
   clearPreparedNewThreadBackground,
 } from "./newThreadBackgroundEffects";
 
-const OPACITY_KEY = "bonocode.sidebarOpacity";
-const BLUR_KEY = "bonocode.sidebarBlur";
 const PROJECT_RAIL_OPEN_KEY = "bonocode.projectRailOpen";
 const SESSION_SIDEBAR_OPEN_KEY = "bonocode.sessionSidebarOpen";
-const BODY_KEY = "bonocode.bodyGlass";
 const SIDEBAR_TAB_ORDER_KEY = "bonocode.sidebarTabOrder";
 const PROJECT_RAIL_WIDTH_KEY = "bonocode.projectRailWidth";
 const TRANSCRIPT_LAYOUT_KEY = "bonocode.transcriptLayout";
@@ -106,19 +103,9 @@ const DEFAULT_SIDEBAR_TAB_ORDER: SidebarTabId[] = [
   "changes",
 ];
 
-export const SIDEBAR_OPACITY_MIN = 0.15;
-export const SIDEBAR_OPACITY_MAX = 1;
-export const SIDEBAR_OPACITY_DEFAULT = 0.85;
-
-export const SIDEBAR_BLUR_MIN = 1;
-export const SIDEBAR_BLUR_MAX = 64;
-export const SIDEBAR_BLUR_DEFAULT = 24;
-
 export const PROJECT_RAIL_WIDTH_MIN = 180;
 export const PROJECT_RAIL_WIDTH_MAX = 360;
 export const PROJECT_RAIL_WIDTH_DEFAULT = 200;
-
-export const BODY_GLASS_DEFAULT = !IS_LINUX;
 
 export const CHAT_BACKGROUND_OPACITY_MIN = 0.05;
 export const CHAT_BACKGROUND_OPACITY_MAX = 0.65;
@@ -135,9 +122,6 @@ function clamp(value: number, min: number, max: number) {
 
 export function initAppearance() {
   document.documentElement.classList.toggle("is-mac", IS_MAC);
-  applySidebarOpacity(loadSidebarOpacity());
-  applySidebarBlur(loadSidebarBlur());
-  applyBodyGlass(loadBodyGlass());
   applyChatBackground(loadChatBackgroundPath());
   applyChatBackgroundEmptyOpacity(loadChatBackgroundEmptyOpacity());
   applyChatBackgroundSessionOpacity(loadChatBackgroundSessionOpacity());
@@ -190,8 +174,11 @@ function glassFadeMs(): number {
  * overtaken is dropped rather than left to settle last.
  */
 export function syncNativeGlass(scheme: ColorScheme) {
-  const enabled = scheme === "dark" && (!IS_LINUX || loadBodyGlass());
   const root = document.documentElement;
+  // applyTheme sets glass-body before it calls in here, so this follows the
+  // theme being applied even when it isn't the saved one yet.
+  const enabled =
+    scheme === "dark" && (!IS_LINUX || root.classList.contains("glass-body"));
   const generation = ++glassSyncGeneration;
   const setWindow = () =>
     invoke("set_window_glass_enabled", {
@@ -226,48 +213,10 @@ export function activateWindowAppearance() {
   syncNativeGlass(isLightScheme() ? "light" : "dark");
 }
 
-const sidebarOpacity = defineSetting<number>({
-  key: OPACITY_KEY,
-  default: SIDEBAR_OPACITY_DEFAULT,
-  ...clampedNumber(SIDEBAR_OPACITY_MIN, SIDEBAR_OPACITY_MAX),
-});
-
-export const loadSidebarOpacity = sidebarOpacity.load;
-export const saveSidebarOpacity = sidebarOpacity.save;
-
-export function applySidebarOpacity(value: number) {
-  const next = clamp(value, SIDEBAR_OPACITY_MIN, SIDEBAR_OPACITY_MAX);
-  document.documentElement.style.setProperty("--sidebar-opacity", String(next));
-  return next;
-}
-
-const sidebarBlur = defineSetting<number>({
-  key: BLUR_KEY,
-  default: SIDEBAR_BLUR_DEFAULT,
-  ...clampedNumber(SIDEBAR_BLUR_MIN, SIDEBAR_BLUR_MAX, { round: true }),
-});
-
-export const loadSidebarBlur = sidebarBlur.load;
-export const saveSidebarBlur = sidebarBlur.save;
-
-export function applySidebarBlur(value: number) {
-  const next = Math.round(clamp(value, SIDEBAR_BLUR_MIN, SIDEBAR_BLUR_MAX));
-  void invoke("set_window_background_blur", { radius: next });
-  return next;
-}
-
-const bodyGlass = defineSetting<boolean>({
-  key: BODY_KEY,
-  default: BODY_GLASS_DEFAULT,
-  ...flag(),
-});
-
-export const loadBodyGlass = bodyGlass.load;
-export const saveBodyGlass = bodyGlass.save;
-
-export function applyBodyGlass(value: boolean) {
-  document.documentElement.classList.toggle("glass-body", value);
-  return value;
+/** The theme's glass.blur, already validated as an integer from 1 to 64. */
+export function applySidebarBlur(radius: number) {
+  // Tests and the browser preview have no Tauri bridge to receive this.
+  invoke("set_window_background_blur", { radius }).catch(() => {});
 }
 
 const chatBackgroundPath = defineSetting<string | null>({

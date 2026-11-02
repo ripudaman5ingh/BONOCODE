@@ -453,7 +453,7 @@ function WorkspaceModePicker({
           {pickError || loadError ? (
             <p
               role="alert"
-              className="border-t border-stroke px-2 py-2 text-[11px] text-red-400"
+              className="border-t border-stroke px-2 py-2 text-[11px] text-danger"
             >
               {pickError || loadError}
             </p>

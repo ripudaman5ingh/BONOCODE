@@ -52,14 +52,14 @@ export function LinkSessionWorkItemDialog({
               if (error) setError("");
             }}
             className={`h-9 rounded-md border bg-content/5 px-2.5 text-[13px] text-content outline-none placeholder:text-content/30 focus:border-content/30 ${
-              error ? "border-red-400/60" : "border-content/10"
+              error ? "border-danger/60" : "border-content/10"
             }`}
           />
           {error ? (
             <span
               id="linked-work-item-error"
               role="alert"
-              className="text-[11px] text-red-400"
+              className="text-[11px] text-danger"
             >
               {error}
             </span>
@@ -75,7 +75,7 @@ export function LinkSessionWorkItemDialog({
             <button
               type="button"
               onClick={() => onSave(undefined)}
-              className="mr-auto rounded-md px-3 py-1.5 text-red-400 hover:bg-red-400/10 active:scale-[0.97]"
+              className="mr-auto rounded-md px-3 py-1.5 text-danger hover:bg-danger/10 active:scale-[0.97]"
             >
               Remove link
             </button>

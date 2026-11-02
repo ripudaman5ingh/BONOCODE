@@ -6,6 +6,7 @@ import { EditorState, type Extension } from "@codemirror/state";
 import { highlightCode } from "@lezer/highlight";
 import type { UnifiedBlock, UnifiedLine } from "../../source-control/model/unifiedDiff";
 import {
+  HIGHLIGHT_COLOR_ORDER,
   languageForPath,
   syntaxTagHighlighter,
 } from "./editorLanguage";
@@ -50,7 +51,7 @@ export function highlightSource(
       if (!piece) return;
       lines[lines.length - 1]?.push({
         text: piece,
-        ...(color ? { color } : {}),
+        ...(color ? { color: editorColor(color) } : {}),
       });
     },
     () => {
@@ -126,6 +127,20 @@ function assignLineTokens(
       pieces && joinText(pieces) === line.text ? pieces : [{ text: line.text }],
     );
   }
+}
+
+/**
+ * A token matched by several rules gets every color in the class slot,
+ * joined by spaces, which is not a valid color. Keep the one the editor shows.
+ */
+function editorColor(classes: string): string {
+  return classes
+    .split(" ")
+    .reduce((shown, color) =>
+      HIGHLIGHT_COLOR_ORDER.indexOf(color) > HIGHLIGHT_COLOR_ORDER.indexOf(shown)
+        ? color
+        : shown,
+    );
 }
 
 function unstyledLines(text: string): SyntaxToken[][] {

@@ -2118,7 +2118,7 @@ export function Composer({
           ) : null}
 
           {pasteError ? (
-            <p role="alert" className="px-3 pt-2 text-xs text-red-400">
+            <p role="alert" className="px-3 pt-2 text-xs text-danger">
               {pasteError}
             </p>
           ) : null}
@@ -2261,7 +2261,7 @@ export function Composer({
                     }}
                     className="flex w-full items-start gap-2.5 rounded-lg px-2 py-2 text-left text-content hover:bg-content/10"
                   >
-                    <AiIdea className="mt-0.5 size-4 shrink-0 text-yellow-300/80" />
+                    <AiIdea className="mt-0.5 size-4 shrink-0 text-warning/80" />
                     <span className="min-w-0 flex-1">
                       <span className="block text-[13px]">Plan mode</span>
                       <span className="block truncate whitespace-nowrap text-[11px] leading-4 text-content/45">

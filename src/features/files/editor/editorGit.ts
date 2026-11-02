@@ -1079,11 +1079,11 @@ const gitTheme = EditorView.theme({
     height: "100%",
   },
   ".cm-gitAdd": {
-    backgroundColor: "#34d399",
+    backgroundColor: "var(--color-success)",
   },
   ".cm-gitInsertedLine": {
-    backgroundColor: "color-mix(in srgb, #34d399 18%, transparent)",
-    boxShadow: "inset 3px 0 0 #34d399",
+    backgroundColor: "color-mix(in srgb, var(--color-success) 18%, transparent)",
+    boxShadow: "inset 3px 0 0 var(--color-success)",
   },
   ".cm-gitDeletedChunk": {
     position: "relative",
@@ -1091,8 +1091,8 @@ const gitTheme = EditorView.theme({
   },
   ".cm-gitDeletedLine": {
     padding: "0 12px 0 6px",
-    backgroundColor: "color-mix(in srgb, #f87171 16%, transparent)",
-    boxShadow: "inset 3px 0 0 #f87171",
+    backgroundColor: "color-mix(in srgb, var(--color-danger) 16%, transparent)",
+    boxShadow: "inset 3px 0 0 var(--color-danger)",
     whiteSpace: "pre-wrap",
     overflowWrap: "anywhere",
   },
@@ -1114,15 +1114,15 @@ const gitTheme = EditorView.theme({
     pointerEvents: "auto",
   },
   ".cm-gitOverview-add": {
-    backgroundColor: "#34d399",
+    backgroundColor: "var(--color-success)",
   },
   ".cm-gitOverview-del": {
-    backgroundColor: "#f87171",
+    backgroundColor: "var(--color-danger)",
   },
   ".cm-gitOverview-mod": {
     display: "flex",
     flexDirection: "row",
-    background: "linear-gradient(to right, #f87171 0 50%, #34d399 50% 100%)",
+    background: "linear-gradient(to right, var(--color-danger) 0 50%, var(--color-success) 50% 100%)",
   },
   ".cm-gitHunkBar": {
     position: "absolute",

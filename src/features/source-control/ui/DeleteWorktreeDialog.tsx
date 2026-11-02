@@ -18,8 +18,8 @@ import {
 } from "../../../shared/ui/icons";
 
 const TONE = {
-  danger: "text-red-400",
-  warn: "text-amber-400",
+  danger: "text-danger",
+  warn: "text-warning",
   muted: "text-content/35",
 };
 
@@ -161,7 +161,7 @@ export function DeleteWorktreeDialog({
               aria-checked={deleteSessions}
               disabled={busy}
               onClick={() => setDeleteSessions(!deleteSessions)}
-              className={`relative h-5 w-9 shrink-0 rounded-full transition-colors disabled:opacity-40 ${deleteSessions ? "bg-red-500" : "bg-content/20"}`}
+              className={`relative h-5 w-9 shrink-0 rounded-full transition-colors disabled:opacity-40 ${deleteSessions ? "bg-danger" : "bg-content/20"}`}
             >
               <span
                 className={`absolute top-0.5 size-4 rounded-full bg-white transition-[left] ${deleteSessions ? "left-4.5" : "left-0.5"}`}
@@ -170,7 +170,7 @@ export function DeleteWorktreeDialog({
           </div>
         )}
         {error && (
-          <p role="alert" className="break-words text-[12.5px] text-red-400">
+          <p role="alert" className="break-words text-[12.5px] text-danger">
             {error}
           </p>
         )}
@@ -186,7 +186,7 @@ export function DeleteWorktreeDialog({
           <button
             type="submit"
             disabled={busy}
-            className="inline-flex items-center gap-1.5 rounded-md bg-red-500/20 px-3 py-1.5 font-medium text-red-400 hover:bg-red-500/30 disabled:opacity-40 disabled:hover:bg-red-500/20 active:scale-[0.97]"
+            className="inline-flex items-center gap-1.5 rounded-md bg-danger/20 px-3 py-1.5 font-medium text-danger hover:bg-danger/30 disabled:opacity-40 disabled:hover:bg-danger/20 active:scale-[0.97]"
           >
             {busy && <Loader className="size-3.5 animate-spin" />}
             {sessionCount && deleteSessions

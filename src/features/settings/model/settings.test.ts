@@ -612,10 +612,9 @@ describe("settings search", () => {
   });
 
   it("ranks label matches over keyword matches, and pages last", () => {
-    expect(searchSettings("glass").map((result) => result.label)).toEqual([
-      "Main pane glass",
-      "Blur radius",
-      "Sidebar opacity",
+    expect(searchSettings("sidebar").map((result) => result.label)).toEqual([
+      "Show archived in the sidebar",
+      "Collapsed project rail",
       "Appearance",
     ]);
   });

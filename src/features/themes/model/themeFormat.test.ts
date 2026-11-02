@@ -4,6 +4,7 @@ import bonocodeLight from "./builtin/bonocode-light.json";
 import {
   contrastRatio,
   parseTheme,
+  themeClasses,
   themeCssVars,
   themeWarnings,
   type Theme,
@@ -26,6 +27,15 @@ const DARK: Theme = {
     skill: "#e8c547",
     mention: "#38bdf8",
     heading: "#f9a8c9",
+    strong: "#ebebeb",
+    searchMatch: "#e2c08d",
+  },
+  status: {
+    danger: "#f87171",
+    success: "#34d399",
+    warning: "#fbbf24",
+    info: "#38bdf8",
+    merged: "#a78bfa",
   },
   // HIGHLIGHT_PALETTE.dark from editorLanguage.ts before themes owned it.
   syntax: {
@@ -59,7 +69,8 @@ const DARK: Theme = {
     brightWhite: "#f8fafc",
   },
   selection: { subtle: 8, base: 10, strong: 12, hover: 15, emphasis: 20 },
-  fonts: { sans: SANS, mono: MONO },
+  fonts: { sans: SANS, mono: MONO, codeSize: 13 },
+  glass: { sidebarOpacity: 0.85, paneOpacity: 0.85, blur: 24 },
 };
 
 const LIGHT: Theme = {
@@ -74,6 +85,15 @@ const LIGHT: Theme = {
     skill: "#a07c10",
     mention: "#0284c7",
     heading: "#be185d",
+    strong: "#2e2e2e",
+    searchMatch: "#e2c08d",
+  },
+  status: {
+    danger: "#dc2626",
+    success: "#059669",
+    warning: "#b45309",
+    info: "#0284c7",
+    merged: "#7c3aed",
   },
   // HIGHLIGHT_PALETTE.light from editorLanguage.ts.
   syntax: {
@@ -107,7 +127,8 @@ const LIGHT: Theme = {
     brightWhite: "#ffffff",
   },
   selection: { subtle: 5, base: 6, strong: 7, hover: 10, emphasis: 14 },
-  fonts: { sans: SANS, mono: MONO },
+  fonts: { sans: SANS, mono: MONO, codeSize: 13 },
+  glass: { sidebarOpacity: 0.85, paneOpacity: 0.85, blur: 24 },
 };
 
 function parsed(value: unknown): Theme {
@@ -154,10 +175,12 @@ describe("parseTheme", () => {
       "name",
       "scheme",
       "colors",
+      "status",
       "syntax",
       "terminal",
       "selection",
       "fonts",
+      "glass",
     ]) {
       const value: Record<string, unknown> = structuredClone(DARK);
       delete value[key];
@@ -180,6 +203,17 @@ describe("parseTheme", () => {
     expect(
       errorsFor(withField("colors", { ...DARK.colors, userAccent: "blue" })),
     ).toEqual(["colors.userAccent must be a #rrggbb color"]);
+  });
+
+  it("rejects a missing or non-hex status color", () => {
+    const noMerged: Record<string, unknown> = { ...DARK.status };
+    delete noMerged.merged;
+    expect(errorsFor(withField("status", noMerged))).toEqual([
+      "status.merged must be a #rrggbb color",
+    ]);
+    expect(
+      errorsFor(withField("status", { ...DARK.status, danger: "red" })),
+    ).toEqual(["status.danger must be a #rrggbb color"]);
   });
 
   it("rejects a missing or non-hex syntax or terminal color", () => {
@@ -232,12 +266,49 @@ describe("parseTheme", () => {
   });
 
   it("rejects empty fonts", () => {
-    expect(errorsFor(withField("fonts", { sans: "", mono: MONO }))).toEqual([
+    const fonts = DARK.fonts;
+    expect(errorsFor(withField("fonts", { ...fonts, sans: "" }))).toEqual([
       "fonts.sans must be a non-empty font-family list",
     ]);
-    expect(errorsFor(withField("fonts", { sans: SANS, mono: "   " }))).toEqual([
+    expect(errorsFor(withField("fonts", { ...fonts, mono: "   " }))).toEqual([
       "fonts.mono must be a non-empty font-family list",
     ]);
+  });
+
+  it("rejects a code size that is not a whole number from 10 to 24", () => {
+    for (const codeSize of [9, 25, 13.5, "13", undefined]) {
+      expect(
+        errorsFor(withField("fonts", { ...DARK.fonts, codeSize })),
+        String(codeSize),
+      ).toEqual(["fonts.codeSize must be a whole number from 10 to 24"]);
+    }
+    for (const codeSize of [10, 24]) {
+      expect(parsed(withField("fonts", { ...DARK.fonts, codeSize })).fonts)
+        .toMatchObject({ codeSize });
+    }
+  });
+
+  it("rejects glass outside its ranges", () => {
+    for (const value of [0.1, 1.5, "0.5", undefined]) {
+      expect(
+        errorsFor(withField("glass", { ...DARK.glass, paneOpacity: value })),
+        String(value),
+      ).toEqual(["glass.paneOpacity must be a number from 0.15 to 1"]);
+      expect(
+        errorsFor(withField("glass", { ...DARK.glass, sidebarOpacity: value })),
+        String(value),
+      ).toEqual(["glass.sidebarOpacity must be a number from 0.15 to 1"]);
+    }
+    for (const blur of [0, 65, 2.5]) {
+      expect(
+        errorsFor(withField("glass", { ...DARK.glass, blur })),
+        String(blur),
+      ).toEqual(["glass.blur must be a whole number from 1 to 64"]);
+    }
+    expect(
+      parsed(withField("glass", { sidebarOpacity: 0.15, paneOpacity: 1, blur: 64 }))
+        .glass,
+    ).toEqual({ sidebarOpacity: 0.15, paneOpacity: 1, blur: 64 });
   });
 
   it("lowercases uppercase hex", () => {
@@ -271,6 +342,14 @@ describe("themeCssVars", () => {
       "--color-skill": "#e8c547",
       "--color-mention": "#38bdf8",
       "--color-markdown-heading": "#f9a8c9",
+      "--color-strong": "#ebebeb",
+      "--color-search-match": "#e2c08d",
+      "--color-danger": "#f87171",
+      "--color-success": "#34d399",
+      "--color-warning": "#fbbf24",
+      "--color-info": "#38bdf8",
+      "--color-merged": "#a78bfa",
+      "--color-warning-foreground": "#000000",
       "--syntax-keyword": "#ff8ffd",
       "--syntax-callable": "#a5d5fe",
       "--syntax-string": "#b4fa72",
@@ -303,6 +382,9 @@ describe("themeCssVars", () => {
       "--selection-emphasis-strength": "20%",
       "--font-sans": SANS,
       "--font-mono": MONO,
+      "--font-code-size": "13px",
+      "--sidebar-opacity": "0.85",
+      "--pane-opacity": "0.85",
       "--user-accent-color": "#ffffff",
       "--user-accent-foreground": "#000000",
     });
@@ -321,6 +403,27 @@ describe("themeCssVars", () => {
     });
     expect(vars["--user-accent-foreground"]).toBe("#ffffff");
   });
+
+  it("puts white text on a dark warning color", () => {
+    const vars = themeCssVars({
+      ...DARK,
+      status: { ...DARK.status, warning: "#78350f" },
+    });
+    expect(vars["--color-warning-foreground"]).toBe("#ffffff");
+  });
+});
+
+describe("themeClasses", () => {
+  it("turns on main pane glass and the user accent only when the theme has them", () => {
+    expect(themeClasses(DARK)).toEqual(["glass-body"]);
+    expect(
+      themeClasses({
+        ...DARK,
+        colors: { ...DARK.colors, userAccent: "#ec4899" },
+        glass: { ...DARK.glass, paneOpacity: 1 },
+      }),
+    ).toEqual(["has-user-accent"]);
+  });
 });
 
 describe("contrast", () => {
@@ -328,6 +431,12 @@ describe("contrast", () => {
     expect(contrastRatio("#000000", "#ffffff")).toBe(21);
     expect(contrastRatio("#ffffff", "#000000")).toBe(21);
     expect(contrastRatio("#777777", "#777777")).toBe(1);
+  });
+
+  it("warns on low-contrast bold text", () => {
+    expect(
+      themeWarnings({ ...DARK, colors: { ...DARK.colors, strong: "#777777" } }),
+    ).toEqual(["strong on background has contrast 4.00, below 4.5"]);
   });
 
   it("warns on low-contrast foreground and accent", () => {
@@ -338,6 +447,16 @@ describe("contrast", () => {
     expect(warnings).toHaveLength(2);
     expect(warnings[0]).toMatch(/^foreground on background/);
     expect(warnings[1]).toMatch(/^accent on background/);
+  });
+
+  it("warns on low-contrast status colors", () => {
+    const warnings = themeWarnings({
+      ...DARK,
+      status: { ...DARK.status, merged: "#333333" },
+    });
+    expect(warnings).toEqual([
+      "status merged on background has contrast 1.42, below 3",
+    ]);
   });
 
   it("warns on low-contrast syntax colors but never terminal colors", () => {
