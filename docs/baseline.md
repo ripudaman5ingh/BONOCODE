@@ -31,4 +31,6 @@ MonoCode v0.6.0 was the planned baseline, but the saved builds were lost. 0.6.1 
     gh release download v0.6.1 -p '*.dmg' -D ~/Downloads
     npm run bench:fixture
     npm run bench -- --app <path>/Bonocode.app --runs 3
-    npm run bench -- --app <path>/Bonocode.app --runs 3 --fixture bench-fixtures/thesults are in `bench-results/` (gitignored).
+    npm run bench -- --app <path>/Bonocode.app --runs 3 --fixture bench-fixtures/three-chats
+
+Raw results are in `bench-results/` (gitignored).
