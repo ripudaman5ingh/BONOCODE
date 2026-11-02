@@ -11,6 +11,13 @@
     "mention": "#38bdf8",
     "heading": "#f9a8c9"
   },
+  "status": {
+    "danger": "#f87171",
+    "success": "#34d399",
+    "warning": "#fbbf24",
+    "info": "#38bdf8",
+    "merged": "#a78bfa"
+  },
   "syntax": {
     "keyword": "#ff8ffd",
     "callable": "#a5d5fe",

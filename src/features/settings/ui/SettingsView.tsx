@@ -1104,7 +1104,7 @@ function GithubSettings() {
         </SecondaryButton>
       </Row>
       {error ? (
-        <p className="border-b border-content/5 px-4 pb-3 text-[12px] text-red-400/90 last:border-b-0">
+        <p className="border-b border-content/5 px-4 pb-3 text-[12px] text-danger/90 last:border-b-0">
           {error}
         </p>
       ) : null}
@@ -1603,7 +1603,7 @@ function ChatBackgroundCard({
           </div>
         ) : null}
         {appearance.chatBackgroundError ? (
-          <p className="mt-2 text-[12px] text-red-400">
+          <p className="mt-2 text-[12px] text-danger">
             {appearance.chatBackgroundError}
           </p>
         ) : null}
@@ -1848,7 +1848,7 @@ function ShortcutEditor({
       {error ? (
         <p
           role="alert"
-          className="absolute top-full left-0 z-40 mt-1.5 w-max max-w-64 rounded-md border border-content/10 bg-background-base/95 px-2 py-1 text-[11px] whitespace-nowrap text-red-400 shadow-lg"
+          className="absolute top-full left-0 z-40 mt-1.5 w-max max-w-64 rounded-md border border-content/10 bg-background-base/95 px-2 py-1 text-[11px] whitespace-nowrap text-danger shadow-lg"
         >
           {error}
         </p>
@@ -2105,7 +2105,7 @@ function ProviderBinaryControl({
           setEditing(false);
         }}
         className={`grid size-6 place-items-center rounded hover:bg-content/10 focus-visible:outline-2 focus-visible:outline-accent ${
-          restartRequired ? "text-amber-300" : "text-content/35 hover:text-content"
+          restartRequired ? "text-warning" : "text-content/35 hover:text-content"
         }`}
       >
         <FolderOpen className="size-3.5" strokeWidth={1.75} />
@@ -2187,7 +2187,7 @@ function ProviderBinaryControl({
               {error ? (
                 <span
                   role="alert"
-                  className="mt-1.5 block text-[11px] text-red-400"
+                  className="mt-1.5 block text-[11px] text-danger"
                 >
                   {error}
                 </span>
@@ -2232,7 +2232,7 @@ function ProviderBinaryControl({
                  <span
                    role="alert"
                    title={error}
-                   className="mt-1.5 block max-h-20 overflow-y-auto whitespace-pre-wrap break-words text-[10px] leading-4 text-red-400"
+                   className="mt-1.5 block max-h-20 overflow-y-auto whitespace-pre-wrap break-words text-[10px] leading-4 text-danger"
                  >
                    {error}
                  </span>
@@ -2240,7 +2240,7 @@ function ProviderBinaryControl({
                {revealError ? (
                  <span
                    role="alert"
-                   className="mt-1.5 block max-h-20 overflow-y-auto whitespace-pre-wrap break-words text-[10px] leading-4 text-red-400"
+                   className="mt-1.5 block max-h-20 overflow-y-auto whitespace-pre-wrap break-words text-[10px] leading-4 text-danger"
                  >
                    Could not open the CLI location: {revealError}
                  </span>
@@ -2729,7 +2729,7 @@ function ProviderAccountsSettings() {
                           aria-label={`Remove ${account.label}`}
                           title="Remove account"
                           onClick={() => void removeAccount(account)}
-                          className="grid size-7 place-items-center rounded-md text-content/35 transition-transform duration-150 hover:bg-red-400/10 hover:text-red-400 active:scale-[0.96] disabled:opacity-35"
+                          className="grid size-7 place-items-center rounded-md text-content/35 transition-transform duration-150 hover:bg-danger/10 hover:text-danger active:scale-[0.96] disabled:opacity-35"
                         >
                           {removing ? (
                             <Loader className="size-3.5 animate-spin" />
@@ -2761,7 +2761,7 @@ function ProviderAccountsSettings() {
       })}
       {error ? (
         <p
-          className="border-t border-content/5 px-4 py-2.5 text-[11px] leading-4 text-red-400"
+          className="border-t border-content/5 px-4 py-2.5 text-[11px] leading-4 text-danger"
           role="alert"
         >
           {error}

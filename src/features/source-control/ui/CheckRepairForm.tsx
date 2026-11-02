@@ -272,7 +272,7 @@ export function CheckRepairForm({
       {error ? (
         <p
           role="alert"
-          className="px-3.5 pb-3 text-[12px] leading-4 text-rose-400"
+          className="px-3.5 pb-3 text-[12px] leading-4 text-danger"
         >
           {error}
         </p>

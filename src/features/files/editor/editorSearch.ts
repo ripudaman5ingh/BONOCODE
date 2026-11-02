@@ -763,7 +763,7 @@ const findTheme = EditorView.theme(
         "color-mix(in srgb, var(--color-content) 6%, transparent)",
     },
     ".cm-find.is-empty .cm-find-search, .cm-find.is-invalid .cm-find-search": {
-      borderColor: "color-mix(in srgb, #f87171 55%, transparent)",
+      borderColor: "color-mix(in srgb, var(--color-danger) 55%, transparent)",
     },
     ".cm-find input": {
       minWidth: "0",
@@ -794,7 +794,7 @@ const findTheme = EditorView.theme(
       whiteSpace: "nowrap",
     },
     ".cm-find-count[data-state=empty], .cm-find-count[data-state=invalid]": {
-      color: "#f87171",
+      color: "var(--color-danger)",
     },
     ".cm-find-toggles, .cm-find-nav, .cm-find-replace-actions": {
       display: "flex",

@@ -107,7 +107,7 @@ export function AccessPicker({
         }`}
       >
         <Icon
-          className={`size-3.5 shrink-0 ${value === "full-access" ? "text-amber-400/90" : ""}`}
+          className={`size-3.5 shrink-0 ${value === "full-access" ? "text-warning/90" : ""}`}
           strokeWidth={1.75}
         />
         <span className="min-w-0 truncate text-[11px]">
@@ -152,7 +152,7 @@ export function AccessPicker({
                 }`}
               >
                 <ModeIcon
-                  className={`mt-0.5 size-3.5 shrink-0 ${mode === "full-access" ? "text-amber-400/90" : "text-content/70"}`}
+                  className={`mt-0.5 size-3.5 shrink-0 ${mode === "full-access" ? "text-warning/90" : "text-content/70"}`}
                   strokeWidth={1.75}
                 />
                 <span className="min-w-0">

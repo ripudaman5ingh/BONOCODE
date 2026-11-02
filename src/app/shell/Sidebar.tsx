@@ -2393,11 +2393,11 @@ function FolderRow({
       </span>
       <span className="relative flex shrink-0 items-center gap-1 text-[11px] tabular-nums text-content/45">
         {!expanded && needsApproval ? (
-          <CircleAlert className="size-3 text-amber-400" strokeWidth={1.75} />
+          <CircleAlert className="size-3 text-warning" strokeWidth={1.75} />
         ) : !expanded && busy ? (
           <TerminalSpinner className="inline-block w-3 select-none text-center text-[11px] leading-none text-accent" />
         ) : !expanded && done ? (
-          <Check className="size-3 text-emerald-400" strokeWidth={2.25} />
+          <Check className="size-3 text-success" strokeWidth={2.25} />
         ) : null}
         <span>{count}</span>
       </span>
@@ -2544,11 +2544,11 @@ const SessionCard = memo(function SessionCard({
   const time = formatRelative(session.updatedAt, now);
   const model = compact ? null : resolveModel(session.harness, session.model).name;
   const statusClass = needsApproval
-    ? "text-amber-400"
+    ? "text-warning"
     : busy
       ? "text-accent"
       : done
-        ? "text-emerald-400"
+        ? "text-success"
         : draft
           ? "text-content/55"
           : "text-content/45";
@@ -2968,7 +2968,7 @@ function SessionRenameRow({
     <div
       className={`flex w-full flex-col rounded-md px-2.5 py-2 ${
         needsApproval
-          ? "bg-amber-400/10 text-content"
+          ? "bg-warning/10 text-content"
           : isActive
             ? "bg-selection text-content"
             : "text-content/80"
@@ -3008,12 +3008,12 @@ function DiffStat({
       className="flex shrink-0 items-center gap-1.5 font-sans text-[11px] font-semibold tabular-nums"
     >
       {additions > 0 ? (
-        <span className="text-emerald-400">
+        <span className="text-success">
           +<TightDiffNumber value={additions} />
         </span>
       ) : null}
       {deletions > 0 ? (
-        <span className="text-red-400">
+        <span className="text-danger">
           -<TightDiffNumber value={deletions} />
         </span>
       ) : null}

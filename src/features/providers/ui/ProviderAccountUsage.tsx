@@ -14,17 +14,17 @@ import type {
 import { RefreshCw } from "../../../shared/ui/icons";
 
 const STATUS_DOT: Record<AccountStatusTone, string> = {
-  ready: "bg-emerald-400",
-  low: "bg-amber-400",
-  exhausted: "bg-red-400",
+  ready: "bg-success",
+  low: "bg-warning",
+  exhausted: "bg-danger",
   checking: "animate-pulse bg-content/25",
   unknown: "bg-content/25",
 };
 
 const STATUS_TEXT: Record<AccountStatusTone, string> = {
   ready: "text-content/60",
-  low: "text-amber-400/90",
-  exhausted: "text-red-400/90",
+  low: "text-warning/90",
+  exhausted: "text-danger/90",
   checking: "text-content/35",
   unknown: "text-content/35",
 };
@@ -165,7 +165,7 @@ export function UsageMeter({
           {title} · <span className="tabular-nums">{reset}</span>
         </span>
         <span
-          className={`shrink-0 tabular-nums ${full ? "font-medium text-red-400" : "text-content/60"}`}
+          className={`shrink-0 tabular-nums ${full ? "font-medium text-danger" : "text-content/60"}`}
         >
           {formatUsagePercent(remaining)} left
         </span>
@@ -198,7 +198,7 @@ function MeterSkeleton() {
 
 /** Bar colour by percent used; shared with the footer usage chip. */
 export function barClass(pct: number): string {
-  if (pct >= 90) return "bg-red-400";
-  if (pct >= 80) return "bg-amber-400";
+  if (pct >= 90) return "bg-danger";
+  if (pct >= 80) return "bg-warning";
   return "bg-content/45";
 }

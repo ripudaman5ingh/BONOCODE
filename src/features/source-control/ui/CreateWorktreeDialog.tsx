@@ -153,7 +153,7 @@ export function CreateWorktreeDialog({
           </p>
         )}
         {error && (
-          <p role="alert" className="text-[12px] text-red-400">
+          <p role="alert" className="text-[12px] text-danger">
             {error}
           </p>
         )}

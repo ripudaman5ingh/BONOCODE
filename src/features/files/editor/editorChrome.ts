@@ -5,10 +5,7 @@ import { cspStyleNonce } from "../../../shared/lib/csp";
 import type { ColorScheme } from "../../settings/model/appearance";
 import { editorHighlightStyleFor } from "./editorLanguage";
 
-export {
-  editorHighlightStyleFor,
-  languageForPath,
-} from "./editorLanguage";
+export { languageForPath } from "./editorLanguage";
 
 function editorThemeStyles(dark: boolean) {
   return EditorView.theme(

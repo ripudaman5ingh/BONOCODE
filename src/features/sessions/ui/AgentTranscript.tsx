@@ -2428,7 +2428,7 @@ function SubagentPanel({
         <span
           className={`min-w-0 flex-1 truncate font-sans text-sm transition-colors duration-200 ${
             state === "rejected"
-              ? "text-red-400"
+              ? "text-danger"
               : "text-content/75 group-hover:text-content"
           }`}
         >
@@ -2507,7 +2507,7 @@ function SubagentPanel({
             {report ? (
               <div className="zen-phase-step py-1">
                 {failed ? (
-                  <pre className="min-w-0 whitespace-pre-wrap break-words font-mono text-[12px] leading-5 text-red-400/80">
+                  <pre className="min-w-0 whitespace-pre-wrap break-words font-mono text-[12px] leading-5 text-danger/80">
                     {report}
                   </pre>
                 ) : (
@@ -2546,7 +2546,7 @@ function SubagentMascot({
       active={active}
       className={`size-3.5 shrink-0 ${
         state === "rejected"
-          ? "text-red-400"
+          ? "text-danger"
           : state === "pending"
             ? "text-content/70"
             : "text-content/45"
@@ -2982,7 +2982,7 @@ function ActivityToolRow({
             className="-m-1 shrink-0 rounded p-1"
           >
             <ChevronRight
-              className={`size-3.5 text-red-400/60 transition-transform ${errorOpen ? "rotate-90" : ""}`}
+              className={`size-3.5 text-danger/60 transition-transform ${errorOpen ? "rotate-90" : ""}`}
               strokeWidth={1.75}
             />
           </button>
@@ -3002,7 +3002,7 @@ function ActivityToolRow({
       ) : null}
       {errorOpen && errorDetail ? (
         <pre
-          className={`min-w-0 whitespace-pre-wrap break-words py-1 font-mono text-[12px] leading-5 text-red-400/80 ${bare ? "" : "pl-5"}`}
+          className={`min-w-0 whitespace-pre-wrap break-words py-1 font-mono text-[12px] leading-5 text-danger/80 ${bare ? "" : "pl-5"}`}
         >
           {errorDetail}
         </pre>
@@ -3035,7 +3035,7 @@ function ActivityToolIcon({
 /** Failure stays marked. Running and success do not get a trailing icon. */
 function ToolCallStatusIcon({ state }: { state: ToolCallState }) {
   if (state === "rejected") {
-    return <X className="size-3.5 shrink-0 text-red-400" strokeWidth={2} />;
+    return <X className="size-3.5 shrink-0 text-danger" strokeWidth={2} />;
   }
   return null;
 }
@@ -3251,7 +3251,7 @@ function ToolCallSummary({
     return (
       <span
         className={`min-w-0 flex-1 truncate font-mono text-[13px] ${
-          failed ? "text-red-400" : chip ? "text-content/65" : "text-content/80"
+          failed ? "text-danger" : chip ? "text-content/65" : "text-content/80"
         }`}
         title={label}
       >
@@ -3270,9 +3270,9 @@ function ToolCallSummary({
     previewMatchesFile &&
     (preview.contentOnly ||
       preview.lines?.some((line) => line.kind !== "context"));
-  const actionTone = failed ? "text-red-400" : "text-content/50";
+  const actionTone = failed ? "text-danger" : "text-content/50";
   const targetTone = failed
-    ? "text-red-400"
+    ? "text-danger"
     : chip
       ? "text-content/70"
       : "text-content/85";
@@ -3291,7 +3291,7 @@ function ToolCallSummary({
             cwd={cwd}
             onOpen={openFile && filePath ? () => openFile(filePath) : undefined}
             onOpenFile={onOpenFile}
-            className={`-my-0.5 flex min-w-0 cursor-pointer items-center gap-1 rounded px-1 py-0.5 text-left hover:text-sky-300 ${
+            className={`-my-0.5 flex min-w-0 cursor-pointer items-center gap-1 rounded px-1 py-0.5 text-left hover:text-info ${
               chip
                 ? `max-w-full bg-content/6 hover:bg-content/10 ${targetTone}`
                 : `flex-1 hover:bg-content/6 ${targetTone}`
@@ -3303,7 +3303,7 @@ function ToolCallSummary({
         ) : canOpen ? (
           <button
             type="button"
-            className={`-my-0.5 flex min-w-0 cursor-pointer items-center gap-1 rounded px-1 py-0.5 text-left hover:text-sky-300 ${
+            className={`-my-0.5 flex min-w-0 cursor-pointer items-center gap-1 rounded px-1 py-0.5 text-left hover:text-info ${
               chip
                 ? `max-w-full bg-content/6 hover:bg-content/10 ${targetTone}`
                 : `flex-1 hover:underline ${targetTone}`
@@ -3344,7 +3344,7 @@ function ToolCallSummary({
 
 function ToolCallIcon({ state }: { state: ToolCallState }) {
   if (state === "rejected") {
-    return <X className="size-3.5 shrink-0 text-red-400" strokeWidth={2} />;
+    return <X className="size-3.5 shrink-0 text-danger" strokeWidth={2} />;
   }
   if (state === "pending") {
     return (
@@ -3445,9 +3445,9 @@ function interjectionChrome(meta: InterjectionMeta): {
           : undefined;
   const severityClass =
     meta.severity === "blocker"
-      ? "text-red-400"
+      ? "text-danger"
       : meta.severity === "concern"
-        ? "text-amber-400"
+        ? "text-warning"
         : "text-content/55";
   return { label, severityText, severityClass };
 }

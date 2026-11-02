@@ -84,7 +84,7 @@ export function NotificationMuteControl({ projectIds, onChanged }: Props) {
         <ChevronDown className="size-3 text-content/40" aria-hidden="true" />
       </SecondaryButton>
       {error ? (
-        <p role="alert" className="w-full text-xs text-red-400">
+        <p role="alert" className="w-full text-xs text-danger">
           {error}
         </p>
       ) : null}

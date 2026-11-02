@@ -28,6 +28,17 @@ describe("highlightSource", () => {
     expect(token(lines[1], "// note")?.color).toBe(COMMENT);
   });
 
+  it("gives a token matched by several rules the color the editor shows", async () => {
+    // The heading's color is inherited by its "#" mark, which is also meta;
+    // meta comes later in the HighlightStyle, so the editor shows meta.
+    const language = await languageForPath("notes.md");
+    const lines = highlightSource("# Title", language);
+    expect(token(lines[0], "#")?.color).toBe("var(--syntax-meta)");
+    expect(token(lines[0], "Title")?.color).toBe(
+      "var(--color-markdown-heading)",
+    );
+  });
+
   it("leaves unknown languages unstyled", () => {
     const lines = highlightSource("plain text", null);
     expect(lines).toEqual([[{ text: "plain text" }]]);

@@ -232,7 +232,7 @@ function TabHarnesses({
               <TerminalSpinner className="inline-block w-3.5 select-none text-center text-[11px] leading-none text-accent" />
             ) : status === "done" ? (
               <CheckCircle
-                className="size-3.5 shrink-0 text-teal-400"
+                className="size-3.5 shrink-0 text-success"
                 strokeWidth={2}
               />
             ) : (

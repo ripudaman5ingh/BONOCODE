@@ -337,13 +337,13 @@ const scrollbarTheme = EditorView.theme({
     pointerEvents: "auto",
   },
   ".cm-editorScrollbar-error": {
-    backgroundColor: "#f87171",
+    backgroundColor: "var(--color-danger)",
   },
   ".cm-editorScrollbar-warning": {
-    backgroundColor: "#fbbf24",
+    backgroundColor: "var(--color-warning)",
   },
   ".cm-editorScrollbar-info": {
-    backgroundColor: "#60a5fa",
+    backgroundColor: "var(--color-info)",
   },
   ".cm-editorScrollbar-hint": {
     backgroundColor:

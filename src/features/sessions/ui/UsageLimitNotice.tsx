@@ -28,8 +28,8 @@ export function UsageLimitNotice({
 
   return (
     <div className="px-2 text-content/55" data-usage-limit>
-      <div className="relative z-0 flex h-8 items-center gap-2 rounded-t-[10px] border border-b-0 border-amber-400/25 bg-amber-400/10 px-2 text-[12px]">
-        <Gauge className="size-3.5 shrink-0 text-amber-400" />
+      <div className="relative z-0 flex h-8 items-center gap-2 rounded-t-[10px] border border-b-0 border-warning/25 bg-warning/10 px-2 text-[12px]">
+        <Gauge className="size-3.5 shrink-0 text-warning" />
         <span className="shrink-0 text-content/85">Usage limit reached</span>
         <span className="min-w-0 flex-1 truncate">
           {limit.resetsAt == null
@@ -48,7 +48,7 @@ export function UsageLimitNotice({
             type="button"
             title="Cancel the automatic resume"
             onClick={() => onResumeAtReset?.(false)}
-            className={`${BUTTON} text-amber-400`}
+            className={`${BUTTON} text-warning`}
           >
             <Clock className="size-3.5" />
             Resuming at reset

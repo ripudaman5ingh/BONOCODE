@@ -66,7 +66,7 @@ function TaskState({ status }: { status: TaskListItemStatus }) {
     return (
       <span
         aria-label="Completed"
-        className="mt-px grid size-4 shrink-0 place-items-center rounded-full bg-emerald-400/20 text-emerald-300"
+        className="mt-px grid size-4 shrink-0 place-items-center rounded-full bg-success/20 text-success"
       >
         <Check className="size-2.5" strokeWidth={2.5} />
       </span>
@@ -76,7 +76,7 @@ function TaskState({ status }: { status: TaskListItemStatus }) {
     return (
       <span
         aria-label="In progress"
-        className="mt-px grid size-4 shrink-0 place-items-center text-sky-300"
+        className="mt-px grid size-4 shrink-0 place-items-center text-info"
       >
         <Loader
           className="size-4 motion-safe:animate-spin"

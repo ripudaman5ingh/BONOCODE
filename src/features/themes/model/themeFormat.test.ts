@@ -27,6 +27,13 @@ const DARK: Theme = {
     mention: "#38bdf8",
     heading: "#f9a8c9",
   },
+  status: {
+    danger: "#f87171",
+    success: "#34d399",
+    warning: "#fbbf24",
+    info: "#38bdf8",
+    merged: "#a78bfa",
+  },
   // HIGHLIGHT_PALETTE.dark from editorLanguage.ts before themes owned it.
   syntax: {
     keyword: "#ff8ffd",
@@ -74,6 +81,13 @@ const LIGHT: Theme = {
     skill: "#a07c10",
     mention: "#0284c7",
     heading: "#be185d",
+  },
+  status: {
+    danger: "#dc2626",
+    success: "#059669",
+    warning: "#b45309",
+    info: "#0284c7",
+    merged: "#7c3aed",
   },
   // HIGHLIGHT_PALETTE.light from editorLanguage.ts.
   syntax: {
@@ -154,6 +168,7 @@ describe("parseTheme", () => {
       "name",
       "scheme",
       "colors",
+      "status",
       "syntax",
       "terminal",
       "selection",
@@ -180,6 +195,17 @@ describe("parseTheme", () => {
     expect(
       errorsFor(withField("colors", { ...DARK.colors, userAccent: "blue" })),
     ).toEqual(["colors.userAccent must be a #rrggbb color"]);
+  });
+
+  it("rejects a missing or non-hex status color", () => {
+    const noMerged: Record<string, unknown> = { ...DARK.status };
+    delete noMerged.merged;
+    expect(errorsFor(withField("status", noMerged))).toEqual([
+      "status.merged must be a #rrggbb color",
+    ]);
+    expect(
+      errorsFor(withField("status", { ...DARK.status, danger: "red" })),
+    ).toEqual(["status.danger must be a #rrggbb color"]);
   });
 
   it("rejects a missing or non-hex syntax or terminal color", () => {
@@ -271,6 +297,12 @@ describe("themeCssVars", () => {
       "--color-skill": "#e8c547",
       "--color-mention": "#38bdf8",
       "--color-markdown-heading": "#f9a8c9",
+      "--color-danger": "#f87171",
+      "--color-success": "#34d399",
+      "--color-warning": "#fbbf24",
+      "--color-info": "#38bdf8",
+      "--color-merged": "#a78bfa",
+      "--color-warning-foreground": "#000000",
       "--syntax-keyword": "#ff8ffd",
       "--syntax-callable": "#a5d5fe",
       "--syntax-string": "#b4fa72",
@@ -321,6 +353,14 @@ describe("themeCssVars", () => {
     });
     expect(vars["--user-accent-foreground"]).toBe("#ffffff");
   });
+
+  it("puts white text on a dark warning color", () => {
+    const vars = themeCssVars({
+      ...DARK,
+      status: { ...DARK.status, warning: "#78350f" },
+    });
+    expect(vars["--color-warning-foreground"]).toBe("#ffffff");
+  });
 });
 
 describe("contrast", () => {
@@ -338,6 +378,16 @@ describe("contrast", () => {
     expect(warnings).toHaveLength(2);
     expect(warnings[0]).toMatch(/^foreground on background/);
     expect(warnings[1]).toMatch(/^accent on background/);
+  });
+
+  it("warns on low-contrast status colors", () => {
+    const warnings = themeWarnings({
+      ...DARK,
+      status: { ...DARK.status, merged: "#333333" },
+    });
+    expect(warnings).toEqual([
+      "status merged on background has contrast 1.42, below 3",
+    ]);
   });
 
   it("warns on low-contrast syntax colors but never terminal colors", () => {

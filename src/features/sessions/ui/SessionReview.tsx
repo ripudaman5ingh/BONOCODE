@@ -138,10 +138,10 @@ export function SessionReview({
               Changed {files.length} {files.length === 1 ? "file" : "files"}
             </div>
             <div className="flex items-center gap-1.5 font-sans text-[11px] font-semibold tabular-nums -mt-0.5">
-              <span className="text-emerald-400">
+              <span className="text-success">
                 +{formatInteger(totals.additions)}
               </span>
-              <span className="text-red-400">
+              <span className="text-danger">
                 -{formatInteger(totals.deletions)}
               </span>
             </div>
@@ -255,15 +255,15 @@ function FileRow({
 function DiffCounts({ file }: { file: CheckpointFile }) {
   if (!file.exact) {
     return (
-      <span className="shrink-0 text-[11px] font-medium text-amber-300/80">
+      <span className="shrink-0 text-[11px] font-medium text-warning/80">
         Mixed changes
       </span>
     );
   }
   return (
     <span className="flex shrink-0 gap-2 font-sans text-[11px] font-semibold tabular-nums">
-      <span className="text-emerald-400">+{formatInteger(file.additions)}</span>
-      <span className="text-red-400">-{formatInteger(file.deletions)}</span>
+      <span className="text-success">+{formatInteger(file.additions)}</span>
+      <span className="text-danger">-{formatInteger(file.deletions)}</span>
     </span>
   );
 }

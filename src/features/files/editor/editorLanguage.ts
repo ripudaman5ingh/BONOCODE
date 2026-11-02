@@ -61,49 +61,37 @@ const HIGHLIGHT_TAGS = {
 
 // Theme variables, so the editor and diffs follow the active theme without
 // rebuilding their styles.
-const HIGHLIGHT_PALETTE = {
-  keyword: "var(--syntax-keyword)",
-  heading: "var(--color-markdown-heading)",
-  callable: "var(--syntax-callable)",
-  string: "var(--syntax-string)",
-  type: "var(--syntax-type)",
-  number: "var(--syntax-number)",
-  comment: "var(--syntax-comment)",
-  property: "var(--syntax-property)",
-  meta: "var(--syntax-meta)",
-  invalid: "var(--syntax-invalid)",
-};
-
-const HIGHLIGHT_STYLE = HighlightStyle.define([
-  { tag: HIGHLIGHT_TAGS.keyword, color: HIGHLIGHT_PALETTE.keyword },
-  { tag: HIGHLIGHT_TAGS.heading, color: HIGHLIGHT_PALETTE.heading },
-  { tag: HIGHLIGHT_TAGS.callable, color: HIGHLIGHT_PALETTE.callable },
-  { tag: HIGHLIGHT_TAGS.string, color: HIGHLIGHT_PALETTE.string },
-  { tag: HIGHLIGHT_TAGS.type, color: HIGHLIGHT_PALETTE.type },
-  { tag: HIGHLIGHT_TAGS.number, color: HIGHLIGHT_PALETTE.number },
-  { tag: HIGHLIGHT_TAGS.comment, color: HIGHLIGHT_PALETTE.comment },
-  { tag: HIGHLIGHT_TAGS.property, color: HIGHLIGHT_PALETTE.property },
-  { tag: HIGHLIGHT_TAGS.meta, color: HIGHLIGHT_PALETTE.meta },
+const HIGHLIGHT_RULES = [
+  { tag: HIGHLIGHT_TAGS.keyword, color: "var(--syntax-keyword)" },
+  { tag: HIGHLIGHT_TAGS.heading, color: "var(--color-markdown-heading)" },
+  { tag: HIGHLIGHT_TAGS.callable, color: "var(--syntax-callable)" },
+  { tag: HIGHLIGHT_TAGS.string, color: "var(--syntax-string)" },
+  { tag: HIGHLIGHT_TAGS.type, color: "var(--syntax-type)" },
+  { tag: HIGHLIGHT_TAGS.number, color: "var(--syntax-number)" },
+  { tag: HIGHLIGHT_TAGS.comment, color: "var(--syntax-comment)" },
+  { tag: HIGHLIGHT_TAGS.property, color: "var(--syntax-property)" },
+  { tag: HIGHLIGHT_TAGS.meta, color: "var(--syntax-meta)" },
   {
     tag: tags.invalid,
-    color: HIGHLIGHT_PALETTE.invalid,
+    color: "var(--syntax-invalid)",
     textDecoration: "underline",
   },
-]);
+];
+
+const HIGHLIGHT_STYLE = HighlightStyle.define(HIGHLIGHT_RULES);
 
 /** Same tag → color map as the editor, for highlighting outside CodeMirror. */
-const SYNTAX_TAG_HIGHLIGHTER = tagHighlighter([
-  { tag: HIGHLIGHT_TAGS.keyword, class: HIGHLIGHT_PALETTE.keyword },
-  { tag: HIGHLIGHT_TAGS.heading, class: HIGHLIGHT_PALETTE.heading },
-  { tag: HIGHLIGHT_TAGS.callable, class: HIGHLIGHT_PALETTE.callable },
-  { tag: HIGHLIGHT_TAGS.string, class: HIGHLIGHT_PALETTE.string },
-  { tag: HIGHLIGHT_TAGS.type, class: HIGHLIGHT_PALETTE.type },
-  { tag: HIGHLIGHT_TAGS.number, class: HIGHLIGHT_PALETTE.number },
-  { tag: HIGHLIGHT_TAGS.comment, class: HIGHLIGHT_PALETTE.comment },
-  { tag: HIGHLIGHT_TAGS.property, class: HIGHLIGHT_PALETTE.property },
-  { tag: HIGHLIGHT_TAGS.meta, class: HIGHLIGHT_PALETTE.meta },
-  { tag: tags.invalid, class: HIGHLIGHT_PALETTE.invalid },
-]);
+const SYNTAX_TAG_HIGHLIGHTER = tagHighlighter(
+  HIGHLIGHT_RULES.map(({ tag, color }) => ({ tag, class: color })),
+);
+
+/**
+ * Rule colors in HighlightStyle order. When several rules match one token,
+ * every class lands on it and the editor shows the rule defined last.
+ */
+export const HIGHLIGHT_COLOR_ORDER: readonly string[] = HIGHLIGHT_RULES.map(
+  (rule) => rule.color,
+);
 
 export function editorHighlightStyleFor(): HighlightStyle {
   return HIGHLIGHT_STYLE;

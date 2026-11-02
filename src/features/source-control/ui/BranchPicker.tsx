@@ -403,7 +403,7 @@ export function BranchPicker({
             onPick={pick}
           />
           {error ? (
-            <p className="max-h-16 shrink-0 overflow-y-auto whitespace-pre-wrap border-t border-stroke px-2.5 py-2 text-[11px] leading-4 text-red-400/90">
+            <p className="max-h-16 shrink-0 overflow-y-auto whitespace-pre-wrap border-t border-stroke px-2.5 py-2 text-[11px] leading-4 text-danger/90">
               {error}
             </p>
           ) : null}

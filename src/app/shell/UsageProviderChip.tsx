@@ -387,7 +387,7 @@ export function UsageProviderChip({
               </div>
 
               {limits.status === "error" && windows.length > 0 ? (
-                <p className="mb-2 rounded-lg bg-amber-400/10 px-2.5 py-2 text-[10px] leading-4 text-amber-700 dark:text-amber-300">
+                <p className="mb-2 rounded-lg bg-warning/10 px-2.5 py-2 text-[10px] leading-4 text-warning">
                   Couldn’t refresh. Showing the last available snapshot.
                 </p>
               ) : null}
@@ -730,7 +730,7 @@ function AddProviderAccount({
         {running ? "Waiting for browser…" : "Sign in and add account"}
       </button>
       {error ? (
-        <p className="mt-2 text-[10px] leading-4 text-red-500" role="status">
+        <p className="mt-2 text-[10px] leading-4 text-danger" role="status">
           {error}
         </p>
       ) : null}
@@ -1026,7 +1026,7 @@ function BankedResetRow({
           <span
             className={`shrink-0 text-[10px] ${
               action === "reset"
-                ? "text-emerald-700 dark:text-emerald-300"
+                ? "text-success"
                 : "text-content/50"
             }`}
             role="status"

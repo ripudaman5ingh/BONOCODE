@@ -65,7 +65,7 @@ describe("title tab response status", () => {
       doneTab.querySelector('[data-harness-status="done"]'),
     ).not.toBeNull();
     expect(
-      doneTab.querySelector("svg")?.classList.contains("text-teal-400"),
+      doneTab.querySelector("svg")?.classList.contains("text-success"),
     ).toBe(true);
     expect(
       doneTab.querySelector("button")?.getAttribute("aria-label"),

@@ -471,7 +471,7 @@ function MenuRow({
         item.disabled
           ? "text-content/30"
           : item.danger
-            ? "text-red-300/90 hover:bg-red-500/15"
+            ? "text-danger/90 hover:bg-danger/15"
             : "text-content hover:bg-content/5"
       }`}
     >

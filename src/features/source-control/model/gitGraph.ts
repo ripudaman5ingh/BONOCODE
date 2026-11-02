@@ -87,19 +87,23 @@ const CIRCLE_STROKE_WIDTH = 2;
 
 export const GRAPH_ROW_PX = SWIMLANE_HEIGHT;
 
-/** Lane colors, cycled as new branches appear. */
+/**
+ * Lane colors, cycled as new branches appear. They are theme variables, so
+ * the SVG sets them through style; presentation attributes don't reliably
+ * resolve var().
+ */
 export const COLOR_REGISTRY = [
-  "#FFB000",
-  "#DC267F",
-  "#994F00",
-  "#40B0A6",
-  "#B66DFF",
+  "var(--color-warning)",
+  "var(--color-danger)",
+  "var(--color-success)",
+  "var(--color-merged)",
+  "var(--color-markdown-heading)",
 ] as const;
 
 /** Current branch. */
-export const HISTORY_ITEM_REF_COLOR = "#75BEFF";
+export const HISTORY_ITEM_REF_COLOR = "var(--color-info)";
 /** Upstream of the current branch. */
-export const HISTORY_ITEM_REMOTE_REF_COLOR = "#B180D7";
+export const HISTORY_ITEM_REMOTE_REF_COLOR = "var(--color-merged)";
 /** Fallback when a node has no swimlane color. */
 const HISTORY_ITEM_REF_FALLBACK = HISTORY_ITEM_REF_COLOR;
 

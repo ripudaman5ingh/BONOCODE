@@ -270,7 +270,7 @@ export function WorktreePicker({
               </p>
             )}
             {(error || loadError) && (
-              <p role="alert" className="px-2 py-2 text-[11px] text-red-400">
+              <p role="alert" className="px-2 py-2 text-[11px] text-danger">
                 {error || loadError}
               </p>
             )}

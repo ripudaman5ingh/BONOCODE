@@ -71,10 +71,10 @@ import { ExplorerMenu, type ExplorerMenuItem } from "./ExplorerMenu";
 import { FileTypeIcon } from "./FileTypeIcon";
 
 const GIT_STATUS_COLOR: Record<string, string> = {
-  modified: "text-amber-400",
-  added: "text-emerald-400",
-  untracked: "text-emerald-400",
-  deleted: "text-red-400",
+  modified: "text-warning",
+  added: "text-success",
+  untracked: "text-success",
+  deleted: "text-danger",
 };
 
 type Props = {
@@ -948,7 +948,7 @@ export const FileTree = memo(function FileTree({
           className="min-h-0 flex-1 overflow-y-auto overscroll-none"
         >
           {opError ? (
-            <p className="px-3 py-1 text-[12px] leading-4 text-red-400">
+            <p className="px-3 py-1 text-[12px] leading-4 text-danger">
               {opError}
             </p>
           ) : null}
@@ -1372,7 +1372,7 @@ function NameIssueView({
   return (
     <p
       className={`pr-2 pb-1 text-[12px] leading-4 ${
-        error ? "text-red-400" : "text-amber-400"
+        error ? "text-danger" : "text-warning"
       }`}
       style={{ paddingLeft: 28 + depth * 12 }}
     >

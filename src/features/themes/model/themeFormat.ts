@@ -53,6 +53,16 @@ export const TERMINAL_KEYS = [
   "brightWhite",
 ] as const;
 
+export const STATUS_KEYS = [
+  "danger",
+  "success",
+  "warning",
+  "info",
+  "merged",
+] as const;
+
+/** Errors, additions, warnings, notices and merged items across the UI. */
+export type ThemeStatus = Record<(typeof STATUS_KEYS)[number], string>;
 /** Code colors for the editor, diffs and chat code blocks. Headings use colors.heading. */
 export type ThemeSyntax = Record<(typeof SYNTAX_KEYS)[number], string>;
 /** The 16 ANSI colors, keyed like xterm's ITheme. */
@@ -63,6 +73,7 @@ export type Theme = {
   name: string;
   scheme: ThemeScheme;
   colors: ThemeColors;
+  status: ThemeStatus;
   syntax: ThemeSyntax;
   terminal: ThemeTerminal;
   /** Percent of the foreground mixed into each selection fill, 0 to 100. */
@@ -178,6 +189,7 @@ export function parseTheme(value: unknown): ParsedTheme {
   const colors: Partial<Record<keyof ThemeColors, string>> = {};
   for (const key of REQUIRED_COLORS) colors[key] = color(key);
   const userAccent = color("userAccent", true);
+  const status = hexSection(value.status, "status", STATUS_KEYS, errors);
   const syntax = hexSection(value.syntax, "syntax", SYNTAX_KEYS, errors);
   const terminal = hexSection(value.terminal, "terminal", TERMINAL_KEYS, errors);
 
@@ -218,6 +230,7 @@ export function parseTheme(value: unknown): ParsedTheme {
       colors: userAccent
         ? { ...checkedColors, userAccent }
         : { ...checkedColors },
+      status,
       syntax,
       terminal,
       selection: selection as ThemeSelection,
@@ -252,6 +265,8 @@ export function accentForeground(color: string): "#000000" | "#ffffff" {
 export function themeCssVars(theme: Theme): Record<string, string> {
   const vars: Record<string, string> = {};
   for (const key of REQUIRED_COLORS) vars[COLOR_VARS[key]] = theme.colors[key];
+  for (const key of STATUS_KEYS) vars[`--color-${key}`] = theme.status[key];
+  vars["--color-warning-foreground"] = accentForeground(theme.status.warning);
   for (const key of SYNTAX_KEYS) vars[`--syntax-${key}`] = theme.syntax[key];
   for (const key of TERMINAL_KEYS) {
     vars[terminalCssVar(key)] = theme.terminal[key];
@@ -283,6 +298,14 @@ export function themeWarnings(theme: Theme): string[] {
     warnings.push(
       `accent on background has contrast ${accentRatio.toFixed(2)}, below 3`,
     );
+  }
+  for (const key of STATUS_KEYS) {
+    const ratio = contrastRatio(theme.status[key], background);
+    if (ratio < 3) {
+      warnings.push(
+        `status ${key} on background has contrast ${ratio.toFixed(2)}, below 3`,
+      );
+    }
   }
   // Terminal colors are left out: ANSI black on a dark background is normal.
   for (const key of SYNTAX_KEYS) {
