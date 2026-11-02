@@ -285,6 +285,7 @@ export function TerminalView({ id, cwd, active, onMetaChange }: Props) {
 
     const onSchemeChange = () => {
       term.options.theme = terminalTheme(isLightScheme());
+      term.options.fontFamily = monoFont();
     };
     window.addEventListener(SCHEME_CHANGE_EVENT, onSchemeChange);
 

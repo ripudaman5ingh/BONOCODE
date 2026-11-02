@@ -25,12 +25,9 @@
 @theme {
   /* Preserve descenders in compact labels, including two 10px lines in a 30px tab. */
   --leading-label: 1.4;
-  --color-background-base: hsl(
-    var(--theme-hue) var(--theme-saturation) var(--background-lightness)
-  );
-  --color-content: hsl(
-    var(--theme-hue) var(--theme-saturation) var(--content-lightness)
-  );
+  /* Dark theme defaults; the theme engine overrides these inline on <html>. */
+  --color-background-base: #171717;
+  --color-content: #ebebeb;
   /* Structural separators: use border-stroke, divide-stroke, or bg-stroke. */
   --color-stroke: color-mix(in srgb, var(--color-content) 7%, transparent);
   /* Interactive fills keep their dark-theme contrast but use gentler ink in
@@ -77,9 +74,6 @@
   --motion-feedback-duration: 120ms;
   --motion-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --motion-tab-ease-out: cubic-bezier(0.3333, 0.6667, 0.6667, 1);
-  --theme-hue: 240;
-  --theme-saturation: 0%;
-  --theme-dark-lightness: 9%;
   --sidebar-opacity: 0.85;
   --chat-background-empty-opacity: 0.24;
   --chat-background-session-opacity: 0.24;
@@ -88,8 +82,6 @@
   --selection-strong-strength: 12%;
   --selection-hover-strength: 15%;
   --selection-emphasis-strength: 20%;
-  --background-lightness: var(--theme-dark-lightness);
-  --content-lightness: 92%;
   --link-color: #7dd3fc;
   --color-skill: #e8c547;
   --color-mention: #38bdf8;
@@ -101,17 +93,6 @@ html {
 }
 
 html.theme-light {
-  --background-lightness: 97%;
-  --content-lightness: 18%;
-  --link-color: hsl(211 92% 40%);
-  --color-skill: #a07c10;
-  --color-mention: #0284c7;
-  --color-markdown-heading: #be185d;
-  --selection-subtle-strength: 5%;
-  --selection-strength: 6%;
-  --selection-strong-strength: 7%;
-  --selection-hover-strength: 10%;
-  --selection-emphasis-strength: 14%;
   color-scheme: light;
 }
 
@@ -279,9 +260,10 @@ html.theme-light .sidebar-glass {
 }
 
 html.has-native-glass:not(.theme-light) .sidebar-glass {
-  background: hsl(
-    var(--theme-hue) var(--theme-saturation) var(--background-lightness) /
-      var(--sidebar-opacity)
+  background: color-mix(
+    in srgb,
+    var(--color-background-base) calc(var(--sidebar-opacity) * 100%),
+    transparent
   );
 }
 
@@ -1712,12 +1694,8 @@ header[data-tauri-drag-region] button {
       transparent calc(50% + var(--spread))
     ),
     linear-gradient(
-      hsl(
-        var(--theme-hue) var(--theme-saturation) var(--content-lightness) / 0.4
-      ),
-      hsl(
-        var(--theme-hue) var(--theme-saturation) var(--content-lightness) / 0.4
-      )
+      color-mix(in srgb, var(--color-content) 40%, transparent),
+      color-mix(in srgb, var(--color-content) 40%, transparent)
     );
   background-size:
     250% 100%,

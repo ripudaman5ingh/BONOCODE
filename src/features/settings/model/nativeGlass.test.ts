@@ -61,7 +61,10 @@ describe("native glass", () => {
   });
 
   it("fills an opaque window with the themed colour, not a fixed light one", async () => {
-    document.documentElement.style.setProperty("--background-lightness", "20%");
+    document.documentElement.style.setProperty(
+      "--color-background-base",
+      "#333333",
+    );
     syncNativeGlass("light");
     await vi.waitFor(() =>
       expect(invoke).toHaveBeenCalledWith("set_window_glass_enabled", {

@@ -1,16 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
-  ACCENT_COLOR_DEFAULT,
   CHAT_BACKGROUND_OPACITY_DEFAULT,
   CHAT_BACKGROUND_SCOPE_DEFAULT,
   loadChatBackgroundOpacity,
-  loadAccentColor,
   loadChatBackgroundPath,
   loadChatBackgroundScope,
   loadNewThreadBackgroundEffect,
   loadTranscriptLayout,
   saveChatBackgroundOpacity,
-  saveAccentColor,
   saveChatBackgroundPath,
   saveChatBackgroundScope,
   saveNewThreadBackgroundEffect,
@@ -22,26 +19,16 @@ import {
   loadShowExcludedFiles,
   saveShowExcludedFiles,
   SHOW_EXCLUDED_FILES_DEFAULT,
-  loadThemePreference,
-  loadThemeDarkLightness,
-  saveThemeDarkLightness,
-  saveThemePreference,
-  resolveColorScheme,
-  THEME_PREFERENCE_DEFAULT,
-  THEME_DARK_LIGHTNESS_DEFAULT,
   NEW_THREAD_BACKGROUND_EFFECT_DEFAULT,
 } from "./appearance";
 
 const KEY = "bonocode.transcriptLayout";
-const ACCENT_COLOR_KEY = "bonocode.accentColor";
-const SCHEME_KEY = "bonocode.colorScheme";
 const ANCHOR_KEY = "bonocode.transcriptAnchor";
 const SHOW_EXCLUDED_FILES_KEY = "bonocode.showExcludedFiles";
 const CHAT_BACKGROUND_PATH_KEY = "bonocode.chatBackgroundPath";
 const CHAT_BACKGROUND_OPACITY_KEY = "bonocode.chatBackgroundOpacity";
 const CHAT_BACKGROUND_SCOPE_KEY = "bonocode.chatBackgroundScope";
 const NEW_THREAD_BACKGROUND_EFFECT_KEY = "bonocode.newThreadBackgroundEffect";
-const THEME_DARK_LIGHTNESS_KEY = "bonocode.themeDarkLightness";
 
 function mockLocalStorage() {
   const data = new Map<string, string>();
@@ -66,31 +53,6 @@ function mockLocalStorage() {
     configurable: true,
   });
 }
-
-describe("accent color setting", () => {
-  beforeEach(mockLocalStorage);
-  afterEach(() => {
-    localStorage.removeItem(ACCENT_COLOR_KEY);
-  });
-
-  it("defaults to the original neutral appearance", () => {
-    expect(ACCENT_COLOR_DEFAULT).toBeNull();
-    expect(loadAccentColor()).toBeNull();
-  });
-
-  it("persists normalized hex colors and clears default or invalid values", () => {
-    saveAccentColor("#AABBCC");
-    expect(localStorage.getItem(ACCENT_COLOR_KEY)).toBe("#aabbcc");
-    expect(loadAccentColor()).toBe("#aabbcc");
-
-    saveAccentColor(ACCENT_COLOR_DEFAULT);
-    expect(localStorage.getItem(ACCENT_COLOR_KEY)).toBeNull();
-
-    saveAccentColor("tomato");
-    expect(localStorage.getItem(ACCENT_COLOR_KEY)).toBeNull();
-    expect(loadAccentColor()).toBeNull();
-  });
-});
 
 describe("transcript layout setting", () => {
   beforeEach(mockLocalStorage);
@@ -211,79 +173,5 @@ describe("chat background setting", () => {
     expect(loadNewThreadBackgroundEffect()).toBe(
       NEW_THREAD_BACKGROUND_EFFECT_DEFAULT,
     );
-  });
-});
-
-function mockSystemScheme(scheme: "dark" | "light") {
-  Object.defineProperty(globalThis, "window", {
-    value: {
-      matchMedia: (query: string) => ({
-        matches: query.includes("light") && scheme === "light",
-      }),
-    },
-    configurable: true,
-  });
-}
-
-describe("theme preference setting", () => {
-  beforeEach(mockLocalStorage);
-  afterEach(() => {
-    localStorage.removeItem(SCHEME_KEY);
-    Reflect.deleteProperty(globalThis, "window");
-  });
-
-  it("defaults to dark", () => {
-    expect(THEME_PREFERENCE_DEFAULT).toBe("dark");
-    expect(loadThemePreference()).toBe("dark");
-  });
-
-  it("persists each preference", () => {
-    for (const value of ["system", "light", "dark"] as const) {
-      saveThemePreference(value);
-      expect(localStorage.getItem(SCHEME_KEY)).toBe(value);
-      expect(loadThemePreference()).toBe(value);
-    }
-  });
-
-  it("ignores unknown stored values", () => {
-    localStorage.setItem(SCHEME_KEY, "solarized");
-    expect(loadThemePreference()).toBe(THEME_PREFERENCE_DEFAULT);
-  });
-
-  it("resolves system against the OS appearance", () => {
-    mockSystemScheme("light");
-    expect(resolveColorScheme("system")).toBe("light");
-    mockSystemScheme("dark");
-    expect(resolveColorScheme("system")).toBe("dark");
-  });
-
-  it("keeps explicit picks regardless of the OS appearance", () => {
-    mockSystemScheme("light");
-    expect(resolveColorScheme("dark")).toBe("dark");
-    mockSystemScheme("dark");
-    expect(resolveColorScheme("light")).toBe("light");
-  });
-
-  it("falls back to dark without matchMedia", () => {
-    expect(resolveColorScheme("system")).toBe("dark");
-  });
-});
-
-describe("dark theme lightness setting", () => {
-  beforeEach(mockLocalStorage);
-  afterEach(() => {
-    localStorage.removeItem(THEME_DARK_LIGHTNESS_KEY);
-  });
-
-  it("defaults to the existing dark background lightness", () => {
-    expect(THEME_DARK_LIGHTNESS_DEFAULT).toBe(9);
-    expect(loadThemeDarkLightness()).toBe(9);
-  });
-
-  it("persists true black and clamps overly light values", () => {
-    saveThemeDarkLightness(0);
-    expect(loadThemeDarkLightness()).toBe(0);
-    saveThemeDarkLightness(100);
-    expect(loadThemeDarkLightness()).toBe(30);
   });
 });
