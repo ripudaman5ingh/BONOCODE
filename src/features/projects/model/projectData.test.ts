@@ -56,7 +56,7 @@ describe("rebaseProjectData", () => {
     saveProjectGroups([{ id: "personal", name: "Personal", collapsed: false }]);
     setProjectGroupAssignment(from, "personal");
     saveTabGroupLabel(oldKey, "My Bonocode");
-    saveProjectSidebarTab(from, "changes");
+    saveProjectSidebarTab(from, "files");
     saveProjectChatBackgroundSettings(oldKey, {
       path: "/images/background.png",
       emptyOpacity: 0.2,
@@ -84,7 +84,7 @@ describe("rebaseProjectData", () => {
     expect(loadProjectChatBackgroundSettings(newKey)?.effect).toBe("dither");
     expect(loadSessionFolders(from)).toEqual([]);
     expect(loadSessionFolders(to)[0]?.name).toBe("Active");
-    expect(loadProjectSidebarTab(to)).toBe("changes");
+    expect(loadProjectSidebarTab(to)).toBe("files");
     expect(loadProjectSidebarTab(from)).toBe("sessions");
   });
 });

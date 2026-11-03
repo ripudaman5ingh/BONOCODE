@@ -2037,7 +2037,6 @@ function CompactRailAction({
   icon: Icon,
   tab = false,
   active = false,
-  dot = false,
   onClick,
   onOpenContextMenu,
 }: {
@@ -2045,7 +2044,6 @@ function CompactRailAction({
   icon: typeof PanelLeft;
   tab?: boolean;
   active?: boolean;
-  dot?: boolean;
   onClick?: () => void;
   onOpenContextMenu?: (x: number, y: number) => void;
 }) {
@@ -2091,16 +2089,7 @@ function CompactRailAction({
           : "text-content/50 hover:bg-content/10 hover:text-content"
       } disabled:cursor-default disabled:opacity-35`}
     >
-      <Icon
-        className={`size-4 ${dot ? "compact-rail-icon-with-dot" : ""}`}
-        strokeWidth={1.75}
-      />
-      {dot ? (
-        <span
-          aria-hidden
-          className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-accent"
-        />
-      ) : null}
+      <Icon className="size-4" strokeWidth={1.75} />
     </button>
   );
 }

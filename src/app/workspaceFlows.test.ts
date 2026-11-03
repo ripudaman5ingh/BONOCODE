@@ -450,6 +450,25 @@ describe("workspace flows through the App's menu events", () => {
     expect((await lastSnapshot()).changesDock?.open).toBe(true);
   });
 
+  it("Source Control in the View menu opens the changes dock", async () => {
+    expect((await lastSnapshot()).changesDock?.open).toBe(false);
+
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Alt" }));
+      window.dispatchEvent(new KeyboardEvent("keyup", { key: "Alt" }));
+    });
+    const view = [...container.querySelectorAll<HTMLButtonElement>("button")].find(
+      (button) => button.textContent === "View",
+    );
+    await act(async () => view!.click());
+    const item = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find(
+      (button) => button.textContent?.includes("Source Control"),
+    );
+    await act(async () => item!.click());
+
+    expect((await lastSnapshot()).changesDock?.open).toBe(true);
+  });
+
   it("toggle_terminal + toggle_changes: both docks are open and both are saved", async () => {
     await fire("toggle_terminal");
     await fire("toggle_changes");

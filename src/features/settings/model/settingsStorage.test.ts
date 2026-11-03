@@ -86,71 +86,38 @@ describe("numeric appearance settings", () => {
 
 describe("enum and JSON settings", () => {
   it("sidebarTabOrder: default, partial, duplicate, invalid and fresh arrays", () => {
-    expect(appearance.loadSidebarTabOrder()).toEqual([
-      "sessions",
-      "files",
-      "changes",
-    ]);
+    expect(appearance.loadSidebarTabOrder()).toEqual(["sessions", "files"]);
 
-    store.setItem("bonocode.sidebarTabOrder", '["changes"]');
-    expect(appearance.loadSidebarTabOrder()).toEqual([
-      "changes",
-      "sessions",
-      "files",
-    ]);
+    store.setItem("bonocode.sidebarTabOrder", '["files"]');
+    expect(appearance.loadSidebarTabOrder()).toEqual(["files", "sessions"]);
 
-    // Looks wrong: a duplicate makes the list longer than three, so the whole order resets.
-    store.setItem(
-      "bonocode.sidebarTabOrder",
-      '["files","files","changes"]',
-    );
-    expect(appearance.loadSidebarTabOrder()).toEqual([
-      "sessions",
-      "files",
-      "changes",
-    ]);
+    // A duplicate makes the list longer than the two tabs, so the whole order resets.
+    store.setItem("bonocode.sidebarTabOrder", '["files","files"]');
+    expect(appearance.loadSidebarTabOrder()).toEqual(["sessions", "files"]);
 
+    // The retired "changes" tab is dropped, and the rest keeps its order.
+    store.setItem("bonocode.sidebarTabOrder", '["changes","files","sessions"]');
+    expect(appearance.loadSidebarTabOrder()).toEqual(["files", "sessions"]);
     store.setItem("bonocode.sidebarTabOrder", '["changes","bogus","files","sessions"]');
-    expect(appearance.loadSidebarTabOrder()).toEqual([
-      "changes",
-      "files",
-      "sessions",
-    ]);
+    expect(appearance.loadSidebarTabOrder()).toEqual(["files", "sessions"]);
 
     store.setItem("bonocode.sidebarTabOrder", "{not json");
-    expect(appearance.loadSidebarTabOrder()).toEqual([
-      "sessions",
-      "files",
-      "changes",
-    ]);
+    expect(appearance.loadSidebarTabOrder()).toEqual(["sessions", "files"]);
     store.setItem("bonocode.sidebarTabOrder", '{"a":1}');
-    expect(appearance.loadSidebarTabOrder()).toEqual([
-      "sessions",
-      "files",
-      "changes",
-    ]);
+    expect(appearance.loadSidebarTabOrder()).toEqual(["sessions", "files"]);
 
     const a = appearance.loadSidebarTabOrder();
     const b = appearance.loadSidebarTabOrder();
     expect(a).not.toBe(b);
     a.push("files");
-    expect(appearance.loadSidebarTabOrder()).toHaveLength(3);
+    expect(appearance.loadSidebarTabOrder()).toHaveLength(2);
   });
 
   it("saveSidebarTabOrder writes JSON", () => {
-    appearance.saveSidebarTabOrder(["changes", "sessions", "files"]);
+    appearance.saveSidebarTabOrder(["files", "sessions"]);
     expect(store.getItem("bonocode.sidebarTabOrder")).toBe(
-      '["changes","sessions","files"]',
+      '["files","sessions"]',
     );
-  });
-
-  it("changesView persists list and tree, invalid falls back to list", () => {
-    expect(appearance.loadChangesView()).toBe("list");
-    appearance.saveChangesView("tree");
-    expect(store.getItem("bonocode.changesView")).toBe("tree");
-    expect(appearance.loadChangesView()).toBe("tree");
-    store.setItem("bonocode.changesView", "grid");
-    expect(appearance.loadChangesView()).toBe("list");
   });
 
   it("chatBackgroundScope persists empty and all, invalid falls back to all", () => {
@@ -370,8 +337,7 @@ describe("events and subscriptions", () => {
     settings.saveFollowUpBehavior("queue");
     settings.saveSettingsSection("archive");
     settings.saveCloseToTray(false);
-    appearance.saveChangesView("tree");
-    appearance.saveSidebarTabOrder(["changes", "files", "sessions"]);
+    appearance.saveSidebarTabOrder(["files", "sessions"]);
     appearance.saveNewThreadBackgroundEffect("dither");
     appearance.saveChatBackgroundScope("empty");
     settings.saveAgentIdleMs(60_000);

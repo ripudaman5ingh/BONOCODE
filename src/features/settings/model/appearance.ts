@@ -27,7 +27,6 @@ const CHAT_BACKGROUND_SESSION_OPACITY_KEY =
   "bonocode.chatBackgroundSessionOpacity";
 const CHAT_BACKGROUND_SCOPE_KEY = "bonocode.chatBackgroundScope";
 const NEW_THREAD_BACKGROUND_EFFECT_KEY = "bonocode.newThreadBackgroundEffect";
-const CHANGES_VIEW_KEY = "bonocode.changesView";
 const SHOW_EXCLUDED_FILES_KEY = "bonocode.showExcludedFiles";
 let chatBackgroundRevision = Date.now();
 let nativeGlassReady = false;
@@ -42,7 +41,6 @@ export type TranscriptLayout = "full" | "chat";
 export type ChatBackgroundScope = "empty" | "all";
 export type NewThreadBackgroundEffect =
   "none" | "dither" | "ascii" | "halftone" | "scanlines" | "gradient-blur";
-export type ChangesView = "list" | "tree";
 
 export const NEW_THREAD_BACKGROUND_EFFECTS: readonly NewThreadBackgroundEffect[] =
   ["none", "dither", "ascii", "halftone", "scanlines", "gradient-blur"];
@@ -78,8 +76,6 @@ export const NEW_THREAD_BACKGROUND_EFFECT_DESCRIPTIONS: Record<
 export const SCHEME_CHANGE_EVENT = "bonocode:schemechange";
 
 export const TRANSCRIPT_LAYOUT_DEFAULT: TranscriptLayout = "chat";
-
-export const CHANGES_VIEW_DEFAULT: ChangesView = "list";
 
 export const TRANSCRIPT_ANCHOR_DEFAULT = true;
 
@@ -465,15 +461,6 @@ export const transcriptLayoutSetting = defineSetting<TranscriptLayout>({
 
 export const loadTranscriptLayout = transcriptLayoutSetting.load;
 export const saveTranscriptLayout = transcriptLayoutSetting.save;
-
-const changesView = defineSetting<ChangesView>({
-  key: CHANGES_VIEW_KEY,
-  default: CHANGES_VIEW_DEFAULT,
-  ...oneOf<ChangesView>("list", "tree"),
-});
-
-export const loadChangesView = changesView.load;
-export const saveChangesView = changesView.save;
 
 export const transcriptAnchorSetting = defineSetting<boolean>({
   key: TRANSCRIPT_ANCHOR_KEY,
