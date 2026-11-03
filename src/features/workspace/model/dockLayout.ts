@@ -8,8 +8,16 @@ export type DockSurface = "terminal" | "changes";
 
 export type DockPlacement = { side: DockSide; size: number; open: boolean };
 
-/** An open dock as the layout sees it. */
-export type DockEntry = { surface: DockSurface; side: DockSide; size: number };
+/** A dock as the layout sees it: open, or a collapsed rail standing in for a closed one. */
+export type DockEntry = {
+  surface: DockSurface;
+  side: DockSide;
+  size: number;
+  collapsed?: boolean;
+};
+
+/** Thickness of a collapsed dock's rail, across its side. */
+export const DOCK_RAIL_SIZE = 32;
 
 export type DockPlacements = Partial<Record<DockSurface, DockPlacement>>;
 
@@ -60,6 +68,33 @@ export function openDocks(placements: DockPlacements): DockEntry[] {
     const placement = placements[surface];
     if (!placement?.open) continue;
     entries.push({ surface, side: placement.side, size: placement.size });
+  }
+  return entries;
+}
+
+/**
+ * The docks to draw: open docks as openDocks gives them, plus a collapsed rail
+ * for each closed surface that `rails` asks to keep on screen. A rail keeps
+ * its side, so the surface can be reopened from the edge it was on.
+ */
+export function layoutDocks(
+  placements: DockPlacements,
+  rails: { changes: boolean },
+): DockEntry[] {
+  const entries: DockEntry[] = [];
+  for (const surface of DOCK_SURFACES) {
+    const placement = placements[surface];
+    if (!placement) continue;
+    if (placement.open) {
+      entries.push({ surface, side: placement.side, size: placement.size });
+    } else if (surface === "changes" && rails.changes) {
+      entries.push({
+        surface,
+        side: placement.side,
+        size: DOCK_RAIL_SIZE,
+        collapsed: true,
+      });
+    }
   }
   return entries;
 }

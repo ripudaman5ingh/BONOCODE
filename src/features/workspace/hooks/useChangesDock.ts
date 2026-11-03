@@ -61,6 +61,11 @@ export function useChangesDock(workspace: WorkspaceStore) {
     setChangesDock((dock) => (dock.open ? { ...dock, open: false } : dock));
   }, [setChangesDock]);
 
+  /** The rail's click: reopens the dock where it was hidden. */
+  const onShowChangesDock = useCallback(() => {
+    setChangesDock((dock) => (dock.open ? dock : { ...dock, open: true }));
+  }, [setChangesDock]);
+
   const onChangesDockSide = useCallback(
     (side: DockSide) => moveWorkspaceDock(workspace, "changes", side),
     [workspace],
@@ -101,6 +106,7 @@ export function useChangesDock(workspace: WorkspaceStore) {
     onChangesDirty,
     onToggleChangesDock,
     onHideChangesDock,
+    onShowChangesDock,
     onChangesDockSide,
     onChangesDockSize,
     onFocusChangesDock,

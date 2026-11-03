@@ -437,6 +437,19 @@ describe("workspace flows through the App's menu events", () => {
     expect((await lastSnapshot()).changesDock?.open).toBe(false);
   });
 
+  it("with the changes dock closed, its rail on the side reopens it and saves it open", async () => {
+    expect((await lastSnapshot()).changesDock?.open).toBe(false);
+
+    const rail = container.querySelector<HTMLButtonElement>(
+      'button[aria-label^="Show Changes"]',
+    );
+    expect(rail).not.toBeNull();
+    await act(async () => {
+      rail!.click();
+    });
+    expect((await lastSnapshot()).changesDock?.open).toBe(true);
+  });
+
   it("toggle_terminal + toggle_changes: both docks are open and both are saved", async () => {
     await fire("toggle_terminal");
     await fire("toggle_changes");
