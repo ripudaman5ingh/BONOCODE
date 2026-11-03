@@ -34,3 +34,18 @@ MonoCode v0.6.0 was the planned baseline, but the saved builds were lost. 0.6.1 
     npm run bench -- --app <path>/Bonocode.app --runs 3 --fixture bench-fixtures/three-chats
 
 Raw results are in `bench-results/` (gitignored).
+
+## main before v0.7 (`1d4714a`, Nov 2, 2026)
+
+CI-built release app (`bench-build.yml`), median of 3 runs. Typing measured on the CI debug app.
+
+| Metric | Empty app | 3-chat fixture |
+|---|---|---|
+| Time to window | 232 ms | 225 ms |
+| Time to idle | 2.0 s | 3.0 s |
+| Idle CPU | 2.5% | 2.6% |
+| Idle memory | 352 MB (app 132 · webview 165 · children 55) | 479 MB (app 137 · webview 288 · children 55) |
+
+- Typing in the 500-message chat: median 11 ms, p95 16 ms, max 82 ms (125 keystrokes). Target met.
+- With a project open, main matches 0.6.1. The empty app idles higher than 0.6.1 (2.5% vs 0% CPU, +44 MB). Its only child processes are two macOS services (AudioToolbox SandboxHelper, CascadeSets SetStoreUpdateService). Cause not found yet.
+- Empty-app run 1 again took much longer to go idle (24 s).
