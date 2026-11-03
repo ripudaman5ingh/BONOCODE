@@ -18,8 +18,6 @@ import { type useWorkspaceTabActions } from "../../workspace/hooks/useWorkspaceT
 import { type useSessionHistory } from "../../sessions/hooks/useSessionHistory";
 import { type WorkspaceStore } from "../../workspace/model/workspaceStore";
 import { type LiveSessionStore } from "../../sessions/model/liveSessions";
-import { type SidebarTabId } from "../../settings/model/appearance";
-
 
 export function filesInWorkspaceTabs(tabs: readonly WorkspaceTab[]): FilePaneTab[] {
   return tabs.flatMap((tab) => [
@@ -48,7 +46,6 @@ export type UseWorktreeActionsDeps = {
   persistSession: ReturnType<typeof useSessionHistory>["persistSession"];
   gitCwdRef: RefObject<string>;
   sidebarCwdRef: RefObject<string>;
-  setSidebarTab: (tab: SidebarTabId, project?: string) => void;
 };
 
 export function useWorktreeActions(deps: UseWorktreeActionsDeps) {
@@ -72,7 +69,6 @@ export function useWorktreeActions(deps: UseWorktreeActionsDeps) {
     persistSession,
     gitCwdRef,
     sidebarCwdRef,
-    setSidebarTab,
   } = deps;
   const { tabsRef, projectTerminalsRef, projectCwdRef, setProjectCwd, setRecents, setActiveTabId, setTabs } = workspace;
   const onOpenDiff = useCallback(
@@ -123,31 +119,11 @@ export function useWorktreeActions(deps: UseWorktreeActionsDeps) {
             );
           }),
         );
-        setSidebarTab("changes", diffProjectCwd);
         setComposerFocused(false);
       })();
     },
     [workspace],
   );
-
-  /** Stack one section's working-tree changes in one review, whatever the diff-view setting. */
-  const onOpenAllChanges = useCallback((kind: GitFileDiffKind) => {
-    const activeTabId = workspace.get().activeTabId;
-    setTabs((prev) =>
-      prev.map((tab) =>
-        tab.id === activeTabId
-          ? openChangesTab(
-              tab,
-              gitCwdRef.current,
-              undefined,
-              kind,
-              sidebarCwdRef.current,
-            )
-          : tab,
-      ),
-    );
-    setComposerFocused(false);
-  }, [workspace]);
 
   const onOpenCommit = useCallback(
     (commit: GitHistoryCommit, pin?: boolean) => {
@@ -499,18 +475,12 @@ export function useWorktreeActions(deps: UseWorktreeActionsDeps) {
   );
 
   const onShowSourceControl = useCallback(() => {
-    setSidebarTab("changes");
-  }, []);
+    workspace.setChangesDock((dock) => (dock.open ? dock : { ...dock, open: true }));
+  }, [workspace]);
 
   const onToggleChanges = useCallback(() => {
     onShowSourceControl();
   }, [onShowSourceControl]);
 
-  const onOpenWorkingTreeDiff = useCallback(
-    (path: string, kind?: GitFileDiffKind, pin?: boolean) =>
-      onOpenDiff(path, undefined, kind, pin),
-    [onOpenDiff],
-  );
-
-  return { repairSessions, onCheckWorktreeRemoval, onRemoveWorktree, onWorktreeChange, onBranchChange, onWorkspaceModeChange, onWorktreeBaseChange, onOpenDiff, onOpenAllChanges, onOpenCommit, onShowSourceControl, onToggleChanges, onOpenWorkingTreeDiff };
+  return { repairSessions, onCheckWorktreeRemoval, onRemoveWorktree, onWorktreeChange, onBranchChange, onWorkspaceModeChange, onWorktreeBaseChange, onOpenDiff, onOpenCommit, onShowSourceControl, onToggleChanges };
 }

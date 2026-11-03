@@ -41,7 +41,9 @@ type Props = {
   actions?: ReactNode;
   /** Replaces the plain title row; receives the dock's buttons to place. */
   header?: (controls: ReactNode) => ReactNode;
-  children: ReactNode;
+  /** Replaces the title row and the children: the body places the controls itself. */
+  renderBody?: (controls: ReactNode) => ReactNode;
+  children?: ReactNode;
 };
 
 const SIDE_ITEMS: { id: DockSide; label: string }[] = [
@@ -92,6 +94,7 @@ export function DockFrame({
   onSizeCommit,
   actions,
   header,
+  renderBody,
   children,
 }: Props) {
   const vertical = isVerticalDock(side);
@@ -219,7 +222,7 @@ export function DockFrame({
           commit();
         }}
       />
-      {header ? (
+      {renderBody ? null : header ? (
         header(controls)
       ) : (
         <div className="flex h-9 min-w-0 shrink-0 items-center border-b border-stroke">
@@ -229,7 +232,9 @@ export function DockFrame({
           {controls}
         </div>
       )}
-      <div className="relative min-h-0 min-w-0 flex-1">{children}</div>
+      <div className="relative min-h-0 min-w-0 flex-1">
+        {renderBody ? renderBody(controls) : children}
+      </div>
       {menu ? (
         <ExplorerMenu
           x={menu.x}

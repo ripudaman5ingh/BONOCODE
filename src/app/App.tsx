@@ -45,11 +45,7 @@ import {
   leafIds,
   newTab,
 } from "../features/workspace/model/layout";
-import {
-  selectedChangeKind,
-  selectedChangePath,
-  selectedCommitSha,
-} from "./model/selectedChange";
+import { selectedCommitSha } from "./model/selectedChange";
 import { type WindowTransferPayload } from "./model/windowTransfer";
 import {
   cancelHarnessTurn,
@@ -746,10 +742,8 @@ function Workspace({
     onWorkspaceModeChange,
     onWorktreeBaseChange,
     onOpenDiff,
-    onOpenAllChanges,
     onOpenCommit,
     onToggleChanges,
-    onOpenWorkingTreeDiff,
   } = useWorktreeActions({
     workspace,
     history,
@@ -770,7 +764,6 @@ function Workspace({
     persistSession,
     gitCwdRef,
     sidebarCwdRef,
-    setSidebarTab,
   });
   const {
     onNew,
@@ -1128,11 +1121,6 @@ function Workspace({
           filesSearchOpen={filesSearchOpen}
           onFilesSearchOpenChange={setFilesSearchOpen}
           onOpenFilesSearch={onFindInProject}
-          ciRepair={{
-            sessions: repairSessions,
-            onOpenSession: onOpenLinkedSession,
-            onStart: startCiRepair,
-          }}
           searchFocusToken={searchFocusToken}
           sessions={sidebarHistory}
           busySessionIds={busySessionIds}
@@ -1164,19 +1152,6 @@ function Workspace({
           canGoForward={tabVisitNav.canForward}
           onGoBack={onRailBack}
           onGoForward={onRailForward}
-          onOpenDiff={onOpenWorkingTreeDiff}
-          onOpenAllChanges={onOpenAllChanges}
-          onOpenCommit={onOpenCommit}
-          selectedDiffPath={
-            activeTab ? selectedChangePath(activeTab, gitCwd) : undefined
-          }
-          selectedDiffKind={
-            activeTab ? selectedChangeKind(activeTab) : undefined
-          }
-          selectedCommitSha={
-            activeTab ? selectedCommitSha(activeTab) : undefined
-          }
-          textHarness={pickTextHarness(active?.harness)}
           recents={recents}
           busyProjectPaths={sessions.flatMap((session) =>
             session.busy && session.cwd ? [session.cwd] : [],
@@ -1256,6 +1231,19 @@ function Workspace({
                 onAddTerminal={onNewTerminal}
                 onTerminalMetaChange={onTerminalMetaChange}
                 onOpenFile={onOpenFile}
+                onOpenCommit={onOpenCommit}
+                selectedSha={activeTab ? selectedCommitSha(activeTab) : undefined}
+                textHarness={pickTextHarness(active?.harness)}
+                ciRepair={{
+                  sessions: repairSessions,
+                  onOpenSession: onOpenLinkedSession,
+                  onStart: startCiRepair,
+                }}
+                onOpenPr={
+                  activeSessionId && onOpenLinkedWorkItem
+                    ? (item) => onOpenLinkedWorkItem(item, activeSessionId)
+                    : undefined
+                }
               >
                 {tabs.map((tab) => (
                   <div

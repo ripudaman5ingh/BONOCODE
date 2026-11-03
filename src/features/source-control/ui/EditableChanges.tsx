@@ -24,19 +24,28 @@ import {
 } from "../../../platform/tauri/fs";
 import { FileEditor, type SaveState } from "../../files/ui/FileEditor";
 import { changedPathFiles } from "../model/workingTreeDiff";
+import type { ChangeActions } from "../model/changeActions";
+import { ChangeBulkRow, ChangeFileActions } from "./ChangeEntryActions";
 
 type Props = {
   cwd: string;
   onOpenFile: (path: string) => void;
   /** Unsaved edits per absolute path, so the window can warn before a reload. */
   onDirtyChange: (path: string, dirty: boolean) => void;
+  /** Adds the bulk row and per-file git buttons; without it the list is read-only. */
+  actions?: ChangeActions;
 };
 
 /** How close to the viewport an entry comes before its editor mounts. */
 const MOUNT_MARGIN_PX = 600;
 
 /** Every changed file of `cwd` as an editable diff, stacked in one scroller. */
-export function EditableChanges({ cwd, onOpenFile, onDirtyChange }: Props) {
+export function EditableChanges({
+  cwd,
+  onOpenFile,
+  onDirtyChange,
+  actions,
+}: Props) {
   const [files, setFiles] = useState<GitChangedFile[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [focusedPath, setFocusedPath] = useState<string | null>(null);
@@ -94,22 +103,28 @@ export function EditableChanges({ cwd, onOpenFile, onDirtyChange }: Props) {
   if (files.length === 0) return <Centered>No changes</Centered>;
 
   return (
-    <div
-      ref={scrollerRef}
-      className="h-full min-h-0 overflow-y-auto overscroll-contain"
-    >
-      {files.map((file) => (
-        <ChangeEntry
-          key={file.path}
-          cwd={cwd}
-          file={file}
-          scrollerRef={scrollerRef}
-          active={focusedPath === file.path}
-          onFocusChange={setFocusedPath}
-          onOpenFile={onOpenFile}
-          onDirtyChange={onDirtyChange}
-        />
-      ))}
+    <div className="flex h-full min-h-0 flex-col">
+      {actions ? (
+        <ChangeBulkRow cwd={cwd} fileCount={files.length} actions={actions} />
+      ) : null}
+      <div
+        ref={scrollerRef}
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+      >
+        {files.map((file) => (
+          <ChangeEntry
+            key={file.path}
+            cwd={cwd}
+            file={file}
+            scrollerRef={scrollerRef}
+            active={focusedPath === file.path}
+            onFocusChange={setFocusedPath}
+            onOpenFile={onOpenFile}
+            onDirtyChange={onDirtyChange}
+            actions={actions}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -132,6 +147,7 @@ function ChangeEntry({
   onFocusChange,
   onOpenFile,
   onDirtyChange,
+  actions,
 }: {
   cwd: string;
   file: GitChangedFile;
@@ -140,6 +156,7 @@ function ChangeEntry({
   onFocusChange: Dispatch<SetStateAction<string | null>>;
   onOpenFile: (path: string) => void;
   onDirtyChange: (path: string, dirty: boolean) => void;
+  actions?: ChangeActions;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [near, setNear] = useState(false);
@@ -246,6 +263,7 @@ function ChangeEntry({
           {relative}
         </span>
         <EntrySaveState dirty={dirty} state={saveState} />
+        {actions ? <ChangeFileActions file={file} actions={actions} /> : null}
         <button
           type="button"
           title="Open in tab"

@@ -95,13 +95,9 @@ export const SHOW_EXCLUDED_FILES_DEFAULT = false;
 export const SHOW_EXCLUDED_FILES_CHANGE_EVENT =
   "bonocode:showexcludedfileschange";
 
-export type SidebarTabId = "files" | "sessions" | "changes";
+export type SidebarTabId = "files" | "sessions";
 
-const DEFAULT_SIDEBAR_TAB_ORDER: SidebarTabId[] = [
-  "sessions",
-  "files",
-  "changes",
-];
+const DEFAULT_SIDEBAR_TAB_ORDER: SidebarTabId[] = ["sessions", "files"];
 
 export const PROJECT_RAIL_WIDTH_MIN = 180;
 export const PROJECT_RAIL_WIDTH_MAX = 360;
@@ -399,11 +395,7 @@ export function applyChatBackgroundScope(value: ChatBackgroundScope) {
 }
 
 function isSidebarTabId(value: unknown): value is SidebarTabId {
-  return (
-    value === "files" ||
-    value === "sessions" ||
-    value === "changes"
-  );
+  return value === "files" || value === "sessions";
 }
 
 const projectRailOpen = defineSetting<boolean>({
