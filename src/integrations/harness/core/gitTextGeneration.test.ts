@@ -97,6 +97,22 @@ describe("generatePrContentWith", () => {
     });
   });
 
+  it("strips attribution from the commit-summary fallback body", async () => {
+    vi.mocked(gitRangeContext).mockResolvedValueOnce({
+      ...range,
+      commitSummary:
+        "Add x\n\nWires x into the panel\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)",
+    });
+    const run = vi.fn(async () => "not json at all");
+
+    await expect(generatePrContentWith(run, "/repo")).resolves.toEqual({
+      title: "Add x",
+      body: "Add x\n\nWires x into the panel",
+      base: "main",
+      head: "feature/x",
+    });
+  });
+
   it("falls back to the commit summary when the agent call throws", async () => {
     const run = vi.fn(async () => {
       throw new Error("timed out");

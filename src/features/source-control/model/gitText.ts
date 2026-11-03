@@ -30,6 +30,7 @@ export function buildCommitMessagePrompt(input: {
       ? ["- branch must be a short semantic git branch fragment for this change"]
       : []),
     "- capture the primary user-visible or developer-visible change",
+    "- never add attribution, co-author trailers, emojis, or mentions of AI tools",
     "",
     `Branch: ${input.branch ?? "(detached)"}`,
     "",
@@ -54,9 +55,9 @@ export function buildPrContentPrompt(input: {
     "Do not call tools. Reply with JSON only.",
     "Rules:",
     "- title should be concise and specific",
-    "- body must be markdown and include headings '## Summary' and '## Testing'",
-    "- under Summary, provide short bullet points",
-    "- under Testing, include bullet points with concrete checks or 'Not run' where appropriate",
+    "- body must be 2–6 short markdown bullet points saying what changed and why",
+    "- no headings, no testing section",
+    "- never add attribution, co-author trailers, emojis, or mentions of AI tools",
     "",
     `Base branch: ${input.baseBranch}`,
     `Head branch: ${input.headBranch}`,
@@ -101,12 +102,13 @@ export function parseCommitMessage(raw: string): CommitMessage | null {
 
 function commitBody(rec: Record<string, unknown>): string {
   const value = rec.body;
-  if (typeof value === "string") return value.trim();
+  if (typeof value === "string") return stripAttribution(value);
   if (Array.isArray(value)) {
-    return value
-      .flatMap((item) => (typeof item === "string" ? [item] : []))
-      .join("\n")
-      .trim();
+    return stripAttribution(
+      value
+        .flatMap((item) => (typeof item === "string" ? [item] : []))
+        .join("\n"),
+    );
   }
   return "";
 }
@@ -115,11 +117,30 @@ export function formatCommitMessage(message: CommitMessage): string {
   return message.body ? `${message.subject}\n\n${message.body}` : message.subject;
 }
 
+const ATTRIBUTION_LINE_PATTERNS = [
+  /^\s*co-authored-by:/i,
+  /^\s*claude-session:/i,
+  /generated with.*claude/i,
+  /^\s*🤖/u,
+  /claude\.ai\/code\/session/i,
+];
+
+export function stripAttribution(text: string): string {
+  return text
+    .split(/\r?\n/)
+    .filter(
+      (line) => !ATTRIBUTION_LINE_PATTERNS.some((pattern) => pattern.test(line)),
+    )
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 export function parsePrContent(raw: string): PrContent | null {
   const rec = parseJsonObject(raw);
   if (!rec) return null;
   const title = sanitizePrTitle(stringField(rec, "title"));
-  const body = stringField(rec, "body").trim();
+  const body = stripAttribution(stringField(rec, "body"));
   if (!title) return null;
   return { title, body };
 }

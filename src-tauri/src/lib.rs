@@ -6,6 +6,7 @@ mod checkpoint;
 mod cursor_store;
 mod external_editor;
 mod fs;
+mod git_branch_delete;
 mod harness;
 mod harness_updates;
 mod inbox_media;
@@ -285,6 +286,7 @@ pub fn run() {
             fs::git_branches,
             fs::git_checkout,
             fs::git_create_branch,
+            git_branch_delete::git_delete_branch,
             fs::git_stash,
             worktrees::git_worktrees,
             worktrees::git_worktree_create,
