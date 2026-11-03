@@ -25,6 +25,15 @@ vi.mock("../../../platform/tauri/fs", () => ({
   subscribeGitChanged: () => () => {},
 }));
 
+// The scroller's overscroll lock: the test checks which element it gets.
+const lock = vi.hoisted(() => vi.fn<(el: HTMLElement | null) => void>());
+vi.mock("../../../shared/hooks/useLockOverscroll", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("../../../shared/hooks/useLockOverscroll")
+  >()),
+  useLockOverscroll: () => lock,
+}));
+
 type EditorProps = {
   path: string;
   embedded?: boolean;
@@ -227,7 +236,10 @@ describe("EditableChanges", () => {
   });
 
   it("offers discard and stage on an untracked file", async () => {
-    fs.files = [changed("n.ts", { status: "untracked" })];
+    // Untracked files arrive from git with unstaged: true.
+    fs.files = [
+      changed("n.ts", { status: "untracked", unstaged: true, staged: false }),
+    ];
     await renderWith(actionsOf({ unstagedCount: 1 }));
     expect(labelsIn(entry("n.ts")!)).toEqual(["Discard Changes", "Stage Changes"]);
   });
@@ -311,6 +323,16 @@ describe("EditableChanges", () => {
     expect(bulkButton("Unstage All Changes")).toBeNull();
     expect(bulkButton("Discard All Changes")).not.toBeNull();
     expect(bulkButton("Stage All Changes")).not.toBeNull();
+  });
+
+  it("passes the diff scroller to the overscroll lock", async () => {
+    lock.mockClear();
+    fs.files = [changed("a.ts")];
+    await render();
+    const scroller = lock.mock.calls.map(([el]) => el).filter(Boolean).at(-1);
+    expect(scroller).toBeInstanceOf(HTMLDivElement);
+    expect(scroller!.className).toContain("overscroll-contain");
+    expect(scroller!.contains(entry("a.ts"))).toBe(true);
   });
 
   it("renders no git controls without actions", async () => {

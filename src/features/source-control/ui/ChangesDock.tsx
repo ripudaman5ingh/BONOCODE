@@ -47,17 +47,19 @@ export function ChangesDock({
       hideShortcut={`${MOD}${ALT}B`}
       {...frame}
       renderBody={(controls) => (
-        <ChangesDockBody
-          gitCwd={gitCwd}
-          headerControls={controls}
-          textHarness={textHarness}
-          selectedSha={selectedSha}
-          onOpenFile={onOpenFile}
-          onOpenCommit={onOpenCommit}
-          onDirtyChange={onDirtyChange}
-          ciRepair={ciRepair}
-          onOpenPr={onOpenPr}
-        />
+        <div className="relative min-h-0 min-w-0 flex-1">
+          <ChangesDockBody
+            gitCwd={gitCwd}
+            headerControls={controls}
+            textHarness={textHarness}
+            selectedSha={selectedSha}
+            onOpenFile={onOpenFile}
+            onOpenCommit={onOpenCommit}
+            onDirtyChange={onDirtyChange}
+            ciRepair={ciRepair}
+            onOpenPr={onOpenPr}
+          />
+        </div>
       )}
     />
   );

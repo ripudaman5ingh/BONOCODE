@@ -39,9 +39,10 @@ type Props = {
   onSizeCommit: (size: number) => void;
   /** Buttons placed before the move and hide buttons. */
   actions?: ReactNode;
-  /** Replaces the plain title row; receives the dock's buttons to place. */
-  header?: (controls: ReactNode) => ReactNode;
-  /** Replaces the title row and the children: the body places the controls itself. */
+  /**
+   * Replaces the title row and the body wrapper. The caller lays out its own
+   * header and body, and places `controls` (Move and Hide) in the header.
+   */
   renderBody?: (controls: ReactNode) => ReactNode;
   children?: ReactNode;
 };
@@ -93,7 +94,6 @@ export function DockFrame({
   onSizePaint,
   onSizeCommit,
   actions,
-  header,
   renderBody,
   children,
 }: Props) {
@@ -222,19 +222,19 @@ export function DockFrame({
           commit();
         }}
       />
-      {renderBody ? null : header ? (
-        header(controls)
+      {renderBody ? (
+        renderBody(controls)
       ) : (
-        <div className="flex h-9 min-w-0 shrink-0 items-center border-b border-stroke">
-          <span className="min-w-0 flex-1 truncate pl-3 text-[13px] text-content/70">
-            {title}
-          </span>
-          {controls}
-        </div>
+        <>
+          <div className="flex h-9 min-w-0 shrink-0 items-center border-b border-stroke">
+            <span className="min-w-0 flex-1 truncate pl-3 text-[13px] text-content/70">
+              {title}
+            </span>
+            {controls}
+          </div>
+          <div className="relative min-h-0 min-w-0 flex-1">{children}</div>
+        </>
       )}
-      <div className="relative min-h-0 min-w-0 flex-1">
-        {renderBody ? renderBody(controls) : children}
-      </div>
       {menu ? (
         <ExplorerMenu
           x={menu.x}

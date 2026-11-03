@@ -24,6 +24,7 @@ import {
 } from "../../../platform/tauri/fs";
 import { FileEditor, type SaveState } from "../../files/ui/FileEditor";
 import { changedPathFiles } from "../model/workingTreeDiff";
+import { useLockOverscroll } from "../../../shared/hooks/useLockOverscroll";
 import type { ChangeActions } from "../model/changeActions";
 import { ChangeBulkRow, ChangeFileActions } from "./ChangeEntryActions";
 
@@ -50,6 +51,15 @@ export function EditableChanges({
   const [error, setError] = useState<string | null>(null);
   const [focusedPath, setFocusedPath] = useState<string | null>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
+  const lockOverscroll = useLockOverscroll<HTMLDivElement>();
+  // One ref feeds both the observer root and the overscroll lock.
+  const setScroller = useCallback(
+    (el: HTMLDivElement | null) => {
+      scrollerRef.current = el;
+      lockOverscroll(el);
+    },
+    [lockOverscroll],
+  );
 
   useEffect(() => {
     if (!cwd || cwd === "~") {
@@ -108,7 +118,7 @@ export function EditableChanges({
         <ChangeBulkRow cwd={cwd} fileCount={files.length} actions={actions} />
       ) : null}
       <div
-        ref={scrollerRef}
+        ref={setScroller}
         className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
       >
         {files.map((file) => (

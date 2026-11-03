@@ -89,7 +89,8 @@ export function ChangeFileActions({
   actions: ChangeActions;
 }) {
   const { busy, onAction } = actions;
-  const canStage = file.unstaged || file.status === "untracked";
+  // Untracked files arrive with unstaged: true (git_diff_files in fs.rs).
+  const canStage = file.unstaged;
   return (
     <>
       <span
