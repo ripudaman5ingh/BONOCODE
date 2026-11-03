@@ -1,11 +1,12 @@
 import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { ProjectTerminalDock } from "../../features/terminal/ui/ProjectTerminalDock";
 import { ChangesDock } from "../../features/source-control/ui/ChangesDock";
+import { ChangesDockRail } from "../../features/source-control/ui/ChangesDockRail";
 import { sameProjectPath } from "../../features/projects/model/recents";
 import {
   applyDockLayoutStyle,
   dockLayoutStyle,
-  openDocks,
+  layoutDocks,
   resolveDockSides,
   type DockSurface,
 } from "../../features/workspace/model/dockLayout";
@@ -39,13 +40,19 @@ export function WorkspaceDocks({
   const { projectTerminals, projectTerminalFocused, currentProjectDock } =
     terminalDock;
   const { changesDock } = changes;
+  // Without a project there is no diff to count, so a closed dock leaves no rail.
+  const hasProject = Boolean(gitCwd) && gitCwd !== "~";
   const docks = resolveDockSides(
-    openDocks({ terminal: currentProjectDock, changes: changesDock }),
+    layoutDocks(
+      { terminal: currentProjectDock, changes: changesDock },
+      { changes: hasProject },
+    ),
   );
   const sideOf = (surface: DockSurface) =>
     docks.find((dock) => dock.surface === surface)?.side;
   const terminalSide = sideOf("terminal");
-  const changesSide = sideOf("changes");
+  const changesEntry = docks.find((dock) => dock.surface === "changes");
+  const changesSide = changesEntry?.side;
 
   // While a sash is dragged the grid is painted directly, every frame, and the
   // store only hears about the size on release.
@@ -111,18 +118,26 @@ export function WorkspaceDocks({
           className="h-full min-h-0 min-w-0 w-full overflow-hidden"
           style={{ gridArea: changesSide }}
         >
-          <ChangesDock
-            gitCwd={gitCwd}
-            side={changesSide}
-            size={changesDock.size}
-            onFocus={changes.onFocusChangesDock}
-            onHide={changes.onHideChangesDock}
-            onSideChange={changes.onChangesDockSide}
-            onSizePaint={paint("changes")}
-            onSizeCommit={commit(changes.onChangesDockSize)}
-            onOpenFile={onOpenFile}
-            onDirtyChange={changes.onChangesDirty}
-          />
+          {changesEntry?.collapsed ? (
+            <ChangesDockRail
+              gitCwd={gitCwd}
+              side={changesSide}
+              onShow={changes.onShowChangesDock}
+            />
+          ) : (
+            <ChangesDock
+              gitCwd={gitCwd}
+              side={changesSide}
+              size={changesDock.size}
+              onFocus={changes.onFocusChangesDock}
+              onHide={changes.onHideChangesDock}
+              onSideChange={changes.onChangesDockSide}
+              onSizePaint={paint("changes")}
+              onSizeCommit={commit(changes.onChangesDockSize)}
+              onOpenFile={onOpenFile}
+              onDirtyChange={changes.onChangesDirty}
+            />
+          )}
         </div>
       ) : null}
       <div

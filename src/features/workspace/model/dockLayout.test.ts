@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_CHANGES_DOCK,
+  DOCK_RAIL_SIZE,
   dockLayoutStyle,
+  layoutDocks,
   moveDockToSide,
   openDocks,
   resolveDockSides,
@@ -114,6 +116,48 @@ describe("openDocks", () => {
         }),
       ).gridTemplateAreas,
     ).toBe('"main right"');
+  });
+});
+
+describe("layoutDocks", () => {
+  const closed = (side: DockPlacement["side"], size: number): DockPlacement => ({
+    side,
+    size,
+    open: false,
+  });
+
+  it("a closed changes dock becomes a rail on its side when rails are on", () => {
+    expect(
+      layoutDocks({ changes: closed("left", 360) }, { changes: true }),
+    ).toEqual([
+      { surface: "changes", side: "left", size: DOCK_RAIL_SIZE, collapsed: true },
+    ]);
+  });
+
+  it("a closed changes dock leaves no entry when rails are off", () => {
+    expect(layoutDocks({ changes: closed("right", 360) }, { changes: false })).toEqual(
+      [],
+    );
+  });
+
+  it("an open changes dock is a normal entry, not collapsed", () => {
+    const [entry] = layoutDocks({ changes: open("right", 360) }, { changes: true });
+    expect(entry).toEqual({ surface: "changes", side: "right", size: 360 });
+    expect(entry.collapsed).toBeFalsy();
+  });
+
+  it("a collapsed rail yields to an open terminal on the same side", () => {
+    const resolved = resolveDockSides(
+      layoutDocks(
+        { terminal: open("right", 300), changes: closed("right", 360) },
+        { changes: true },
+      ),
+    );
+    expect(resolved.map((dock) => [dock.surface, dock.side, dock.size])).toEqual([
+      ["terminal", "right", 300],
+      ["changes", "left", DOCK_RAIL_SIZE],
+    ]);
+    expect(resolved[1].collapsed).toBe(true);
   });
 });
 
