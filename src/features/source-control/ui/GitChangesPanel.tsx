@@ -3,20 +3,13 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   Check,
   ChevronDown,
-  ChevronRight,
   CloudUpload,
   ExternalLink,
-  FileDiff,
-  FolderTree,
   GitBranch,
   GitPullRequest,
-  ListBullet,
   Loader,
-  Minus,
   MoreHorizontal,
-  Plus,
   RefreshCw,
-  Undo2,
   WandSparkles,
   X,
 } from "../../../shared/ui/icons";
@@ -29,7 +22,6 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { FileTypeIcon } from "../../files/ui/FileTypeIcon";
 import {
   GitHistoryGraph,
   GraphResizeSash,
@@ -60,7 +52,6 @@ import {
   subscribeGitChanged,
   type GitChangedFile,
   type GitDiffIndex,
-  type GitFileDiffKind,
   type GitHistoryCommit,
   type GitPr,
 } from "../../../platform/tauri/fs";
@@ -68,18 +59,12 @@ import type { HarnessId, LinkedWorkItem } from "../../sessions/model/session";
 import { parseGithubWorkItemUrl } from "../../sessions/model/sessionWorkItem";
 import { recordInboxSelfActivity } from "../../github/model/inboxSelfActivity";
 import {
-  loadChangesView,
-  saveChangesView,
-  type ChangesView,
-} from "../../settings/model/appearance";
-import {
   generateCommitMessage,
   generatePrContent,
 } from "../../../integrations/harness";
 import { invalidateWatchedFiles } from "../../files/model/fileWatch";
 import { MOD } from "../../../platform/tauri/platform";
 import { applyProjectDiffStats } from "../hooks/useProjectDiffStats";
-import { useLockOverscroll } from "../../../shared/hooks/useLockOverscroll";
 import { sameProjectPath } from "../../projects/model/recents";
 import type { SessionSummary } from "../../sessions/data/sessionStore";
 import type { CiRepairRequest } from "../model/ciRepair";
@@ -87,6 +72,7 @@ import { useGithubPrChecks } from "../hooks/useGithubPrChecks";
 import { PrChecks } from "./PrChecks";
 import { CreatePrDialog } from "./CreatePrDialog";
 import type { PrContent } from "../model/gitText";
+import type { ChangeActions } from "../model/changeActions";
 
 type PrDraft = PrContent & { base: string; head: string };
 
@@ -101,12 +87,7 @@ function confirmNative(message: string, okLabel?: string): Promise<boolean> {
   });
 }
 
-let stagedOpen = true;
-let changesOpen = true;
 let graphOpen = true;
-let changesView: ChangesView = loadChangesView();
-/** Folders the user collapsed in tree view, keyed `<kind>:<dir>`. */
-const collapsedDirs = new Set<string>();
 const indexByCwd = new Map<string, GitDiffIndex>();
 const prByCwd = new Map<string, GitPr | null>();
 
@@ -127,11 +108,11 @@ type Props = {
   cwd: string;
   enabled: boolean;
   textHarness?: HarnessId;
-  selectedPath?: string;
-  selectedKind?: GitFileDiffKind;
   selectedSha?: string;
-  onOpenFile: (path: string, kind: GitFileDiffKind, pin?: boolean) => void;
-  onOpenAllChanges: (kind: GitFileDiffKind) => void;
+  /** Placed at the right end of the header row, e.g. the dock's own buttons. */
+  headerControls?: ReactNode;
+  /** Renders the changed files under the commit area; the caller owns how. */
+  renderFiles: (actions: ChangeActions) => ReactNode;
   onOpenCommit: (commit: GitHistoryCommit, pin?: boolean) => void;
   ciRepair?: GitCiRepair;
   onOpenPr?: (item: LinkedWorkItem) => void;
@@ -141,11 +122,9 @@ export function GitChangesPanel({
   cwd,
   enabled,
   textHarness,
-  selectedPath,
-  selectedKind,
   selectedSha,
-  onOpenFile,
-  onOpenAllChanges,
+  headerControls,
+  renderFiles,
   onOpenCommit,
   ciRepair,
   onOpenPr,
@@ -295,20 +274,18 @@ export function GitChangesPanel({
         ) : (
           <span className="ml-auto" />
         )}
+        {headerControls}
       </header>
       <ChangedFiles
         cwd={cwd}
         textHarness={textHarness}
         index={index}
         files={files}
-        selected={selectedPath}
-        selectedKind={selectedKind}
         enabled={enabled}
         fill
         busy={busy}
         setBusy={setBusy}
-        onOpenFile={onOpenFile}
-        onOpenAllChanges={onOpenAllChanges}
+        renderFiles={renderFiles}
         ciRepair={ciRepair}
         onOpenPr={onOpenPr}
         onMutated={(paths) => {
@@ -364,14 +341,11 @@ function ChangedFiles({
   textHarness,
   index,
   files,
-  selected,
-  selectedKind,
   enabled,
   fill,
   busy,
   setBusy,
-  onOpenFile,
-  onOpenAllChanges,
+  renderFiles,
   onMutated,
   onRemoteRefsChanged,
   ciRepair,
@@ -381,21 +355,17 @@ function ChangedFiles({
   textHarness?: HarnessId;
   index: GitDiffIndex | null;
   files: GitChangedFile[];
-  selected?: string;
-  selectedKind?: GitFileDiffKind;
   enabled: boolean;
   fill: boolean;
   busy: string | null;
   setBusy: (value: string | null) => void;
-  onOpenFile: (path: string, kind: GitFileDiffKind, pin?: boolean) => void;
-  onOpenAllChanges: (kind: GitFileDiffKind) => void;
+  renderFiles: (actions: ChangeActions) => ReactNode;
   onMutated: (paths?: string[]) => void;
   /** A fetch moves only remote refs, so open files stay as they are. */
   onRemoteRefsChanged: () => void;
   ciRepair?: GitCiRepair;
   onOpenPr?: (item: LinkedWorkItem) => void;
 }) {
-  const lockOverscroll = useLockOverscroll<HTMLDivElement>();
   const menuRef = useRef<HTMLDivElement>(null);
   const messageRef = useRef<HTMLTextAreaElement>(null);
   const generateAbortRef = useRef<AbortController | null>(null);
@@ -405,9 +375,6 @@ function ChangedFiles({
   const [menuOpen, setMenuOpen] = useState(false);
   const [prDraft, setPrDraft] = useState<PrDraft | null>(null);
   const [prError, setPrError] = useState<string | null>(null);
-  const [stagedExpanded, setStagedExpanded] = useState(stagedOpen);
-  const [changesExpanded, setChangesExpanded] = useState(changesOpen);
-  const [view, setView] = useState<ChangesView>(changesView);
   const { pr, reload: reloadPr } = usePrStatus(cwd, index?.branch);
   const prChecksView = useGithubPrChecks({
     cwd,
@@ -522,12 +489,6 @@ function ChangedFiles({
     window.addEventListener("pointerdown", onPointer);
     return () => window.removeEventListener("pointerdown", onPointer);
   }, [menuOpen]);
-
-  const toggleView = () => {
-    changesView = view === "tree" ? "list" : "tree";
-    saveChangesView(changesView);
-    setView(changesView);
-  };
 
   const fail = (error: unknown) => {
     window.alert(error instanceof Error ? error.message : String(error));
@@ -791,6 +752,14 @@ function ChangedFiles({
     }
   };
 
+  const actions: ChangeActions = {
+    busy,
+    onAction: run,
+    onAll: runAll,
+    stagedCount: staged.length,
+    unstagedCount: unstaged.length,
+  };
+
   return (
     <aside
       className={`flex min-h-0 min-w-0 flex-col ${fill ? "flex-1" : "shrink-0"}`}
@@ -1001,10 +970,7 @@ function ChangedFiles({
           </div>
         ) : null}
       </div>
-      <div
-        ref={lockOverscroll}
-        className="min-h-0 flex-1 overflow-y-auto overscroll-none py-1"
-      >
+      <div className="flex min-h-0 flex-1 flex-col">
         {files.length === 0 ? (
           <p className="px-3 py-2 text-[12px] text-content/45">
             {index
@@ -1014,85 +980,7 @@ function ChangedFiles({
               : "Loading changes…"}
           </p>
         ) : (
-          <>
-            {staged.length > 0 ? (
-              <FileSection
-                title="Staged Changes"
-                count={staged.length}
-                open={stagedExpanded}
-                onToggle={() => {
-                  stagedOpen = !stagedExpanded;
-                  setStagedExpanded(stagedOpen);
-                }}
-                view={view}
-                onToggleView={toggleView}
-                headerActions={[
-                  {
-                    title: "Open All Changes",
-                    icon: <FileDiff className="size-3.5" strokeWidth={1.75} />,
-                    onClick: () => onOpenAllChanges("staged"),
-                  },
-                  {
-                    title: "Unstage All Changes",
-                    icon: <Minus className="size-3.5" strokeWidth={1.75} />,
-                    onClick: () => void runAll("unstage"),
-                  },
-                ]}
-              >
-                <ChangeList
-                  files={staged}
-                  view={view}
-                  kind="staged"
-                  selected={selected}
-                  selectedKind={selectedKind}
-                  busy={busy}
-                  onOpenFile={onOpenFile}
-                  onAction={run}
-                />
-              </FileSection>
-            ) : null}
-            {unstaged.length > 0 ? (
-              <FileSection
-                title="Changes"
-                count={unstaged.length}
-                open={changesExpanded}
-                onToggle={() => {
-                  changesOpen = !changesExpanded;
-                  setChangesExpanded(changesOpen);
-                }}
-                view={view}
-                onToggleView={toggleView}
-                headerActions={[
-                  {
-                    title: "Open All Changes",
-                    icon: <FileDiff className="size-3.5" strokeWidth={1.75} />,
-                    onClick: () => onOpenAllChanges("unstaged"),
-                  },
-                  {
-                    title: "Discard All Changes",
-                    icon: <Undo2 className="size-3.5" strokeWidth={1.75} />,
-                    onClick: () => void runAll("discard"),
-                  },
-                  {
-                    title: "Stage All Changes",
-                    icon: <Plus className="size-3.5" strokeWidth={1.75} />,
-                    onClick: () => void runAll("stage"),
-                  },
-                ]}
-              >
-                <ChangeList
-                  files={unstaged}
-                  view={view}
-                  kind="unstaged"
-                  selected={selected}
-                  selectedKind={selectedKind}
-                  busy={busy}
-                  onOpenFile={onOpenFile}
-                  onAction={run}
-                />
-              </FileSection>
-            ) : null}
-          </>
+          renderFiles(actions)
         )}
       </div>
       {prDraft ? (
@@ -1337,424 +1225,6 @@ function GitSyncActions({
       ) : null}
     </div>
   );
-}
-
-export function FileSection({
-  title,
-  count,
-  open,
-  onToggle,
-  view,
-  onToggleView,
-  headerActions,
-  children,
-}: {
-  title: string;
-  count: number;
-  open: boolean;
-  onToggle: () => void;
-  view: ChangesView;
-  onToggleView: () => void;
-  headerActions: { title: string; icon: ReactNode; onClick: () => void }[];
-  children: ReactNode;
-}) {
-  return (
-    <div>
-      <div className="flex h-7 items-center gap-1 px-1.5">
-        <button
-          type="button"
-          onClick={onToggle}
-          className="flex min-w-0 flex-1 items-center gap-1 text-left"
-        >
-          {open ? (
-            <ChevronDown
-              className="size-3.5 shrink-0 text-content/50"
-              strokeWidth={1.75}
-            />
-          ) : (
-            <ChevronRight
-              className="size-3.5 shrink-0 text-content/50"
-              strokeWidth={1.75}
-            />
-          )}
-          <span className="min-w-0 truncate text-[10px] font-semibold tracking-[0.04em] text-content/55 uppercase">
-            {title}
-          </span>
-          <span className="ml-1 grid h-4 min-w-4 shrink-0 place-items-center rounded-full bg-accent/80 px-1 text-[8px] text-white">
-            {count}
-          </span>
-        </button>
-        <IconAction
-          title={view === "tree" ? "View as List" : "View as Tree"}
-          onClick={onToggleView}
-        >
-          {view === "tree" ? (
-            <ListBullet className="size-3.5" strokeWidth={1.75} />
-          ) : (
-            <FolderTree className="size-3.5" strokeWidth={1.75} />
-          )}
-        </IconAction>
-        {headerActions.map((action) => (
-          <IconAction
-            key={action.title}
-            title={action.title}
-            onClick={action.onClick}
-          >
-            {action.icon}
-          </IconAction>
-        ))}
-      </div>
-      {open ? <ul>{children}</ul> : null}
-    </div>
-  );
-}
-
-type ChangeDir = {
-  name: string;
-  /** Path relative to the repo root; "" for the implicit root. */
-  path: string;
-  dirs: ChangeDir[];
-  files: GitChangedFile[];
-  /** Status shared by every descendant, or null when they differ. */
-  status: string | null;
-};
-
-type ChangeRowProps = {
-  files: GitChangedFile[];
-  view: ChangesView;
-  kind: GitFileDiffKind;
-  selected?: string;
-  selectedKind?: GitFileDiffKind;
-  busy: string | null;
-  onOpenFile: (path: string, kind: GitFileDiffKind, pin?: boolean) => void;
-  onAction: (
-    file: GitChangedFile,
-    action: "stage" | "unstage" | "discard",
-  ) => void;
-};
-
-export function ChangeList({ files, view, ...rest }: ChangeRowProps) {
-  const tree = useMemo(() => buildChangeTree(files), [files]);
-  if (view === "tree") {
-    return <ChangeDirChildren dir={tree} depth={0} {...rest} />;
-  }
-  return (
-    <>
-      {files.map((file) => (
-        <ChangeRow
-          key={`${rest.kind}:${file.relative}`}
-          file={file}
-          active={isActive(file, rest.selected, rest.selectedKind, rest.kind)}
-          busy={rest.busy === file.relative}
-          kind={rest.kind}
-          onOpenFile={rest.onOpenFile}
-          onAction={rest.onAction}
-        />
-      ))}
-    </>
-  );
-}
-
-function ChangeDirChildren({
-  dir,
-  depth,
-  kind,
-  selected,
-  selectedKind,
-  busy,
-  onOpenFile,
-  onAction,
-}: Omit<ChangeRowProps, "files" | "view"> & {
-  dir: ChangeDir;
-  depth: number;
-}) {
-  return (
-    <>
-      {dir.dirs.map((child) => (
-        <ChangeDirRow
-          key={child.path}
-          dir={child}
-          depth={depth}
-          kind={kind}
-          selected={selected}
-          selectedKind={selectedKind}
-          busy={busy}
-          onOpenFile={onOpenFile}
-          onAction={onAction}
-        />
-      ))}
-      {dir.files.map((file) => (
-        <ChangeRow
-          key={`${kind}:${file.relative}`}
-          file={file}
-          active={isActive(file, selected, selectedKind, kind)}
-          busy={busy === file.relative}
-          kind={kind}
-          depth={depth}
-          onOpenFile={onOpenFile}
-          onAction={onAction}
-        />
-      ))}
-    </>
-  );
-}
-
-function ChangeDirRow({
-  dir,
-  depth,
-  kind,
-  ...rest
-}: Omit<ChangeRowProps, "files" | "view"> & {
-  dir: ChangeDir;
-  depth: number;
-}) {
-  const key = `${kind}:${dir.path}`;
-  const [open, setOpen] = useState(() => !collapsedDirs.has(key));
-  const toggle = () => {
-    if (open) collapsedDirs.add(key);
-    else collapsedDirs.delete(key);
-    setOpen(!open);
-  };
-  return (
-    <li>
-      <button
-        type="button"
-        title={dir.path}
-        aria-expanded={open}
-        onClick={toggle}
-        style={{ paddingLeft: 8 + depth * 12 }}
-        className="flex h-7 w-full items-center gap-1.5 pr-2 text-left leading-none text-content hover:bg-content/5"
-      >
-        <span className="grid size-4 shrink-0 place-items-center text-content/50">
-          {open ? (
-            <ChevronDown className="size-3.5" strokeWidth={1.75} />
-          ) : (
-            <ChevronRight className="size-3.5" strokeWidth={1.75} />
-          )}
-        </span>
-        <FileTypeIcon name={dir.name} isDir isOpen={open} size={16} />
-        <span className="min-w-0 flex-1 truncate text-[13px] font-medium">
-          {dir.name}
-        </span>
-        <span
-          className={`grid w-3.5 shrink-0 place-items-center ${
-            dir.status ? statusColor(dir.status) : "text-content/40"
-          }`}
-          aria-hidden
-        >
-          <span className="size-1.5 rounded-full bg-current" />
-        </span>
-      </button>
-      {open ? (
-        <ul>
-          <ChangeDirChildren
-            dir={dir}
-            depth={depth + 1}
-            kind={kind}
-            {...rest}
-          />
-        </ul>
-      ) : null}
-    </li>
-  );
-}
-
-function isActive(
-  file: GitChangedFile,
-  selected: string | undefined,
-  selectedKind: GitFileDiffKind | undefined,
-  kind: GitFileDiffKind,
-): boolean {
-  return selected === file.relative && (!selectedKind || selectedKind === kind);
-}
-
-/** Nests changed files under their directories, VS Code's tree view. */
-function buildChangeTree(files: GitChangedFile[]): ChangeDir {
-  const root: ChangeDir = {
-    name: "",
-    path: "",
-    dirs: [],
-    files: [],
-    status: null,
-  };
-  for (const file of files) {
-    const segments = file.relative.split("/");
-    let node = root;
-    for (const segment of segments.slice(0, -1)) {
-      const path = node.path ? `${node.path}/${segment}` : segment;
-      let next = node.dirs.find((dir) => dir.path === path);
-      if (!next) {
-        next = { name: segment, path, dirs: [], files: [], status: null };
-        node.dirs.push(next);
-      }
-      node = next;
-    }
-    node.files.push(file);
-  }
-  sortChangeDir(root);
-  return root;
-}
-
-/** Sorts each level (folders first) and rolls descendant status upward. */
-function sortChangeDir(dir: ChangeDir): string | null {
-  dir.dirs.sort((a, b) => a.name.localeCompare(b.name));
-  dir.files.sort((a, b) =>
-    basename(a.relative).localeCompare(basename(b.relative)),
-  );
-  let status: string | null = null;
-  let mixed = false;
-  const merge = (next: string | null) => {
-    if (next === null) mixed = true;
-    else if (status === null) status = next;
-    else if (status !== next) mixed = true;
-  };
-  for (const child of dir.dirs) merge(sortChangeDir(child));
-  for (const file of dir.files) merge(file.status);
-  dir.status = mixed ? null : status;
-  return dir.status;
-}
-
-function ChangeRow({
-  file,
-  active,
-  busy,
-  kind,
-  depth,
-  onOpenFile,
-  onAction,
-}: {
-  file: GitChangedFile;
-  active: boolean;
-  busy: boolean;
-  kind: GitFileDiffKind;
-  /** Set in tree view: nesting level, and the folder path moves to the tree. */
-  depth?: number;
-  onOpenFile: (path: string, kind: GitFileDiffKind, pin?: boolean) => void;
-  onAction: (
-    file: GitChangedFile,
-    action: "stage" | "unstage" | "discard",
-  ) => void;
-}) {
-  const name = basename(file.relative);
-  const tree = depth !== undefined;
-  const dir = tree ? "" : dirname(file.relative);
-  const canOpen = file.status !== "deleted";
-  return (
-    <li>
-      <div
-        style={tree ? { paddingLeft: 8 + depth * 12 } : undefined}
-        className={`group flex h-7 w-full items-center gap-1 pr-2 leading-none ${
-          tree ? "" : "pl-2"
-        } ${
-          active
-            ? "bg-selection text-content"
-            : "text-content hover:bg-content/5"
-        }`}
-      >
-        <button
-          type="button"
-          title={file.relative}
-          onClick={() => {
-            if (canOpen) onOpenFile(file.path, kind);
-          }}
-          onDoubleClick={() => {
-            if (canOpen) onOpenFile(file.path, kind, true);
-          }}
-          className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
-        >
-          {tree ? <span className="size-4 shrink-0" /> : null}
-          <FileTypeIcon name={name} isDir={false} size={16} />
-          <span className="min-w-0 flex-1 truncate">
-            <span className="text-[13px] font-medium">{name}</span>
-            {dir ? (
-              <span className="ml-1.5 text-[11px] text-content/40">{dir}</span>
-            ) : null}
-          </span>
-        </button>
-        <div
-          className={` shrink-0 items-center ${
-            active ? "flex" : "hidden group-focus-within:flex group-hover:flex"
-          }`}
-        >
-          {kind === "unstaged" ? (
-            <IconAction
-              title="Discard Changes"
-              disabled={busy}
-              onClick={() => onAction(file, "discard")}
-            >
-              <Undo2 className="size-3.5" strokeWidth={1.75} />
-            </IconAction>
-          ) : null}
-          {kind === "staged" ? (
-            <IconAction
-              title="Unstage Changes"
-              disabled={busy}
-              onClick={() => onAction(file, "unstage")}
-            >
-              <Minus className="size-3.5" strokeWidth={1.75} />
-            </IconAction>
-          ) : (
-            <IconAction
-              title="Stage Changes"
-              disabled={busy}
-              onClick={() => onAction(file, "stage")}
-            >
-              <Plus className="size-3.5" strokeWidth={1.75} />
-            </IconAction>
-          )}
-        </div>
-        <span
-          className={`w-3.5 shrink-0 text-right font-mono text-[11px] font-semibold ${statusColor(file.status)}`}
-        >
-          {statusLetter(file.status)}
-        </span>
-      </div>
-    </li>
-  );
-}
-
-function IconAction({
-  title,
-  disabled,
-  onClick,
-  children,
-}: {
-  title: string;
-  disabled?: boolean;
-  onClick: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      title={title}
-      aria-label={title}
-      disabled={disabled}
-      onClick={onClick}
-      className="grid size-5 place-items-center rounded text-content/55 hover:bg-content/10 hover:text-content disabled:opacity-40"
-    >
-      {children}
-    </button>
-  );
-}
-
-function dirname(relative: string): string {
-  const i = relative.lastIndexOf("/");
-  return i > 0 ? relative.slice(0, i) : "";
-}
-
-function statusLetter(status: string): string {
-  if (status === "untracked") return "U";
-  if (status === "added") return "A";
-  if (status === "deleted") return "D";
-  return "M";
-}
-
-function statusColor(status: string): string {
-  if (status === "untracked") return "text-info";
-  if (status === "added") return "text-success";
-  if (status === "deleted") return "text-danger";
-  return "text-warning";
 }
 
 function useDiffIndex(

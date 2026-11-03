@@ -23,10 +23,10 @@ beforeEach(() => {
 describe("project Workspace tab", () => {
   it("remembers each project's tab across path spelling changes", () => {
     saveProjectSidebarTab("/work/one/", "files");
-    saveProjectSidebarTab("/work/two", "changes");
+    saveProjectSidebarTab("/work/two", "sessions");
 
     expect(loadProjectSidebarTab("/work/one")).toBe("files");
-    expect(loadProjectSidebarTab("/work/two/")).toBe("changes");
+    expect(loadProjectSidebarTab("/work/two/")).toBe("sessions");
     expect(loadProjectSidebarTab("/work/three")).toBe("sessions");
   });
 
@@ -35,10 +35,15 @@ describe("project Workspace tab", () => {
     expect(loadProjectSidebarTab("/work/one")).toBe("sessions");
   });
 
+  it("drops a saved changes tab, which now lives in the changes dock", () => {
+    localStorage.setItem(KEY, JSON.stringify({ "/work/one": "changes" }));
+    expect(loadProjectSidebarTab("/work/one")).toBe("sessions");
+  });
+
   it("uses the first visible tab in the global order for a new project", () => {
     localStorage.setItem(
       "bonocode.sidebarTabOrder",
-      JSON.stringify(["files", "sessions", "changes"]),
+      JSON.stringify(["changes", "files", "sessions"]),
     );
     expect(loadProjectSidebarTab("/work/new")).toBe("files");
   });

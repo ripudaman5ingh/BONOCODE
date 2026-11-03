@@ -13,6 +13,9 @@ import {
 import type { TerminalMetaPatch } from "../../features/terminal/model/terminalTab";
 import type { useTerminalDock } from "../../features/terminal/hooks/useTerminalDock";
 import type { useChangesDock } from "../../features/workspace/hooks/useChangesDock";
+import type { HarnessId, LinkedWorkItem } from "../../features/sessions/model/session";
+import type { GitHistoryCommit } from "../../platform/tauri/fs";
+import type { GitCiRepair } from "../../features/source-control/ui/GitChangesPanel";
 
 type Props = {
   projectCwd: string;
@@ -22,6 +25,11 @@ type Props = {
   onAddTerminal: () => void;
   onTerminalMetaChange: (fileId: string, patch: TerminalMetaPatch) => void;
   onOpenFile: (path: string) => void;
+  textHarness?: HarnessId;
+  selectedSha?: string;
+  onOpenCommit: (commit: GitHistoryCommit, pin?: boolean) => void;
+  ciRepair?: GitCiRepair;
+  onOpenPr?: (item: LinkedWorkItem) => void;
   /** The main area: the workspace tabs. */
   children: ReactNode;
 };
@@ -35,6 +43,11 @@ export function WorkspaceDocks({
   onAddTerminal,
   onTerminalMetaChange,
   onOpenFile,
+  textHarness,
+  selectedSha,
+  onOpenCommit,
+  ciRepair,
+  onOpenPr,
   children,
 }: Props) {
   const { projectTerminals, projectTerminalFocused, currentProjectDock } =
@@ -136,6 +149,11 @@ export function WorkspaceDocks({
               onSizeCommit={commit(changes.onChangesDockSize)}
               onOpenFile={onOpenFile}
               onDirtyChange={changes.onChangesDirty}
+              textHarness={textHarness}
+              selectedSha={selectedSha}
+              onOpenCommit={onOpenCommit}
+              ciRepair={ciRepair}
+              onOpenPr={onOpenPr}
             />
           )}
         </div>

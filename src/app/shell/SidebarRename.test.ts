@@ -707,7 +707,7 @@ describe("sidebar reorder affordances", () => {
     act(() => render());
 
     const tabs = container.querySelectorAll<HTMLElement>('[role="tab"]');
-    expect(tabs).toHaveLength(3);
+    expect(tabs).toHaveLength(2);
     for (const tab of tabs) {
       expect(tab.className).not.toContain("cursor-grab");
       expect(tab.parentElement?.className).not.toContain("cursor-grab");
@@ -1020,7 +1020,6 @@ describe("collapsed rail actions", () => {
       "Switch project, current project project",
       "Sessions",
       "Explorer",
-      "Changes",
       "Search",
       "Settings",
     ]);
@@ -1032,7 +1031,7 @@ describe("collapsed rail actions", () => {
       Array.from(workspaceTabs.querySelectorAll('[role="tab"]'), (button) =>
         button.getAttribute("aria-label"),
       ),
-    ).toEqual(["Sessions", "Explorer", "Changes"]);
+    ).toEqual(["Sessions", "Explorer"]);
     const sessionsTab = workspaceTabs.querySelector<HTMLButtonElement>(
       '[aria-label="Sessions"]',
     )!;
@@ -1310,24 +1309,6 @@ describe("collapsed rail actions", () => {
 
     expect(document.querySelector('input[aria-label="Group name"]')).toBeNull();
     expect(row().textContent).toContain("Client site");
-  });
-
-  it("marks the compact Changes shortcut when the working tree has changes", async () => {
-    vi.mocked(useProjectDiffStats).mockReturnValue({
-      files: 1,
-      additions: 3,
-      deletions: 0,
-    });
-    props.projectRailOpen = false;
-    props.onSelectProject = vi.fn();
-    props.onOpenProject = vi.fn();
-    await act(async () => render());
-
-    const changes = container.querySelector<HTMLButtonElement>(
-      'button[aria-label="Changes +3"]',
-    )!;
-    expect(changes).not.toBeNull();
-    expect(changes.querySelector("span.bg-accent")).not.toBeNull();
   });
 
 });

@@ -27,7 +27,6 @@ const CHAT_BACKGROUND_SESSION_OPACITY_KEY =
   "bonocode.chatBackgroundSessionOpacity";
 const CHAT_BACKGROUND_SCOPE_KEY = "bonocode.chatBackgroundScope";
 const NEW_THREAD_BACKGROUND_EFFECT_KEY = "bonocode.newThreadBackgroundEffect";
-const CHANGES_VIEW_KEY = "bonocode.changesView";
 const SHOW_EXCLUDED_FILES_KEY = "bonocode.showExcludedFiles";
 let chatBackgroundRevision = Date.now();
 let nativeGlassReady = false;
@@ -42,7 +41,6 @@ export type TranscriptLayout = "full" | "chat";
 export type ChatBackgroundScope = "empty" | "all";
 export type NewThreadBackgroundEffect =
   "none" | "dither" | "ascii" | "halftone" | "scanlines" | "gradient-blur";
-export type ChangesView = "list" | "tree";
 
 export const NEW_THREAD_BACKGROUND_EFFECTS: readonly NewThreadBackgroundEffect[] =
   ["none", "dither", "ascii", "halftone", "scanlines", "gradient-blur"];
@@ -79,8 +77,6 @@ export const SCHEME_CHANGE_EVENT = "bonocode:schemechange";
 
 export const TRANSCRIPT_LAYOUT_DEFAULT: TranscriptLayout = "chat";
 
-export const CHANGES_VIEW_DEFAULT: ChangesView = "list";
-
 export const TRANSCRIPT_ANCHOR_DEFAULT = true;
 
 /** Fired on `window` whenever prompt-to-top anchoring flips (detail: boolean). */
@@ -95,13 +91,9 @@ export const SHOW_EXCLUDED_FILES_DEFAULT = false;
 export const SHOW_EXCLUDED_FILES_CHANGE_EVENT =
   "bonocode:showexcludedfileschange";
 
-export type SidebarTabId = "files" | "sessions" | "changes";
+export type SidebarTabId = "files" | "sessions";
 
-const DEFAULT_SIDEBAR_TAB_ORDER: SidebarTabId[] = [
-  "sessions",
-  "files",
-  "changes",
-];
+const DEFAULT_SIDEBAR_TAB_ORDER: SidebarTabId[] = ["sessions", "files"];
 
 export const PROJECT_RAIL_WIDTH_MIN = 180;
 export const PROJECT_RAIL_WIDTH_MAX = 360;
@@ -399,11 +391,7 @@ export function applyChatBackgroundScope(value: ChatBackgroundScope) {
 }
 
 function isSidebarTabId(value: unknown): value is SidebarTabId {
-  return (
-    value === "files" ||
-    value === "sessions" ||
-    value === "changes"
-  );
+  return value === "files" || value === "sessions";
 }
 
 const projectRailOpen = defineSetting<boolean>({
@@ -473,15 +461,6 @@ export const transcriptLayoutSetting = defineSetting<TranscriptLayout>({
 
 export const loadTranscriptLayout = transcriptLayoutSetting.load;
 export const saveTranscriptLayout = transcriptLayoutSetting.save;
-
-const changesView = defineSetting<ChangesView>({
-  key: CHANGES_VIEW_KEY,
-  default: CHANGES_VIEW_DEFAULT,
-  ...oneOf<ChangesView>("list", "tree"),
-});
-
-export const loadChangesView = changesView.load;
-export const saveChangesView = changesView.save;
 
 export const transcriptAnchorSetting = defineSetting<boolean>({
   key: TRANSCRIPT_ANCHOR_KEY,

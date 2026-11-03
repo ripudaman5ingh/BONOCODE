@@ -13,7 +13,7 @@ Bonocode runs the coding agents you already have installed and logged in. Tabs a
 ## What it keeps
 
 - Agent chat, with each session in its own tab.
-- Files and changes for the project you're working in.
+- Files and changes for the project you're working in. Hide the Changes dock and a thin rail stays on its side with the uncommitted +/- line counts; click it to bring the dock back.
 - A terminal.
 - A git panel for the current branch and its pull request: merge, squash, rebase, draft, ready, close and reopen, plus the PR's CI checks with failure logs.
 

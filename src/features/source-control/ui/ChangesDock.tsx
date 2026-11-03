@@ -2,10 +2,13 @@ import { DockFrame } from "../../workspace/ui/DockFrame";
 import { type DockSide } from "../../projects/model/projectTerminal";
 import { ALT, MOD } from "../../../platform/tauri/platform";
 import { lazySurface } from "../../../shared/ui/lazySurface";
+import type { HarnessId, LinkedWorkItem } from "../../sessions/model/session";
+import type { GitHistoryCommit } from "../../../platform/tauri/fs";
+import type { GitCiRepair } from "./GitChangesPanel";
 
-const EditableChanges = lazySurface(async () => {
-  const module = await import("./EditableChanges");
-  return { default: module.EditableChanges };
+const ChangesDockBody = lazySurface(async () => {
+  const module = await import("./ChangesDockBody");
+  return { default: module.ChangesDockBody };
 });
 
 type Props = {
@@ -20,18 +23,44 @@ type Props = {
   onSizeCommit: (size: number) => void;
   onOpenFile: (path: string) => void;
   onDirtyChange: (path: string, dirty: boolean) => void;
+  textHarness?: HarnessId;
+  selectedSha?: string;
+  onOpenCommit: (commit: GitHistoryCommit, pin?: boolean) => void;
+  ciRepair?: GitCiRepair;
+  onOpenPr?: (item: LinkedWorkItem) => void;
 };
 
-export function ChangesDock({ gitCwd, onOpenFile, onDirtyChange, ...frame }: Props) {
+export function ChangesDock({
+  gitCwd,
+  onOpenFile,
+  onDirtyChange,
+  textHarness,
+  selectedSha,
+  onOpenCommit,
+  ciRepair,
+  onOpenPr,
+  ...frame
+}: Props) {
   return (
-    <DockFrame title="Changes" hideShortcut={`${MOD}${ALT}B`} {...frame}>
-      <div className="absolute inset-0 h-full">
-        <EditableChanges
-          cwd={gitCwd}
-          onOpenFile={onOpenFile}
-          onDirtyChange={onDirtyChange}
-        />
-      </div>
-    </DockFrame>
+    <DockFrame
+      title="Changes"
+      hideShortcut={`${MOD}${ALT}B`}
+      {...frame}
+      renderBody={(controls) => (
+        <div className="relative min-h-0 min-w-0 flex-1">
+          <ChangesDockBody
+            gitCwd={gitCwd}
+            headerControls={controls}
+            textHarness={textHarness}
+            selectedSha={selectedSha}
+            onOpenFile={onOpenFile}
+            onOpenCommit={onOpenCommit}
+            onDirtyChange={onDirtyChange}
+            ciRepair={ciRepair}
+            onOpenPr={onOpenPr}
+          />
+        </div>
+      )}
+    />
   );
 }

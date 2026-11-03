@@ -65,40 +65,44 @@ export function ProjectTerminalDock({
           <Plus className="size-3.5" strokeWidth={1.75} />
         </IconButton>
       }
-      header={(controls) => (
-        <SurfaceTabs
-          files={dock.pane.files}
-          activeFileId={dock.pane.activeFileId}
-          dirtyFileIds={EMPTY_IDS}
-          fileErrorCounts={EMPTY_ERRORS}
-          label="Terminals"
-          onSelectFile={onSelectTerminal}
-          onCloseFile={onCloseTerminal}
-          onCloseOtherFiles={onCloseOtherTerminals}
-          onReorder={onReorderTerminals}
-          trailing={controls}
-        />
-      )}
-    >
-      {dock.pane.files.map((file) => (
-        <div
-          key={file.id}
-          aria-hidden={file.id !== dock.pane.activeFileId}
-          className={
-            file.id === dock.pane.activeFileId
-              ? "absolute inset-0 h-full"
-              : "hidden"
-          }
-        >
-          <TerminalView
-            id={file.id}
-            cwd={file.cwd}
-            active={focused && file.id === dock.pane.activeFileId}
-            onMetaChange={(patch) => onTerminalMetaChange?.(file.id, patch)}
+      renderBody={(controls) => (
+        <>
+          <SurfaceTabs
+            files={dock.pane.files}
+            activeFileId={dock.pane.activeFileId}
+            dirtyFileIds={EMPTY_IDS}
+            fileErrorCounts={EMPTY_ERRORS}
+            label="Terminals"
+            onSelectFile={onSelectTerminal}
+            onCloseFile={onCloseTerminal}
+            onCloseOtherFiles={onCloseOtherTerminals}
+            onReorder={onReorderTerminals}
+            trailing={controls}
           />
-        </div>
-      ))}
-    </DockFrame>
+          {/* Same wrapper DockFrame gives a body; the terminals must stay under it. */}
+          <div className="relative min-h-0 min-w-0 flex-1">
+            {dock.pane.files.map((file) => (
+              <div
+                key={file.id}
+                aria-hidden={file.id !== dock.pane.activeFileId}
+                className={
+                  file.id === dock.pane.activeFileId
+                    ? "absolute inset-0 h-full"
+                    : "hidden"
+                }
+              >
+                <TerminalView
+                  id={file.id}
+                  cwd={file.cwd}
+                  active={focused && file.id === dock.pane.activeFileId}
+                  onMetaChange={(patch) => onTerminalMetaChange?.(file.id, patch)}
+                />
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    />
   );
 }
 

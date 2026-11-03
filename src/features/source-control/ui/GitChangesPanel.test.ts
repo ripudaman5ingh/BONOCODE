@@ -58,7 +58,10 @@ import {
   gitPrCreate,
   gitPrStatus,
   gitPull,
+  gitStageFile,
+  gitUnstageAll,
 } from "../../../platform/tauri/fs";
+import type { ChangeActions } from "../model/changeActions";
 import {
   generateCommitMessage,
   generatePrContent,
@@ -197,8 +200,7 @@ async function renderPanel(
       createElement(GitChangesPanel, {
         cwd,
         enabled: true,
-        onOpenFile: vi.fn(),
-        onOpenAllChanges: vi.fn(),
+        renderFiles: () => null,
         onOpenCommit: vi.fn(),
         onOpenPr: vi.fn(),
         ...overrides,
@@ -304,8 +306,7 @@ describe("GitChangesPanel auto fetch", () => {
     vi.mocked(gitDiffIndex).mockResolvedValue(index({ remote: "origin" }));
     const props = {
       cwd: "/repo-fetch",
-      onOpenFile: vi.fn(),
-      onOpenAllChanges: vi.fn(),
+      renderFiles: () => null,
       onOpenCommit: vi.fn(),
     };
     act(() =>
@@ -453,5 +454,58 @@ describe("GitChangesPanel pull request open failure", () => {
     expect(titleInput()).toBeNull();
     expect(alert).toHaveBeenCalledWith("cannot open");
     alert.mockRestore();
+  });
+});
+
+describe("GitChangesPanel dock slots", () => {
+  it("renders header controls in the header row", async () => {
+    vi.mocked(gitDiffIndex).mockResolvedValue(index({ remote: null }));
+    await renderPanel("/repo-slots", {
+      headerControls: createElement(
+        "button",
+        { type: "button", "aria-label": "Dock control" },
+        "Dock",
+      ),
+    });
+
+    expect(
+      container.querySelector("header")?.querySelector('[aria-label="Dock control"]'),
+    ).not.toBeNull();
+  });
+
+  it("hands renderFiles the counts and actions that act on the checkout", async () => {
+    const file = (
+      relative: string,
+      patch: Partial<GitDiffIndex["files"][number]>,
+    ): GitDiffIndex["files"][number] => ({
+      path: `/repo-actions/${relative}`,
+      relative,
+      status: "modified",
+      additions: 1,
+      deletions: 0,
+      staged: false,
+      unstaged: true,
+      ...patch,
+    });
+    vi.mocked(gitDiffIndex).mockResolvedValue(
+      index({
+        remote: null,
+        files: [
+          file("staged.ts", { staged: true, unstaged: false }),
+          file("loose.ts", {}),
+        ],
+      }),
+    );
+    const renderFiles = vi.fn((_actions: ChangeActions) => null);
+    await renderPanel("/repo-actions", { renderFiles });
+
+    const actions = renderFiles.mock.calls.at(-1)![0];
+    expect(actions).toMatchObject({ busy: null, stagedCount: 1, unstagedCount: 1 });
+
+    await act(async () => actions.onAction(file("loose.ts", {}), "stage"));
+    expect(gitStageFile).toHaveBeenCalledWith("/repo-actions", "loose.ts");
+
+    await act(async () => actions.onAll("unstage"));
+    expect(gitUnstageAll).toHaveBeenCalledWith("/repo-actions");
   });
 });

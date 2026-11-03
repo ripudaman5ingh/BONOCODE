@@ -38,11 +38,6 @@ import {
   saveSidebarTabOrder,
   type SidebarTabId,
 } from "../../features/settings/model/appearance";
-import { formatInteger } from "../../shared/lib/numbers";
-import {
-  type GitFileDiffKind,
-  type GitHistoryCommit,
-} from "../../platform/tauri/fs";
 import { IS_MAC, MOD } from "../../platform/tauri/platform";
 import { copyText } from "../../platform/tauri/clipboard";
 import { resolveModel } from "../../features/sessions/model/models";
@@ -103,10 +98,7 @@ import {
   saveSessionSidebarFilters,
   type SessionSidebarFilters,
 } from "../../features/sessions/model/sessionFilters";
-import type {
-  HarnessId,
-  LinkedWorkItem,
-} from "../../features/sessions/model/session";
+import type { LinkedWorkItem } from "../../features/sessions/model/session";
 import type { LiveAgent } from "../../features/sessions/model/liveAgents";
 import type { SessionSummary } from "../../features/sessions/data/sessionStore";
 import type { SettingsSectionId } from "../../features/settings/model/settings";
@@ -115,7 +107,6 @@ import { TAB_GROUP_COLORS } from "../../features/workspace/model/tabGroups";
 import { useDragResize } from "../../shared/hooks/useDragResize";
 import { useGitFileStatuses } from "../../features/source-control/hooks/useGitFileStatuses";
 import { useLockOverscroll } from "../../shared/hooks/useLockOverscroll";
-import { useProjectDiffStats } from "../../features/source-control/hooks/useProjectDiffStats";
 import { useSortable } from "../../shared/hooks/useSortable";
 import { useAnimatedReorder } from "../../shared/hooks/useAnimatedReorder";
 import { normalizeHex } from "../../shared/lib/colorUtils";
@@ -146,8 +137,6 @@ import { SessionFiltersMenu } from "../../features/sessions/ui/SessionFiltersMen
 import { LinkSessionWorkItemDialog } from "../../features/sessions/ui/LinkSessionWorkItemDialog";
 import { SessionsEmpty } from "../../features/sessions/ui/SessionsEmpty";
 import { SidebarUpdateFooter } from "./SidebarUpdate";
-import { SourceControl } from "../../features/source-control/ui/SourceControl";
-import type { GitCiRepair } from "../../features/source-control/ui/GitChangesPanel";
 
 const MIN_WIDTH = 260;
 const MAX_WIDTH = 560;
@@ -160,13 +149,11 @@ type SidebarTab = SidebarTabId;
 const TAB_LABELS: Record<SidebarTab, string> = {
   sessions: "Sessions",
   files: "Explorer",
-  changes: "Changes",
 };
 
 const COMPACT_TAB_ICONS: Record<SidebarTab, typeof PanelLeft> = {
   sessions: Chatting,
   files: FileScript,
-  changes: GitBranch,
 };
 
 function projectPathBusy(
@@ -182,7 +169,7 @@ function projectPathBusy(
 
 type Props = {
   cwd: string;
-  /** Working copy for Changes / explorer git. Falls back to `cwd`. */
+  /** Working copy for explorer git. Falls back to `cwd`. */
   gitCwd?: string;
   /** Branch identity shown for a worktree whose folder has a temporary name. */
   explorerRootLabel?: string;
@@ -232,15 +219,6 @@ type Props = {
   canGoForward?: boolean;
   onGoBack?: () => void;
   onGoForward?: () => void;
-  onOpenDiff?: (path: string, kind?: GitFileDiffKind, pin?: boolean) => void;
-  onOpenAllChanges?: (kind: GitFileDiffKind) => void;
-  onOpenCommit?: (commit: GitHistoryCommit, pin?: boolean) => void;
-  selectedDiffPath?: string;
-  selectedDiffKind?: GitFileDiffKind;
-  selectedCommitSha?: string;
-  textHarness?: HarnessId;
-  /** Repair hooks for the current PR's checks in the Changes tab. */
-  ciRepair?: GitCiRepair;
   recents?: RecentProject[];
   busyProjectPaths?: Iterable<string>;
   liveAgents?: LiveAgent[];
@@ -310,14 +288,6 @@ function SidebarComponent({
   canGoForward = false,
   onGoBack,
   onGoForward,
-  onOpenDiff,
-  onOpenAllChanges,
-  onOpenCommit,
-  selectedDiffPath,
-  selectedDiffKind,
-  selectedCommitSha,
-  textHarness,
-  ciRepair,
   recents = [],
   busyProjectPaths,
   liveAgents = [],
@@ -560,7 +530,6 @@ function SidebarComponent({
   const drawerAnimation = useRef<Animation | null>(null);
   const panelOpen = open || drawerVisible;
   const gitStatuses = useGitFileStatuses(gitRoot, panelOpen && tab === "files");
-  const changeStats = useProjectDiffStats(gitRoot, panelOpen);
 
   useEffect(() => {
     if (!drawerMode || !sidebarAvailable) setDrawerOpen(false);
@@ -1262,23 +1231,8 @@ function SidebarComponent({
     onTabChange(itemId);
   };
 
-  const changeAdditions = changeStats?.additions ?? 0;
-  const changeDeletions = changeStats?.deletions ?? 0;
-  const hasChanges = (changeStats?.files ?? 0) > 0;
-  const hasChangeStats = changeAdditions > 0 || changeDeletions > 0;
-  const changesLabel = hasChangeStats
-    ? [
-        "Changes",
-        changeAdditions > 0 ? `+${changeAdditions}` : "",
-        changeDeletions > 0 ? `-${changeDeletions}` : "",
-      ]
-        .filter(Boolean)
-        .join(" ")
-    : "Changes";
-
   const workspaceTabItems = tabOrder.map((itemId) => {
     const active = tab === itemId;
-    const isChangesTab = itemId === "changes";
     return (
       <div
         key={itemId}
@@ -1293,7 +1247,6 @@ function SidebarComponent({
           type="button"
           role="tab"
           aria-selected={active}
-          aria-label={isChangesTab ? changesLabel : undefined}
           data-tauri-drag-region="false"
           onClick={() => {
             if (sortable.consumeClick()) return;
@@ -1303,13 +1256,9 @@ function SidebarComponent({
             active ? "bg-selection text-content" : "text-content/50"
           }`}
         >
-          {isChangesTab && hasChangeStats ? (
-            <DiffStat additions={changeAdditions} deletions={changeDeletions} />
-          ) : (
-            <span className="block truncate leading-label">
-              {TAB_LABELS[itemId]}
-            </span>
-          )}
+          <span className="block truncate leading-label">
+            {TAB_LABELS[itemId]}
+          </span>
         </button>
       </div>
     );
@@ -1698,30 +1647,6 @@ function SidebarComponent({
             </div>
           )}
         </div>
-        {tab === "changes" ? (
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-            <SourceControl
-                cwd={gitRoot}
-                enabled={panelOpen}
-                textHarness={textHarness}
-                selectedPath={selectedDiffPath}
-                selectedKind={selectedDiffKind}
-                selectedSha={selectedCommitSha}
-                onOpenFile={
-                  onOpenDiff ??
-                  ((path) => onOpenFile(path, undefined, { exact: true }))
-                }
-                onOpenAllChanges={onOpenAllChanges ?? (() => {})}
-                onOpenCommit={onOpenCommit ?? (() => {})}
-                ciRepair={ciRepair}
-                onOpenPr={
-                  activeSessionId && onOpenLinkedWorkItem
-                    ? (item) => onOpenLinkedWorkItem(item, activeSessionId)
-                    : undefined
-                }
-              />
-          </div>
-        ) : null}
         {showSidebarFooter ? (
           <>
             <LiveAgentsPreview
@@ -1836,8 +1761,6 @@ function SidebarComponent({
           tabs={tabOrder}
           activeTab={tab}
           tabShown={panelOpen}
-          changesLabel={changesLabel}
-          hasChanges={hasChanges}
           onSelectProject={onSelectProject}
           onOpenProject={onOpenProject}
           onRemoveProject={onRemoveProject}
@@ -1994,8 +1917,6 @@ function CompactProjectRail({
   tabs,
   activeTab,
   tabShown,
-  changesLabel,
-  hasChanges,
   onSelectProject,
   onOpenProject,
   onRemoveProject,
@@ -2014,8 +1935,6 @@ function CompactProjectRail({
   tabs: SidebarTab[];
   activeTab: SidebarTab;
   tabShown: boolean;
-  changesLabel: string;
-  hasChanges: boolean;
   onSelectProject?: (path: string) => void;
   onOpenProject?: () => void;
   onRemoveProject?: Props["onRemoveProject"];
@@ -2087,10 +2006,9 @@ function CompactProjectRail({
             <CompactRailAction
               key={itemId}
               tab
-              label={itemId === "changes" ? changesLabel : TAB_LABELS[itemId]}
+              label={TAB_LABELS[itemId]}
               icon={COMPACT_TAB_ICONS[itemId]}
               active={workspaceActive && tabShown && activeTab === itemId}
-              dot={itemId === "changes" && hasChanges}
               onClick={() => openWorkspaceTab(itemId)}
             />
           ))}
@@ -2119,7 +2037,6 @@ function CompactRailAction({
   icon: Icon,
   tab = false,
   active = false,
-  dot = false,
   onClick,
   onOpenContextMenu,
 }: {
@@ -2127,7 +2044,6 @@ function CompactRailAction({
   icon: typeof PanelLeft;
   tab?: boolean;
   active?: boolean;
-  dot?: boolean;
   onClick?: () => void;
   onOpenContextMenu?: (x: number, y: number) => void;
 }) {
@@ -2173,16 +2089,7 @@ function CompactRailAction({
           : "text-content/50 hover:bg-content/10 hover:text-content"
       } disabled:cursor-default disabled:opacity-35`}
     >
-      <Icon
-        className={`size-4 ${dot ? "compact-rail-icon-with-dot" : ""}`}
-        strokeWidth={1.75}
-      />
-      {dot ? (
-        <span
-          aria-hidden
-          className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-accent"
-        />
-      ) : null}
+      <Icon className="size-4" strokeWidth={1.75} />
     </button>
   );
 }
@@ -2983,56 +2890,6 @@ function SessionRenameRow({
         className="w-full rounded bg-content/10 px-2 py-1 text-[13px] font-semibold leading-snug text-content outline-none ring-1 ring-accent/40"
       />
     </div>
-  );
-}
-
-function DiffStat({
-  additions,
-  deletions,
-}: {
-  additions: number;
-  deletions: number;
-}) {
-  if (additions <= 0 && deletions <= 0) return null;
-
-  const label = [
-    additions > 0 ? `+${formatInteger(additions)}` : "",
-    deletions > 0 ? `-${formatInteger(deletions)}` : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
-
-  return (
-    <span
-      title={`${label} uncommitted`}
-      className="flex shrink-0 items-center gap-1.5 font-sans text-[11px] font-semibold tabular-nums"
-    >
-      {additions > 0 ? (
-        <span className="text-success">
-          +<TightDiffNumber value={additions} />
-        </span>
-      ) : null}
-      {deletions > 0 ? (
-        <span className="text-danger">
-          -<TightDiffNumber value={deletions} />
-        </span>
-      ) : null}
-    </span>
-  );
-}
-
-function TightDiffNumber({ value }: { value: number }) {
-  const [first, ...rest] = formatInteger(value).split(",");
-  return (
-    <>
-      {first}
-      {rest.map((part, index) => (
-        <span key={index}>
-          <span className="-mr-px">,</span>
-          {part}
-        </span>
-      ))}
-    </>
   );
 }
 
