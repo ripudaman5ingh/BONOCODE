@@ -375,6 +375,22 @@ export function gitCreateBranch(cwd: string, name: string): Promise<string> {
   return invoke<string>("git_create_branch", { cwd, name });
 }
 
+export const BRANCH_NOT_MERGED = "BRANCH_NOT_MERGED";
+
+export function gitDeleteBranch(
+  cwd: string,
+  name: string,
+  force = false,
+): Promise<void> {
+  return invoke<void>("git_delete_branch", { cwd, name, force });
+}
+
+/** A safe branch delete was refused because the branch has commits git can't see merged. */
+export function isBranchNotMerged(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return message === BRANCH_NOT_MERGED;
+}
+
 export function gitStash(cwd: string, message?: string): Promise<void> {
   return invoke<void>("git_stash", { cwd, message: message ?? null });
 }

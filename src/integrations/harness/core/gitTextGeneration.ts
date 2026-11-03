@@ -10,6 +10,7 @@ import {
   parseBranchName,
   parseCommitMessage,
   parsePrContent,
+  stripAttribution,
   type PrContent,
 } from "../../../features/source-control/model/gitText";
 import type { TextPromptInput } from "./registry";
@@ -74,7 +75,7 @@ export async function generatePrContentWith(
     `Update ${range.head}`;
   return {
     title,
-    body: parsed?.body || range.commitSummary.trim(),
+    body: parsed?.body || stripAttribution(range.commitSummary),
     base: range.base,
     head: range.head,
   };

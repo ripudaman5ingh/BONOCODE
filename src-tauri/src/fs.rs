@@ -4283,11 +4283,11 @@ fn git_branch(root: &Path) -> Option<String> {
     git_head_branch(root).or_else(|| git_stdout(root, &["rev-parse", "--short", "HEAD"]))
 }
 
-fn git_head_branch(root: &Path) -> Option<String> {
+pub(crate) fn git_head_branch(root: &Path) -> Option<String> {
     git_stdout(root, &["symbolic-ref", "--short", "HEAD"]).filter(|branch| branch != "HEAD")
 }
 
-fn git_is_work_tree(root: &Path) -> bool {
+pub(crate) fn git_is_work_tree(root: &Path) -> bool {
     git_stdout(root, &["rev-parse", "--is-inside-work-tree"]).as_deref() == Some("true")
 }
 
@@ -4460,7 +4460,7 @@ fn checkout_blocked_by_changes(err: &str) -> bool {
         || text.contains("please move or remove them before")
 }
 
-fn git_branch_name(root: &Path, name: &str) -> Result<String, String> {
+pub(crate) fn git_branch_name(root: &Path, name: &str) -> Result<String, String> {
     let name = name.trim();
     if name.is_empty() {
         return Err("Branch name cannot be empty".into());
