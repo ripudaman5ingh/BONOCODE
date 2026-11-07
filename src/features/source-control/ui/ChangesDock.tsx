@@ -28,6 +28,8 @@ type Props = {
   onOpenCommit: (commit: GitHistoryCommit, pin?: boolean) => void;
   ciRepair?: GitCiRepair;
   onOpenPr?: (item: LinkedWorkItem) => void;
+  onBranchChange?: () => void;
+  prChip?: { number: number; onShow: () => void };
 };
 
 export function ChangesDock({
@@ -39,6 +41,8 @@ export function ChangesDock({
   onOpenCommit,
   ciRepair,
   onOpenPr,
+  onBranchChange,
+  prChip,
   ...frame
 }: Props) {
   return (
@@ -58,6 +62,8 @@ export function ChangesDock({
             onDirtyChange={onDirtyChange}
             ciRepair={ciRepair}
             onOpenPr={onOpenPr}
+            onBranchChange={onBranchChange}
+            prChip={prChip}
           />
         </div>
       )}

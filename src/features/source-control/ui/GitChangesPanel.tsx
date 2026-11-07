@@ -5,7 +5,6 @@ import {
   ChevronDown,
   CloudUpload,
   ExternalLink,
-  GitBranch,
   GitPullRequest,
   Loader,
   MoreHorizontal,
@@ -30,6 +29,7 @@ import {
   loadGraphPanelHeight,
   saveGraphPanelHeight,
 } from "./GitHistoryGraph";
+import { BranchPicker } from "./BranchPicker";
 import { GithubPrActions } from "./GithubPrActions";
 import {
   basename,
@@ -116,6 +116,7 @@ type Props = {
   onOpenCommit: (commit: GitHistoryCommit, pin?: boolean) => void;
   ciRepair?: GitCiRepair;
   onOpenPr?: (item: LinkedWorkItem) => void;
+  onBranchChange?: () => void;
 };
 
 export function GitChangesPanel({
@@ -128,6 +129,7 @@ export function GitChangesPanel({
   onOpenCommit,
   ciRepair,
   onOpenPr,
+  onBranchChange,
 }: Props) {
   const { index, reload } = useDiffIndex(cwd, enabled);
   const files = index?.files ?? [];
@@ -150,9 +152,8 @@ export function GitChangesPanel({
   useEffect(() => {
     if (!branchMenuOpen) return;
     const onPointer = (event: PointerEvent) => {
-      if (!branchMenuRef.current?.contains(event.target as Node)) {
+      if (!branchMenuRef.current?.contains(event.target as Node))
         setBranchMenuOpen(false);
-      }
     };
     window.addEventListener("pointerdown", onPointer);
     return () => window.removeEventListener("pointerdown", onPointer);
@@ -211,20 +212,20 @@ export function GitChangesPanel({
             ref={branchMenuRef}
             className="relative ml-auto flex min-w-0 items-center gap-1"
           >
-            <span className="flex min-w-0 items-center gap-1 text-[11px] text-content/50">
-              <GitBranch className="size-3 shrink-0" strokeWidth={1.75} />
-              <span className="min-w-0 truncate">{index.branch}</span>
-              {index.ahead > 0 ? (
-                <span className="shrink-0 tabular-nums text-content/40">
-                  ↑{index.ahead}
-                </span>
-              ) : null}
-              {index.behind > 0 ? (
-                <span className="shrink-0 tabular-nums text-content/40">
-                  ↓{index.behind}
-                </span>
-              ) : null}
-            </span>
+            <BranchPicker
+              cwd={cwd}
+              branch={index.branch}
+              enabled={busy === null}
+              popoverSide="bottom"
+              triggerClassName=""
+              onChange={onBranchChange}
+            />
+            {index.ahead > 0 || index.behind > 0 ? (
+              <span className="flex shrink-0 gap-1 text-[11px] tabular-nums text-content/40">
+                {index.ahead > 0 ? `↑${index.ahead}` : null}
+                {index.behind > 0 ? `↓${index.behind}` : null}
+              </span>
+            ) : null}
             <button
               type="button"
               aria-haspopup="menu"
@@ -1243,9 +1244,7 @@ function useDiffIndex(
   indexRef.current = index;
 
   useEffect(() => {
-    if (!enabled || !cwd || cwd === "~") {
-      return;
-    }
+    if (!enabled || !cwd || cwd === "~") return;
     const cached = cachedIndex(cwd);
     if (cached && !sameIndex(indexRef.current, cached)) {
       indexRef.current = cached;

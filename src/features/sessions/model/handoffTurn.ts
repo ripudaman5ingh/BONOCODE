@@ -14,6 +14,7 @@ export async function requestOutgoingHandoff(input: {
   harness: HarnessId;
   sessionId: string;
   cwd: string;
+  projectCwd?: string;
   model: string;
   modelSettings?: Record<string, string>;
   providerAccountId?: string;
@@ -28,6 +29,7 @@ export async function requestOutgoingHandoff(input: {
       harness: input.harness,
       sessionId: input.sessionId,
       cwd: input.cwd,
+      projectCwd: input.projectCwd,
       model: input.model,
       modelSettings: input.modelSettings,
       providerAccountId: input.providerAccountId,

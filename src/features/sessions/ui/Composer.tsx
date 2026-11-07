@@ -103,7 +103,6 @@ import { AccessPicker } from "./AccessPicker";
 import { ComposerRunner } from "./ComposerRunner";
 import { ContextMeter } from "./ContextMeter";
 import { AttachmentChip } from "./AttachmentChip";
-import { BranchPicker } from "../../source-control/ui/BranchPicker";
 import { WorktreePicker } from "../../source-control/ui/WorktreePicker";
 import {
   isWorkspaceModeShortcut,
@@ -2042,28 +2041,17 @@ export function Composer({
               {hideBranchPicker ? null : draftWorkspace &&
                 onWorkspaceModeChange &&
                 onWorktreeBaseChange ? (
-                <>
-                  <WorkspacePicker
-                    cwd={executionCwd}
-                    mode={workspaceMode ?? "current"}
-                    base={resolvedWorktreeBase}
-                    enabled={enabled && !busy}
-                    onModeChange={onWorkspaceModeChange}
-                    onBaseChange={onWorktreeBaseChange}
-                    onSelectWorktree={onWorktreeChange}
-                    onOpenSettings={onManageWorktrees}
-                    onClose={() => ref.current?.focus()}
-                  />
-                  {(workspaceMode ?? "current") === "current" ? (
-                    <BranchPicker
-                      cwd={executionCwd}
-                      branch={branch}
-                      enabled={enabled && !busy}
-                      onChange={onBranchChange}
-                      onClose={() => ref.current?.focus()}
-                    />
-                  ) : null}
-                </>
+                <WorkspacePicker
+                  cwd={executionCwd}
+                  mode={workspaceMode ?? "current"}
+                  base={resolvedWorktreeBase}
+                  enabled={enabled && !busy}
+                  onModeChange={onWorkspaceModeChange}
+                  onBaseChange={onWorktreeBaseChange}
+                  onSelectWorktree={onWorktreeChange}
+                  onOpenSettings={onManageWorktrees}
+                  onClose={() => ref.current?.focus()}
+                />
               ) : worktreeRemoved && onWorktreeChange ? (
                 <WorktreePicker
                   cwd={cwd}
@@ -2075,22 +2063,11 @@ export function Composer({
                   onManage={onManageWorktrees}
                   onClose={() => ref.current?.focus()}
                 />
-              ) : (
-                <>
-                  {onWorktreeChange ? (
-                    <WorkspaceIdentity
-                      worktree={pathKey(cwd) !== pathKey(executionCwd)}
-                    />
-                  ) : null}
-                  <BranchPicker
-                    cwd={executionCwd}
-                    branch={branch}
-                    enabled={enabled && !busy}
-                    onChange={onBranchChange}
-                    onClose={() => ref.current?.focus()}
-                  />
-                </>
-              )}
+              ) : onWorktreeChange ? (
+                <WorkspaceIdentity
+                  worktree={pathKey(cwd) !== pathKey(executionCwd)}
+                />
+              ) : null}
               <div className="ml-auto flex shrink-0 items-center">
                 <ContextMeter
                   usage={context}

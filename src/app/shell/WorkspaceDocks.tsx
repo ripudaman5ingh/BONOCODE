@@ -30,6 +30,11 @@ type Props = {
   onOpenCommit: (commit: GitHistoryCommit, pin?: boolean) => void;
   ciRepair?: GitCiRepair;
   onOpenPr?: (item: LinkedWorkItem) => void;
+  onBranchChange?: () => void;
+  /** Display-only: draws the changes dock as its rail without closing it. */
+  changesCollapsed?: boolean;
+  onShowChanges?: () => void;
+  prChip?: { number: number; onShow: () => void };
   /** The main area: the workspace tabs. */
   children: ReactNode;
 };
@@ -48,6 +53,10 @@ export function WorkspaceDocks({
   onOpenCommit,
   ciRepair,
   onOpenPr,
+  onBranchChange,
+  changesCollapsed = false,
+  onShowChanges,
+  prChip,
   children,
 }: Props) {
   const { projectTerminals, projectTerminalFocused, currentProjectDock } =
@@ -57,7 +66,10 @@ export function WorkspaceDocks({
   const hasProject = Boolean(gitCwd) && gitCwd !== "~";
   const docks = resolveDockSides(
     layoutDocks(
-      { terminal: currentProjectDock, changes: changesDock },
+      {
+        terminal: currentProjectDock,
+        changes: { ...changesDock, open: changesDock.open && !changesCollapsed },
+      },
       { changes: hasProject },
     ),
   );
@@ -135,7 +147,10 @@ export function WorkspaceDocks({
             <ChangesDockRail
               gitCwd={gitCwd}
               side={changesSide}
-              onShow={changes.onShowChangesDock}
+              onShow={() => {
+                changes.onShowChangesDock();
+                onShowChanges?.();
+              }}
             />
           ) : (
             <ChangesDock
@@ -154,6 +169,8 @@ export function WorkspaceDocks({
               onOpenCommit={onOpenCommit}
               ciRepair={ciRepair}
               onOpenPr={onOpenPr}
+              onBranchChange={onBranchChange}
+              prChip={prChip}
             />
           )}
         </div>

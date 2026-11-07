@@ -5,7 +5,7 @@ import type {
   TaskListItem,
   TaskListMeta,
 } from "../../../../features/sessions/model/session";
-import { loadClaudeHooks } from "../../../../features/settings/model/settings";
+import { claudeCliSettings, claudeLaunchKey } from "./claudeCliSettings";
 import {
   killChild,
   resolveClaudeBinary,
@@ -28,12 +28,10 @@ import {
   buildClaudeUserMessage,
   buildControlRequest,
   buildControlResponse,
-  claudeSettingsKey,
   extractAskUserQuestionTitle,
   extractExitPlanModePlan,
   inputJsonDeltaFromEvent,
   isAgentTaskType,
-  isClaudeUltracodeEffort,
   isSubagentMessage,
   isTerminalAgentTaskStatus,
   isTodoTool,
@@ -1764,15 +1762,7 @@ function writeJson(
 }
 
 function settingsKeyFor(input: HarnessSessionInput): string {
-  return `${input.providerAccountId ?? "default"}:${claudeSettingsKey({
-    model: nativeModelId(input.model),
-    effort: input.modelSettings?.effort,
-    fast: input.modelSettings?.fast,
-    thinking: input.modelSettings?.thinking,
-    context: input.modelSettings?.context,
-    runtimeMode: input.runtimeMode,
-    hooks: loadClaudeHooks(),
-  })}`;
+  return claudeLaunchKey(input, nativeModelId(input.model));
 }
 
 function launchOptions(
@@ -1790,19 +1780,6 @@ function launchOptions(
   const native = nativeModelId(input.model);
   const effortRaw = input.modelSettings?.effort;
   const context = input.modelSettings?.context;
-  const settings: ClaudeCliSettings = {};
-  if (input.modelSettings?.thinking === "true") {
-    settings.alwaysThinkingEnabled = true;
-  }
-  if (input.modelSettings?.fast === "true") {
-    settings.fastMode = true;
-  }
-  if (isClaudeUltracodeEffort(effortRaw)) {
-    settings.ultracode = true;
-  }
-  if (!loadClaudeHooks()) {
-    settings.disableAllHooks = true;
-  }
   return {
     model: resolveClaudeApiModelId(native, context),
     effort: normalizeClaudeCliEffort(effortRaw, native),
@@ -1812,7 +1789,7 @@ function launchOptions(
         : runtimeModeToPermission(input.runtimeMode),
     resume,
     sessionId: resume ? undefined : sessionId,
-    settings: Object.keys(settings).length > 0 ? settings : undefined,
+    settings: claudeCliSettings(input),
   };
 }
 

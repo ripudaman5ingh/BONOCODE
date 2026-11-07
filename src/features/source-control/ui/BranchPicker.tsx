@@ -35,6 +35,8 @@ type Props = {
   onClose?: () => void;
   onOpenChange?: (open: boolean) => void;
   popoverSide?: "top" | "bottom";
+  /** Forwarded to the trigger; the Changes dock header drops its composer offset. */
+  triggerClassName?: string;
 };
 
 const MENU_WIDTH = 280;
@@ -61,6 +63,7 @@ export function BranchPicker({
   onClose,
   onOpenChange,
   popoverSide = "top",
+  triggerClassName,
 }: Props) {
   const [open, setOpen] = useState(initialOpen);
   const [query, setQuery] = useState("");
@@ -322,6 +325,7 @@ export function BranchPicker({
         label={label}
         loading={awaitingBranch}
         worktree={worktree}
+        className={triggerClassName}
       />
       {blocked ? (
         <SwitchBranchDialog
