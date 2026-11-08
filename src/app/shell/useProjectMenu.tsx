@@ -55,6 +55,14 @@ import {
   type ProjectGroup,
 } from "../../features/projects/model/projectGroups";
 import { useTabGroupLogos } from "../../features/projects/hooks/useTabGroupLogos";
+import {
+  loadProjectNotesFolder,
+  subscribeProjectNotesFolder,
+} from "../../features/projects/model/projectNotesFolder";
+import {
+  projectNotesMenuItems,
+  runProjectNotesAction,
+} from "./projectNotesMenu";
 import { ProjectBackgroundDialog } from "../../features/projects/ui/ProjectBackgroundDialog";
 import { RemoveProjectDialog } from "../../features/projects/ui/RemoveProjectDialog";
 import {
@@ -91,6 +99,7 @@ function projectMenuExtraItems(
   externalEditors: ExternalEditor[] | null,
   projectGroups: ProjectGroup[],
   currentProjectGroupId?: string,
+  notesFolder: string | null = null,
 ): TabGroupMenuExtraItem[] {
   const groupSubmenu: ExplorerMenuItem[] = [
     { kind: "item", id: "project-group:new", label: "New group…" },
@@ -115,6 +124,7 @@ function projectMenuExtraItems(
       label: "Background image",
       icon: ImagePlus,
     },
+    ...projectNotesMenuItems(notesFolder),
     {
       id: "project-group",
       label: "Move to group",
@@ -224,13 +234,15 @@ export function useProjectMenu({
   const trigger = useRef<HTMLElement | null>(null);
   // The menus render straight from storage; re-render when it changes.
   const [, setStorageRevision] = useState(0);
-  useEffect(
-    () =>
-      subscribeProjectPathsChanged(() =>
-        setStorageRevision((revision) => revision + 1),
-      ),
-    [],
-  );
+  useEffect(() => {
+    const bump = () => setStorageRevision((revision) => revision + 1);
+    const offPaths = subscribeProjectPathsChanged(bump);
+    const offNotes = subscribeProjectNotesFolder(bump);
+    return () => {
+      offPaths();
+      offNotes();
+    };
+  }, []);
   const groupLogos = useTabGroupLogos();
   const notificationPreferences = useProjectNotificationPreferences();
   const menuPath = projectMenu?.path;
@@ -325,6 +337,7 @@ export function useProjectMenu({
   const onPick = (action: string) => {
     if (!projectMenu) return;
     const { path, projectKey: key } = projectMenu;
+    if (runProjectNotesAction(action, path)) return;
     if (action === "project-group:new") {
       createGroup(projectMenu.x, projectMenu.y, path);
     } else if (action === "project-group:none") {
@@ -449,6 +462,7 @@ export function useProjectMenu({
             projectMenu.path,
             loadProjectGroupAssignments(),
           ),
+          loadProjectNotesFolder(projectMenu.path),
         )}
         footer={
           menuError ? (

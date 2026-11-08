@@ -33,7 +33,7 @@ export type LinkedWorkItemPanelsDeps = {
   onSelectHistorySession: (sessionId: string) => Promise<void>;
 };
 
-type LinkedWorkItemPanelState = {
+export type LinkedWorkItemPanelState = {
   item: LinkedWorkItem;
   sessionId: string;
   cwd: string;

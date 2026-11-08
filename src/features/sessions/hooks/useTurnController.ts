@@ -62,6 +62,7 @@ import {
   sessionChildHarnesses,
 } from "../model/handoff";
 import { requestOutgoingHandoff } from "../model/handoffTurn";
+import { trackSessionEdits } from "../model/trackSessionEdits";
 import { isEditTool } from "../../../integrations/harness/core/preview";
 import {
   createEditedResendCoordinator,
@@ -71,8 +72,6 @@ import {
   notifyReviewChanged,
   beginSessionTurn,
   flushSessionCheckpoint,
-  prepareSessionCheckpoint,
-  captureSessionCheckpoint,
 } from "../model/checkpoint";
 import { notifyDirsChanged } from "../../files/model/fileTree";
 import {
@@ -212,30 +211,6 @@ function lastAssistantTextInTurn(session: Session): string {
 function userTurnCards(secondOpinion: SecondOpinionMeta | undefined) {
   if (!secondOpinion) return undefined;
   return { secondOpinion };
-}
-
-function trackSessionEdits(
-  sessionId: string,
-  cwd: string,
-  event: HarnessEvent,
-) {
-  if (event.type !== "tool.started" && event.type !== "tool.updated") return;
-  if (!isEditTool(event.kind, event.title, event.preview)) return;
-  const paths = [
-    ...(event.paths ?? []),
-    ...(event.preview?.path ? [event.preview.path] : []),
-  ].filter((path, index, all) => all.indexOf(path) === index);
-  if (paths.length === 0 || cwd === "~") return;
-  const completed =
-    event.type === "tool.updated" &&
-    (event.status === "completed" || event.status === "success");
-  if (!completed) {
-    void prepareSessionCheckpoint(sessionId, cwd, paths).catch(() => undefined);
-    return;
-  }
-  void captureSessionCheckpoint(sessionId, cwd, paths)
-    .catch(() => undefined)
-    .then(() => notifyReviewChanged(sessionId));
 }
 
 function nudgeWorkspace(cwd?: string) {
@@ -890,6 +865,7 @@ export function useTurnController(deps: TurnControllerDeps) {
                 harness: pendingSwitch.from,
                 sessionId,
                 cwd: workCwd,
+                projectCwd: current.cwd,
                 model: pendingSwitch.fromModel,
                 modelSettings: pendingSwitch.fromSettings,
                 providerAccountId: pendingSwitch.fromProviderAccountId,
@@ -1012,6 +988,7 @@ export function useTurnController(deps: TurnControllerDeps) {
                 harness: current.harness,
                 sessionId,
                 cwd: workCwd,
+                projectCwd: current.cwd,
                 model: current.model,
                 modelSettings: current.modelSettings,
                 runtimeMode: current.runtimeMode,
@@ -1060,6 +1037,7 @@ export function useTurnController(deps: TurnControllerDeps) {
               harness: current.harness,
               sessionId,
               cwd: workCwd,
+              projectCwd: current.cwd,
               model: current.model,
               modelSettings: current.modelSettings,
               providerAccountId,
@@ -1684,6 +1662,7 @@ export function useTurnController(deps: TurnControllerDeps) {
             harness: current.harness,
             sessionId,
             cwd: workCwd,
+            projectCwd: current.cwd,
             model: current.model,
             modelSettings: current.modelSettings,
             providerAccountId: supportsProviderAccounts(current.harness)

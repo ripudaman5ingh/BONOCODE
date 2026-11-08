@@ -83,6 +83,7 @@ import {
 
 import { PaneTree } from "../features/workspace/ui/PaneTree";
 import { WorkspaceDocks } from "./shell/WorkspaceDocks";
+import { LinkedWorkItemPanels } from "./shell/LinkedWorkItemPanels";
 import { lazySurface } from "../shared/ui/lazySurface";
 import { requestTranscriptJump } from "../features/sessions/model/transcriptJump";
 import {
@@ -104,6 +105,7 @@ import { useNavigationActions } from "./hooks/useNavigationActions";
 import { useAppSurfaces } from "./hooks/useAppSurfaces";
 import { useTerminalDock } from "../features/terminal/hooks/useTerminalDock";
 import { useChangesDock } from "../features/workspace/hooks/useChangesDock";
+import { useChangesPrFocus } from "../features/workspace/hooks/useChangesPrFocus";
 import { useLayoutPresets } from "../features/workspace/hooks/useLayoutPresets";
 import { useProjectState } from "../features/projects/hooks/useProjectState";
 import { useWorkspaceTabState } from "../features/workspace/hooks/useWorkspaceTabState";
@@ -130,10 +132,6 @@ const SettingsView = lazySurface(
   },
   { suspense: false },
 );
-const LinkedWorkItemPanel = lazySurface(async () => {
-  const module = await import("../features/github/ui/WorkItemDetail");
-  return { default: module.LinkedWorkItemPanel };
-});
 
 // Register capabilities before composer hooks choose their discovery strategy.
 registerBuiltinHarnesses();
@@ -687,6 +685,12 @@ function Workspace({
     deckProjectTabs,
     unseenFinishedIds,
     tabProjectsRef,
+  });
+
+  const prFocus = useChangesPrFocus({
+    panel: activeLinkedWorkItemPanel,
+    gitCwd,
+    changesOpen: changes.changesDock.open,
   });
 
   const {
@@ -1244,6 +1248,10 @@ function Workspace({
                     ? (item) => onOpenLinkedWorkItem(item, activeSessionId)
                     : undefined
                 }
+                onBranchChange={() => active && onBranchChange(active.id)}
+                changesCollapsed={prFocus.changesCollapsed}
+                onShowChanges={prFocus.showChanges}
+                prChip={prFocus.prChip}
               >
                 {tabs.map((tab) => (
                   <div
@@ -1304,26 +1312,16 @@ function Workspace({
                   </div>
                 ))}
               </WorkspaceDocks>
-              {[...linkedWorkItemPanels.values()].map((panel) => (
-                <LinkedWorkItemPanel
-                  repairSessions={repairSessions}
-                  onRepairChecks={onRepairChecks}
-                  onOpenSession={(sessionId) => {
-                    closeLinkedWorkItemPanel(panel.sessionId);
-                    onOpenLinkedSession(sessionId);
-                  }}
-                  onSendToChat={(text) => sendToChat(panel.sessionId, text)}
-                  key={panel.sessionId}
-                  target={panel.item}
-                  cwd={panel.cwd}
-                  visible={
-                    !searchViewOpen &&
-                    !settingsOpen &&
-                    activeLinkedWorkItemPanel?.sessionId === panel.sessionId
-                  }
-                  onClose={() => closeLinkedWorkItemPanel(panel.sessionId)}
-                />
-              ))}
+              <LinkedWorkItemPanels
+                panels={linkedWorkItemPanels}
+                activeSessionId={activeLinkedWorkItemPanel?.sessionId}
+                visible={!searchViewOpen && !settingsOpen && prFocus.prVisible}
+                repairSessions={repairSessions}
+                onRepairChecks={onRepairChecks}
+                onClose={closeLinkedWorkItemPanel}
+                onOpenSession={onOpenLinkedSession}
+                onSendToChat={sendToChat}
+              />
             </main>
           </div>
           {searchViewOpen ? (

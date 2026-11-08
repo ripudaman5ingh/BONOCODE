@@ -1249,7 +1249,7 @@ describe("Composer question focus", () => {
     expect(textarea.value).toBe("");
   });
 
-  it("locks a started session to its worktree while keeping its branch editable", async () => {
+  it("locks a started session to its worktree without a branch picker", async () => {
     await act(async () =>
       root.render(
         createElement(Composer, {
@@ -1277,9 +1277,10 @@ describe("Composer question focus", () => {
     expect(
       container.querySelector('[aria-label="Choose working copy"]'),
     ).toBeNull();
+    // Branch switching lives in the Changes dock header now.
     expect(
       container.querySelector('[aria-label="Branch mc/greeting"]'),
-    ).not.toBeNull();
+    ).toBeNull();
   });
 
   it("toggles a draft between the current checkout and a new worktree", async () => {
@@ -1314,14 +1315,10 @@ describe("Composer question focus", () => {
     const workspace = container.querySelector<HTMLButtonElement>(
       '[aria-label="Workspace Current checkout"]',
     )!;
-    expect(
-      container.querySelector('[aria-label="Branch main"]'),
-    ).not.toBeNull();
+    expect(container.querySelector('[aria-label="Branch main"]')).toBeNull();
     await act(async () => workspace.click());
     expect(document.body.textContent).toContain("Existing worktree…");
-    expect(
-      container.querySelector('[aria-label="Branch main"]'),
-    ).not.toBeNull();
+    expect(container.querySelector('[aria-label="Branch main"]')).toBeNull();
     await act(async () => workspace.click());
 
     await act(async () =>

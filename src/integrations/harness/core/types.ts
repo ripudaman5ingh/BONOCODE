@@ -157,6 +157,8 @@ export type ApprovalDecision = "allow" | "deny";
 export type HarnessSessionInput = {
   sessionId: string;
   cwd: string;
+  /** The project the session belongs to; `cwd` is a worktree when one is in use. */
+  projectCwd?: string;
   model: string;
   modelSettings?: Record<string, string>;
   providerAccountId?: string;

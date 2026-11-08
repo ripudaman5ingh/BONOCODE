@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-11-07
+
+### Added
+
+- Delete local branches from the branch picker. A squash-merged branch asks once more before it's deleted.
+- Link a notes folder (for example a folder in an Obsidian vault) to a project from the project menu. Claude Code chats in that project can read and edit it.
+
+### Changed
+
+- The git panel moved from the sidebar into the Changes dock: branch picker, Pull, commit box, PR actions, CI checks and history graph. The sidebar keeps Sessions and Explorer.
+- Every file in the Changes dock has always-visible Discard, Stage and Unstage buttons, plus Stage All, Unstage All and Discard All.
+- With a PR panel open, the right side shows Changes while there are uncommitted changes and the PR otherwise.
+- AI-written PR descriptions are a few bullets about what changed, with no Testing section.
+
+### Fixed
+
+- Hiding the Changes dock left no way back on screen. It now leaves a thin rail with the +/− line counts; click it to reopen.
+- AI-written commit messages and PR descriptions no longer include attribution lines.
+
 ## [0.7.0] - 2026-11-02
 
 ### Added

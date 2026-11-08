@@ -17,6 +17,11 @@ const { invalidateWatchedFiles } = vi.hoisted(() => ({
 
 vi.mock("../../../platform/tauri/fs", () => ({
   gitDiffIndex: vi.fn(),
+  gitBranches: vi.fn(async () => ({
+    current: "feature/pull",
+    detached: false,
+    branches: [{ name: "feature/pull", current: true, remote: null }],
+  })),
   gitHistory: vi.fn(async () => []),
   gitPrStatus: vi.fn(async () => null),
   gitPull: vi.fn(async () => {}),
@@ -218,6 +223,27 @@ async function openBranchMenu() {
   await act(async () => {});
   return document.querySelector<HTMLButtonElement>('[role="menuitem"]')!;
 }
+
+describe("GitChangesPanel header branch picker", () => {
+  it("renders the branch picker trigger next to the actions menu", async () => {
+    vi.mocked(gitDiffIndex).mockResolvedValue(index({ ahead: 2, behind: 1 }));
+    await renderPanel();
+
+    const trigger = container.querySelector<HTMLButtonElement>(
+      '[aria-label="Branch feature/pull"]',
+    );
+    expect(trigger).not.toBeNull();
+    expect(container.textContent).toContain("↑2");
+    expect(container.textContent).toContain("↓1");
+
+    await act(async () => trigger!.click());
+    await act(async () => {});
+    expect(
+      document.querySelector('[aria-label="Branch picker"]'),
+    ).not.toBeNull();
+    expect((await openBranchMenu()).textContent).toContain("Pull");
+  });
+});
 
 describe("GitChangesPanel pull action", () => {
   it("disables Pull when the branch has no upstream", async () => {

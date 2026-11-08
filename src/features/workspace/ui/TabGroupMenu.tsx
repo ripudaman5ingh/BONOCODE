@@ -40,6 +40,8 @@ export type TabGroupMenuExtraItem = {
   id: string;
   label: string;
   description?: string;
+  /** Native tooltip, for context that does not fit the label. */
+  title?: string;
   icon: IconComponent;
   danger?: boolean;
   sepBefore?: boolean;
@@ -443,7 +445,7 @@ function MenuRow({
   onHover,
   expanded,
 }: {
-  item: MenuItem & Pick<TabGroupMenuExtraItem, "disabled" | "submenu" | "description">;
+  item: MenuItem & Pick<TabGroupMenuExtraItem, "disabled" | "submenu" | "description" | "title">;
   onPick: (anchor: HTMLButtonElement) => void;
   onHover?: (anchor: HTMLButtonElement) => void;
   expanded?: boolean;
@@ -454,6 +456,7 @@ function MenuRow({
       type="button"
       role="menuitem"
       disabled={item.disabled}
+      title={item.title}
       aria-haspopup={item.submenu ? "menu" : undefined}
       aria-expanded={item.submenu ? expanded : undefined}
       aria-label={item.description ? item.label : undefined}

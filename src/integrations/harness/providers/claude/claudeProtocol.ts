@@ -73,6 +73,7 @@ export type ClaudeCliSettings = {
   fastMode?: boolean;
   ultracode?: boolean;
   disableAllHooks?: boolean;
+  permissions?: { additionalDirectories?: string[] };
 };
 
 export function asRecord(value: unknown): Record<string, unknown> | null {
@@ -275,11 +276,10 @@ export function buildClaudeSpawnArgs(input: {
     args.push("--no-session-persistence");
     args.push("--strict-mcp-config");
     args.push("--mcp-config", JSON.stringify({ mcpServers: {} }));
-    args.push("--settings", JSON.stringify(settings));
   } else {
     args.push(`--setting-sources=${CLAUDE_SETTING_SOURCES}`);
-    args.push("--settings", JSON.stringify(settings));
   }
+  args.push("--settings", JSON.stringify(settings));
   if (input.model) args.push("--model", input.model);
   if (input.effort) args.push("--effort", input.effort);
   if (input.permissionMode) {

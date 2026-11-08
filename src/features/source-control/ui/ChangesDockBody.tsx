@@ -15,6 +15,8 @@ type Props = {
   onDirtyChange: (path: string, dirty: boolean) => void;
   ciRepair?: GitCiRepair;
   onOpenPr?: (item: LinkedWorkItem) => void;
+  onBranchChange?: () => void;
+  prChip?: { number: number; onShow: () => void };
 };
 
 /** The git panel around the editable diffs: commit, staging, PR and history. */
@@ -28,6 +30,8 @@ export function ChangesDockBody({
   onDirtyChange,
   ciRepair,
   onOpenPr,
+  onBranchChange,
+  prChip,
 }: Props) {
   // The key resets the panel's per-checkout state when the project changes.
   return (
@@ -37,10 +41,25 @@ export function ChangesDockBody({
       enabled
       textHarness={textHarness}
       selectedSha={selectedSha}
-      headerControls={headerControls}
+      headerControls={
+        <>
+          {prChip ? (
+            <button
+              type="button"
+              title="Show pull request"
+              onClick={prChip.onShow}
+              className="mr-1 h-6 shrink-0 rounded-md px-1.5 text-[11px] text-content/50 hover:bg-content/10 hover:text-content"
+            >
+              PR #{prChip.number}
+            </button>
+          ) : null}
+          {headerControls}
+        </>
+      }
       onOpenCommit={onOpenCommit}
       ciRepair={ciRepair}
       onOpenPr={onOpenPr}
+      onBranchChange={onBranchChange}
       renderFiles={(actions) => (
         <EditableChanges
           cwd={gitCwd}
